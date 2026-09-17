@@ -10,26 +10,27 @@ export default function EscreverPage() {
   return (
     <>
       <SiteHeader />
-      <main className="flex flex-1 items-center justify-center px-4 pt-24 pb-16">
-        <Card className="w-full max-w-lg border-none bg-card/90 ring-gold/30">
-          <CardHeader className="items-center text-center">
-            <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-blush/40 text-pink">
+      <main className="flex flex-1 items-center justify-center px-5 pt-28 pb-20 sm:px-8">
+        <Card className="paper-shadow w-full max-w-lg rounded-2xl border border-[#E5D5C4]/80 bg-[#FFF8F0] ring-0">
+          <CardHeader className="items-center space-y-4 text-center">
+            <div className="flex size-14 items-center justify-center rounded-full bg-blush/35 text-pink">
               <Feather className="size-6" aria-hidden />
             </div>
-            <DisplayTitle as="h1" className="text-xl tracking-[0.2em]">
+            <p className="section-kicker">Editor</p>
+            <DisplayTitle as="h1" tracking="wide" className="text-2xl">
               Escrever uma carta
             </DisplayTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-center">
-            <div className="rounded-2xl border border-dashed border-blush/50 bg-cream/60 px-4 py-10 text-sm text-muted-foreground">
+          <CardContent className="space-y-6 text-center">
+            <div className="rounded-2xl border border-dashed border-blush/50 bg-cream/70 px-5 py-12 text-sm leading-relaxed text-muted-foreground">
               Editor em breve — templates, mensageiros e preview chegam nos
-              próximos passos.
+              próximos passos. Por agora, guarde a ideia.
             </div>
             <Button
               nativeButton={false}
-                  render={<Link href="/" />}
+              render={<Link href="/" />}
               variant="outline"
-              className="rounded-full border-pink/40 text-ink hover:bg-blush/20"
+              className="h-11 rounded-full border-gold/45 px-8 text-sm tracking-wide text-ink hover:bg-gold/10"
             >
               Voltar ao início
             </Button>

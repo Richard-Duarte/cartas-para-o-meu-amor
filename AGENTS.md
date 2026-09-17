@@ -24,13 +24,22 @@ Landing, design system, InterleavingAnimals, shadcn button/card, `/login` and `/
 
 Mapbox, Stripe, Resend — leave for later passos.
 
-## Design rules
+## Design blend (Ocha × Studio Think)
 
-- Colors: cream `#F6EDE4`, blush `#F4B8C5`, pink `#E85A7A`, ink `#1A1410`, gold `#C4A35A`
-- Fonts: Fraunces (display/titles, wide letter-spacing) + Geist (body)
-- Feeling: soft rosy-beige background, pink + gold accents, cream whitespace (Ocha / Studio Think vibe)
-- Motion: soft Framer Motion; animals crossfade + slide/scale via AnimatePresence
-- Icons: Lucide where available; simple SVG/CSS for messengers — no 3D
+Must feel like **both** references — not just pink on cream.
+
+| Layer | Source | Rules |
+|-------|--------|--------|
+| Canvas | Studio Think | Paper cream `#F6EDE4`, generous padding/gaps, soft grain, quiet chrome |
+| Type | Ocha | Huge uppercase display, tracking ~0.22–0.35em; calm serif body for storytelling |
+| Accent | Both | Vivid pink `#E85A7A` CTAs + sparingly gold `#C4A35A` craft accents |
+| Layout | Blend | Asymmetric hero (copy left, InterleavingAnimals right); Ocha kickers (`COMO FUNCIONA`) above titles |
+| Cards | Studio Think | Paper/cream, soft shadow, soft borders — craft studio, not glassy SaaS |
+| Motion | Blend | Organic cross (animals exit/enter opposite x, `mode="sync"`); snappy enough for Ocha energy |
+| Header / footer | Blend | Minimal craft chrome; one strong pink CTA; quiet footer |
+
+- Fonts: Fraunces (display) + Geist (UI body)
+- Icons: Lucide / simple SVG messengers — no 3D
 
 ## Next passos (suggested)
 

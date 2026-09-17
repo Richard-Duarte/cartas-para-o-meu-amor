@@ -53,7 +53,7 @@ type InterleavingAnimalsProps = {
 
 export function InterleavingAnimals({
   className,
-  intervalMs = 2800,
+  intervalMs = 3000,
 }: InterleavingAnimalsProps) {
   const [index, setIndex] = useState(0);
 
@@ -65,49 +65,56 @@ export function InterleavingAnimals({
   }, [intervalMs]);
 
   const current = MESSENGERS[index];
+  // Alternate crossing direction for organic Studio Think motion + Ocha snap
+  const dir = index % 2 === 0 ? 1 : -1;
 
   return (
     <div
       className={cn(
-        "relative mx-auto flex h-56 w-full max-w-sm items-center justify-center sm:h-72",
+        "relative mx-auto flex h-64 w-full max-w-md items-center justify-center sm:h-80",
         className
       )}
       aria-live="polite"
       aria-atomic="true"
     >
-      <div className="absolute inset-6 rounded-[2rem] bg-gradient-to-br from-blush/30 via-cream to-gold/20 blur-sm" />
-      <div className="absolute inset-0 rounded-[2.25rem] border border-blush/40 bg-card/70 shadow-[0_20px_60px_-30px_rgba(232,90,122,0.45)] backdrop-blur-sm" />
+      {/* Soft paper craft frame — not glassy SaaS */}
+      <div className="absolute inset-4 rounded-[1.75rem] bg-gradient-to-br from-blush/25 via-cream to-gold/15" />
+      <div className="paper-shadow absolute inset-0 rounded-[2rem] border border-[#E5D5C4]/80 bg-[#FFF8F0]/90" />
 
-      <AnimatePresence mode="wait">
+      {/* mode=sync: exit + enter overlap so animals cross */}
+      <AnimatePresence mode="sync" initial={false}>
         <motion.div
           key={current.id}
-          initial={{ opacity: 0, y: 28, scale: 0.86 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -24, scale: 0.9 }}
-          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-          className="relative z-10 flex flex-col items-center gap-4"
+          initial={{ opacity: 0, x: 72 * dir, scale: 0.92 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -72 * dir, scale: 0.92 }}
+          transition={{
+            duration: 0.7,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-5"
         >
           <div
             className={cn(
-              "flex size-28 items-center justify-center rounded-full bg-gradient-to-br sm:size-36",
+              "flex size-32 items-center justify-center rounded-full bg-gradient-to-br sm:size-40",
               current.accent
             )}
           >
-            <current.Icon className="size-14 text-pink sm:size-16" />
+            <current.Icon className="size-16 text-pink sm:size-[4.5rem]" />
           </div>
-          <p className="font-display text-sm tracking-[0.28em] text-ink/80 uppercase">
+          <p className="font-display text-xs tracking-[0.32em] text-ink/75 uppercase">
             {current.label}
           </p>
         </motion.div>
       </AnimatePresence>
 
-      <div className="absolute bottom-5 flex gap-2">
+      <div className="absolute bottom-6 z-20 flex gap-2">
         {MESSENGERS.map((messenger, i) => (
           <span
             key={messenger.id}
             className={cn(
-              "h-1.5 w-1.5 rounded-full transition-all duration-300",
-              i === index ? "w-5 bg-pink" : "bg-blush/70"
+              "h-1.5 rounded-full transition-all duration-300",
+              i === index ? "w-6 bg-pink" : "w-1.5 bg-blush/80"
             )}
           />
         ))}
