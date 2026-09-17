@@ -1,338 +1,266 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { DisplayTitle } from "@/components/display-title";
-import { FadeIn } from "@/components/fade-in";
-import { InterleavingAnimals } from "@/components/interleaving-animals";
+import { ArrowRight, Check } from "lucide-react";
+import AiButton from "@/components/ui/ai-button";
+import { FeatureCycler } from "@/components/feature-cycler";
+import { FaqAccordion } from "@/components/faq-accordion";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StickyCta } from "@/components/sticky-cta";
+import { TestimonialsStrip } from "@/components/testimonials-strip";
 import {
   CavaloIcon,
   InstantaneoIcon,
   JegueIcon,
   PomboIcon,
 } from "@/components/messenger-icons";
+import { cn } from "@/lib/utils";
 
-const STEPS = [
+const HERO_COLUMNS = [
   {
-    n: "01",
-    title: "Escreva",
-    description: "Despeje o coração em uma carta delicada, no seu ritmo.",
+    name: "Pombo",
+    title1: "Pombo",
+    title2: "correio",
+    desc: "Elegante e clássico, para cartas que merecem asas.",
+    href: "/escrever",
+    bg: "#cf4c67",
+    text: "text-white",
+    muted: "text-white/80",
+    label: "text-white/80",
+    ctaVariant: "outline-white" as const,
+    hoverTint: "hover:text-[#cf4c67]!",
   },
   {
-    n: "02",
-    title: "Escolha o visual",
-    description: "Templates românticos com tipografia e texturas suaves.",
+    name: "Cavalo",
+    title1: "Cavalo",
+    title2: "nobre",
+    desc: "Rápido e ousado, com um toque de aventura.",
+    href: "/escrever",
+    bg: "#273FF5",
+    text: "text-white",
+    muted: "text-white/80",
+    label: "text-white/80",
+    ctaVariant: "outline-white" as const,
+    hoverTint: "hover:text-[#273FF5]!",
   },
   {
-    n: "03",
-    title: "Envie com um mensageiro",
-    description: "Pombo, cavalo, jegue ou entrega instantânea — você decide.",
+    name: "Jegue",
+    title1: "Jegue",
+    title2: "devagar",
+    desc: "A espera também é romance — humor no caminho.",
+    href: "/escrever",
+    bg: "#27F56C",
+    text: "text-[#064c1f]",
+    muted: "text-[#064c1f]/80",
+    label: "text-[#064c1f]/70",
+    ctaVariant: "outline" as const,
+    hoverTint: "border-[#064c1f] text-[#064c1f] hover:bg-[#064c1f] hover:text-white",
   },
   {
-    n: "04",
-    title: "Compartilhe e acompanhe",
-    description: "Um link especial e, em breve, o mapa da jornada.",
+    name: "Instantâneo",
+    title1: "Flash",
+    title2: "agora",
+    desc: "Chega na hora, com um brilho de ouro e estrelas.",
+    href: "/escrever",
+    bg: "#F5A027",
+    text: "text-[#3a1f00]",
+    muted: "text-[#3a1f00]/80",
+    label: "text-[#3a1f00]/70",
+    ctaVariant: "outline" as const,
+    hoverTint: "border-[#3a1f00] text-[#3a1f00] hover:bg-[#3a1f00] hover:text-white",
   },
 ];
 
 const MESSENGERS = [
   {
     name: "Pombo",
-    blurb: "Elegante e clássico, para cartas que merecem asas.",
-    meta: "2–3 dias",
+    description: "Elegante e clássico",
     price: "R$ 12",
+    period: "/carta",
+    meta: "2–3 dias",
+    features: ["Entrega com asas", "Link especial", "Tom clássico"],
+    highlighted: false,
     Icon: PomboIcon,
   },
   {
     name: "Cavalo",
-    blurb: "Rápido e nobre, com um toque de aventura.",
-    meta: "1 dia",
+    description: "Rápido e nobre",
     price: "R$ 24",
+    period: "/carta",
+    meta: "1 dia",
+    features: ["Galope expresso", "Toque de aventura", "Link especial"],
+    highlighted: true,
     Icon: CavaloIcon,
   },
   {
     name: "Jegue",
-    blurb: "Devagar e com humor — a espera também é romance.",
-    meta: "5–7 dias",
+    description: "Devagar e com humor",
     price: "R$ 8",
+    period: "/carta",
+    meta: "5–7 dias",
+    features: ["Espera romântica", "Humor no caminho", "Link especial"],
+    highlighted: false,
     Icon: JegueIcon,
   },
   {
     name: "Instantâneo",
-    blurb: "Chega na hora, com um flash de ouro e estrelas.",
-    meta: "Na hora",
+    description: "Na hora, com flash",
     price: "R$ 36",
+    period: "/carta",
+    meta: "Na hora",
+    features: ["Entrega imediata", "Brilho de ouro", "Link especial"],
+    highlighted: false,
     Icon: InstantaneoIcon,
-  },
-];
-
-const REVIEWS = [
-  {
-    quote: "Chegou como um segredo doce. Chorei na primeira linha.",
-    who: "Marina · SP",
-  },
-  {
-    quote: "O jegue demorou — e a espera fez tudo mais especial.",
-    who: "Thiago · RJ",
-  },
-  {
-    quote: "Parece papel de verdade. Intenção em cada detalhe.",
-    who: "Lívia · BH",
-  },
-  {
-    quote: "Mandamos no pombo. Ele guardou o link como tesouro.",
-    who: "Ana & Leo",
   },
 ];
 
 export default function HomePage() {
   return (
-    <>
+    <div className="min-h-screen bg-background">
       <SiteHeader />
-      <main className="flex-1 pt-[58px]">
-        {/* ── Hero — Studio Think centered structure ── */}
-        <section className="relative overflow-hidden">
-          {/* Hand-drawn corner annotations */}
-          <p
-            className="font-hand pointer-events-none absolute top-16 left-6 hidden rotate-[-8deg] text-xl text-ink/40 sm:block lg:left-12 lg:text-2xl"
-            aria-hidden
-          >
-            ← drag →
-          </p>
-          <p
-            className="font-hand pointer-events-none absolute top-24 right-6 hidden rotate-[7deg] text-xl text-ink/40 sm:block lg:right-14 lg:text-2xl"
-            aria-hidden
-          >
-            confiança no caminho
-          </p>
-          <p
-            className="font-hand pointer-events-none absolute bottom-8 left-1/4 hidden rotate-[-4deg] text-lg text-ink/35 md:block"
-            aria-hidden
-          >
-            feito à mão digital ♡
-          </p>
-
-          <div className="site-gutter mx-auto flex max-w-[1100px] flex-col items-center px-5 pt-20 pb-8 text-center sm:pt-28 sm:pb-12">
-            <FadeIn className="space-y-6">
-              <p className="section-kicker">Entrega com afeto · São Paulo</p>
-
-              <DisplayTitle
-                as="h1"
-                weight="bold"
-                className="mx-auto max-w-4xl text-[clamp(2.75rem,8vw,5.75rem)] leading-[1.08]"
+      <main>
+        {/* Hero — 4 messenger columns */}
+        <section className="flex min-h-[80vh] flex-col md:flex-row md:flex-wrap xl:flex-nowrap">
+          {HERO_COLUMNS.map((col) => (
+            <Link
+              key={col.name}
+              href={col.href}
+              className="group relative flex min-h-[40vh] flex-1 flex-col items-center justify-center p-8 text-center transition-transform duration-300 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/50 md:min-h-[50vh] md:basis-1/2 xl:min-h-0 xl:basis-0"
+              style={{ backgroundColor: col.bg }}
+            >
+              <span
+                className={cn(
+                  "mb-4 text-sm uppercase tracking-widest md:text-base",
+                  col.label,
+                )}
               >
-                Cartas para o{" "}
-                <span className="yellow-highlight inline">meu amor</span>
-              </DisplayTitle>
-
-              <p className="mx-auto max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-                Escreva com intenção. Escolha um mensageiro. Envie um link
-                especial — paper craft digital, para derreter corações.
+                Cartas
+              </span>
+              <h2
+                className={cn(
+                  "text-4xl font-extrabold uppercase leading-[0.9] md:text-5xl lg:text-6xl",
+                  col.text,
+                )}
+              >
+                {col.title1}
+                <br />
+                {col.title2}
+              </h2>
+              <p
+                className={cn(
+                  "mt-4 max-w-xs font-serif text-base md:text-lg",
+                  col.muted,
+                )}
+              >
+                {col.desc}
               </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/escrever" />}
-                  size="lg"
-                  className="h-11 rounded-full bg-yellow px-8 text-sm font-medium text-ink hover:bg-[#f3f06a]"
-                >
-                  Escrever uma carta
-                </Button>
-                <Button
-                  nativeButton={false}
-                  render={<a href="#mensageiros" />}
-                  variant="outline"
-                  size="lg"
-                  className="h-11 rounded-full border-ink/15 bg-transparent px-6 text-sm text-ink hover:bg-paper"
-                >
-                  Ver mensageiros
-                </Button>
-              </div>
-            </FadeIn>
-
-            <FadeIn delay={0.15} className="mt-16 w-full sm:mt-20">
-              <InterleavingAnimals word="CARTAS" />
-            </FadeIn>
-          </div>
+              <AiButton
+                size="lg"
+                variant={col.ctaVariant}
+                className={cn(
+                  "mt-8 opacity-0 transition-opacity duration-300 group-hover:opacity-100",
+                  col.hoverTint,
+                )}
+                tabIndex={-1}
+              >
+                Escrever
+                <ArrowRight />
+              </AiButton>
+            </Link>
+          ))}
         </section>
 
-        {/* ── Como funciona — oversized serif process rows ── */}
-        <section
-          id="como-funciona"
-          className="site-gutter mx-auto max-w-[1100px] py-24 sm:py-32 lg:py-36"
-        >
-          <FadeIn className="mb-16 max-w-2xl space-y-3">
-            <p className="section-kicker">Processo</p>
-            <DisplayTitle as="h2" className="text-4xl sm:text-5xl lg:text-6xl">
-              Como funciona
-            </DisplayTitle>
-            <p className="font-hand text-2xl text-ink/50">
-              quatro passos suaves — sem pressa
-            </p>
-          </FadeIn>
+        <FeatureCycler />
 
-          <div className="divide-y divide-[#E8DDD0] border-y border-[#E8DDD0]">
-            {STEPS.map((step, index) => (
-              <FadeIn key={step.n} delay={index * 0.06}>
-                <div className="group grid gap-4 py-10 sm:grid-cols-[5rem_1fr_1.2fr] sm:items-baseline sm:gap-8 lg:py-12">
-                  <span className="font-sans text-sm font-medium tracking-[0.12em] text-ink/35">
-                    {step.n}
+        <TestimonialsStrip />
+
+        {/* Mensageiros — QuizHub pricing cards */}
+        <section id="mensageiros" className="scroll-mt-24 px-5 py-16 md:px-20">
+          <h2 className="heading-md text-center">Mensageiros</h2>
+          <p className="mt-2 mb-10 text-center font-serif text-muted-foreground">
+            Cada um com seu tempo, humor e preço — valores ilustrativos.
+          </p>
+          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {MESSENGERS.map((tier) => (
+              <div
+                key={tier.name}
+                className={cn(
+                  "relative flex flex-col rounded-3xl border-2 border-foreground bg-card p-8 transition-shadow duration-200",
+                  tier.highlighted && "shadow-lg ring-2 ring-primary md:-translate-y-2",
+                )}
+              >
+                {tier.highlighted && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-foreground bg-primary px-3 py-1 text-xs font-bold uppercase text-foreground">
+                    Popular
                   </span>
-                  <DisplayTitle
-                    as="h3"
-                    weight="medium"
-                    className="text-3xl sm:text-4xl lg:text-[2.75rem]"
-                  >
-                    {step.title}
-                  </DisplayTitle>
-                  <p className="max-w-md text-base leading-relaxed text-muted-foreground sm:justify-self-end sm:text-right">
-                    {step.description}
-                  </p>
+                )}
+                <div className="mb-4 flex size-12 items-center justify-center rounded-full border-2 border-foreground bg-background">
+                  <tier.Icon className="size-6" />
                 </div>
-              </FadeIn>
+                <h3 className="text-lg font-bold uppercase">{tier.name}</h3>
+                <p className="mt-1 font-serif text-sm text-muted-foreground">
+                  {tier.description} · {tier.meta}
+                </p>
+                <div className="mt-6 flex items-baseline gap-1">
+                  <span className="text-3xl font-extrabold tracking-tight">
+                    {tier.price}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {tier.period}
+                  </span>
+                </div>
+                <AiButton
+                  nativeButton={false}
+                  render={<Link href="/escrever" />}
+                  variant={tier.highlighted ? "default" : "outline"}
+                  className="mt-8 w-full"
+                >
+                  Escolher
+                  <ArrowRight />
+                </AiButton>
+                <div className="mt-8 border-t-2 border-foreground pt-8">
+                  <ul className="flex flex-col gap-3">
+                    {tier.features.map((f) => (
+                      <li key={f} className="flex items-start gap-3">
+                        <Check className="mt-0.5 size-4 shrink-0 text-foreground" />
+                        <span className="font-serif text-sm text-muted-foreground">
+                          {f}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             ))}
           </div>
         </section>
 
-        {/* ── Mensageiros — Ocha menu rows on cream panel ── */}
-        <section
-          id="mensageiros"
-          className="site-gutter mx-auto max-w-[1100px] pb-24 sm:pb-32 lg:pb-36"
-        >
-          <FadeIn className="mb-12 max-w-2xl space-y-3">
-            <p className="section-kicker">Cardápio</p>
-            <DisplayTitle as="h2" className="text-4xl sm:text-5xl lg:text-6xl">
-              Mensageiros
-            </DisplayTitle>
-            <p className="text-muted-foreground">
-              Cada um com seu tempo, humor e preço — valores ilustrativos.
-            </p>
-          </FadeIn>
+        <FaqAccordion />
 
-          <FadeIn>
-            <div className="overflow-hidden rounded-[1.5rem] border border-[#E8DDD0] bg-paper paper-shadow">
-              <ul className="divide-y divide-[#E8DDD0]">
-                {MESSENGERS.map((m) => (
-                  <li
-                    key={m.name}
-                    className="flex flex-col gap-4 px-6 py-8 transition-colors hover:bg-cream/60 sm:flex-row sm:items-center sm:gap-6 sm:px-10 sm:py-9"
-                  >
-                    <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-[#E8DDD0] bg-cream text-pink/80">
-                      <m.Icon className="size-8" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <DisplayTitle
-                        as="h3"
-                        weight="medium"
-                        className="text-2xl sm:text-3xl lg:text-4xl"
-                      >
-                        {m.name}
-                      </DisplayTitle>
-                      <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-                        {m.blurb}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-baseline justify-between gap-8 sm:flex-col sm:items-end sm:justify-center sm:gap-1">
-                      <span className="font-hand text-lg text-ink/45">
-                        {m.meta}
-                      </span>
-                      <span className="font-display text-xl tracking-[-0.02em] text-ink sm:text-2xl">
-                        {m.price}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </FadeIn>
-        </section>
-
-        {/* ── Depoimentos — drifting overlapping cards ── */}
-        <section
-          id="depoimentos"
-          className="overflow-hidden border-y border-[#E8DDD0]/80 bg-paper/50 py-24 sm:py-32"
-        >
-          <div className="site-gutter mx-auto mb-12 max-w-[1100px]">
-            <FadeIn className="space-y-3">
-              <p className="section-kicker">Cartinhas recebidas</p>
-              <DisplayTitle as="h2" className="text-4xl sm:text-5xl">
-                O que dizem
-              </DisplayTitle>
-            </FadeIn>
-          </div>
-
+        {/* CTA Banner */}
+        <section className="relative py-20 text-center">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -z-0 bg-[radial-gradient(ellipse_at_center,var(--color-primary)/0.18,transparent_60%)]"
+          />
           <div className="relative">
-            <div className="flex gap-5 overflow-x-auto px-[max(1.25rem,calc((100%-1100px)/2+1rem))] pb-6 scroll-px-5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {REVIEWS.map((review, i) => (
-                <FadeIn
-                  key={review.who}
-                  delay={i * 0.08}
-                  className="w-[280px] shrink-0 snap-start sm:w-[320px]"
-                  style={{
-                    marginTop: i % 2 === 0 ? 0 : 28,
-                    rotate: `${i % 2 === 0 ? -1.5 : 2}deg`,
-                  }}
-                >
-                  <article className="paper-shadow flex h-full flex-col justify-between rounded-2xl border border-[#E8DDD0] bg-cream p-7 sm:p-8">
-                    <p className="font-display text-xl leading-snug tracking-[-0.02em] text-ink sm:text-2xl">
-                      “{review.quote}”
-                    </p>
-                    <p className="font-hand mt-8 text-lg text-ink/50">
-                      — {review.who}
-                    </p>
-                  </article>
-                </FadeIn>
-              ))}
-              {/* Peek next card hint */}
-              <div className="w-16 shrink-0 sm:w-24" aria-hidden />
-            </div>
+            <h2 className="heading-lg">Pronto para escrever?</h2>
+            <p className="mt-4 font-serif text-lg text-muted-foreground">
+              Escolha um mensageiro e envie uma carta que derrete corações.
+            </p>
+            <AiButton
+              nativeButton={false}
+              render={<Link href="/escrever" />}
+              size="lg"
+              className="mt-8"
+            >
+              Escrever uma carta
+              <ArrowRight />
+            </AiButton>
           </div>
-        </section>
-
-        {/* ── Dark final CTA — Studio Think "Let's work together" ── */}
-        <section className="site-gutter mx-auto max-w-[1100px] py-24 sm:py-32 lg:py-36">
-          <FadeIn>
-            <div className="relative overflow-hidden rounded-[1.75rem] bg-ink px-8 py-16 text-cream sm:px-14 sm:py-20 lg:px-20">
-              <div
-                className="pointer-events-none absolute inset-0 opacity-[0.06]"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(rgba(254,245,236,1) 1px, transparent 1px), linear-gradient(90deg, rgba(254,245,236,1) 1px, transparent 1px)",
-                  backgroundSize: "48px 48px",
-                }}
-                aria-hidden
-              />
-              <div className="relative mx-auto max-w-2xl text-center">
-                <p className="font-hand text-2xl text-yellow">vamos começar?</p>
-                <DisplayTitle
-                  as="h2"
-                  className="mt-4 text-4xl text-cream sm:text-5xl lg:text-6xl"
-                >
-                  Pronto para escrever?
-                </DisplayTitle>
-                <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-cream/55">
-                  O editor, o mapa e o pagamento chegam nos próximos passos —
-                  por enquanto, sonhe com a carta.
-                </p>
-                <div className="mt-10">
-                  <Button
-                    nativeButton={false}
-                    render={<Link href="/escrever" />}
-                    size="lg"
-                    className="h-12 rounded-full bg-yellow px-10 text-sm font-medium text-ink hover:bg-[#f3f06a]"
-                  >
-                    Escrever uma carta
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </FadeIn>
         </section>
       </main>
       <SiteFooter />
       <StickyCta />
-    </>
+    </div>
   );
 }

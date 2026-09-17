@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import {
-  Fraunces,
-  Geist_Mono,
-  Just_Me_Again_Down_Here,
-  Manrope,
-} from "next/font/google";
+import { DM_Sans, Geist_Mono, Lora } from "next/font/google";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const lora = Lora({
+  variable: "--font-lora",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
@@ -16,18 +17,6 @@ const manrope = Manrope({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const handwritten = Just_Me_Again_Down_Here({
-  variable: "--font-hand",
-  subsets: ["latin"],
-  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -44,9 +33,9 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${manrope.variable} ${geistMono.variable} ${fraunces.variable} ${handwritten.variable} h-full antialiased`}
+      className={`${dmSans.variable} ${lora.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-cream text-ink">
+      <body className="flex min-h-full flex-col bg-background text-foreground">
         {children}
       </body>
     </html>

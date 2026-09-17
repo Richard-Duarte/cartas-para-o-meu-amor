@@ -26,32 +26,38 @@ Mapbox, Stripe, Resend — leave for later passos.
 
 ## Design rules
 
-**Visual = Studio Think · Components = Ocha**
+**Design source of truth = QuizHub** (`Richard-Duarte/quizhub`)
 
-Not a pink Ocha clone. Not a pink SaaS romantic template.
+Same product family as QuizHub: pink canvas, bold uppercase DM Sans, Lora body/serif moments, multi-column hero, bordered wine cards. Content stays Cartas (messengers), not quizzes.
 
 | Layer | Source | Rules |
 |-------|--------|--------|
-| Canvas | Studio Think | Paper `#FEF5EC`, faint beige grid ~48px, generous gutters (~64px), long vertical whitespace (100–160px) |
-| Type | Studio Think | Huge serif (Fraunces) with **tight** tracking `~-0.02em` — NOT wide Ocha letter-spacing. Manrope for nav/labels. Handwritten (`Just Me Again Down Here`) for annotations |
-| Accent | Studio Think | Yellow pill CTA `#F7F780` + dark ink `#201F1D` + cream. Soft blush/pink **only** as secondary romantic accent on animal icons — never primary button fill |
-| Layout | Studio Think | Centered hero, yellow highlight behind one word, hand annotations, fixed cream header ~58px, dark grid footer |
-| Components | Ocha patterns | Sticky “Escrever uma carta” chip; InterleavingAnimals as SPECIALS (giant bg word + floating cutouts); process rows; cream menu list with prices; drifting review cards; dark final CTA panel |
-| Motion | Blend | AnimatePresence cross-slide animals; scroll FadeIn; partially visible next cards in strips |
+| Canvas | QuizHub | Solid brand pink `#cf4c67` / `oklch(59.5% 0.166 8)`, white foreground |
+| Cards | QuizHub | Deeper wine `oklch(47% 0.155 8)`, `border-2 border-foreground`, `rounded-3xl` / radius `1.5rem` |
+| Type | QuizHub | DM Sans for headings/nav — black/extrabold UPPERCASE, `tracking-tighter` on huge titles, leading ~0.85–0.9; Lora for body/serif moments |
+| Buttons | QuizHub | `rounded-full`, uppercase bold, `border-2 border-foreground`; primary deep wine; outline-white on colored columns |
+| Header | QuizHub | Sticky pink bg, italic serif/bold logo, `.nav-text` links, filled CTA with ArrowRight |
+| Hero | QuizHub × Cartas | Full-bleed color columns (one per messenger: pink / blue / green / orange) |
+| Sections | QuizHub × Cartas | Feature cycler over photo + CyclerNav; testimonials auto-cycle; messenger pricing cards; FAQ accordion; CTA banner; inverted footer |
+| Motion | QuizHub | `cubic-bezier(0.34, 1, 0.64, 1)`; `useAutoCycle` + `CyclerNav` |
 
 ### Tokens
 
-- Background paper: `#FEF5EC`
-- Secondary off-white: `#FDFAF6`
-- Ink: `#201F1D`
-- Yellow CTA: `#F7F780`
-- Soft blush (secondary only): `#F4B8C5` / `#E85A7A`
+- Background: `#cf4c67` / `oklch(59.5% 0.166 8)`
+- Foreground: white
+- Card: `oklch(47% 0.155 8)`
+- Primary: deep wine
+- Vibrant cards: yellow, purple, magenta, blue, coral, mint, orange, lavender
+- Radius: `1.5rem`
 
 ### Fonts
 
-- Display/serif: Fraunces (tight tracking)
-- Sans/UI: Manrope
-- Hand annotations: Just Me Again Down Here
+- Sans/UI/headings: DM Sans
+- Serif/body moments: Lora
+
+### Utilities (`src/app/globals.css`)
+
+`.btn-filled`, `.btn-transparent`, `.heading-xl` / `.heading-lg` / `.heading-md` / `.heading-sm`, `.nav-text`, `.body-text`, `.card-hover`, `.cycler-tabs-nav`
 
 ### Icons
 
