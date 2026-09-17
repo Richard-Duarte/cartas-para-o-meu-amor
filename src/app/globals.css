@@ -7,17 +7,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-hand: var(--font-hand), "Caveat", cursive;
 
-  /* Studio Think paper + Ocha accents */
-  --color-cream: #F6EDE4;
-  --color-paper: #F3E6D8;
+  /* Studio Think paper system */
+  --color-cream: #FEF5EC;
+  --color-paper: #FDFAF6;
+  --color-ink: #201F1D;
+  --color-yellow: #F7F780;
   --color-blush: #F4B8C5;
   --color-pink: #E85A7A;
-  --color-ink: #1A1410;
   --color-gold: #C4A35A;
 
   --color-sidebar-ring: var(--sidebar-ring);
@@ -59,41 +61,39 @@
 }
 
 :root {
-  /* Warmer Studio Think paper canvas */
-  --background: #F6EDE4;
-  --foreground: #1A1410;
-  --card: #FFF8F0;
-  --card-foreground: #1A1410;
-  --popover: #FFF8F0;
-  --popover-foreground: #1A1410;
-  /* Vivid Ocha pink */
-  --primary: #E85A7A;
-  --primary-foreground: #FFF8F0;
-  --secondary: #F4B8C5;
-  --secondary-foreground: #1A1410;
-  --muted: #EFE4D8;
-  --muted-foreground: #6B5A4E;
-  /* Craft gold accent */
-  --accent: #C4A35A;
-  --accent-foreground: #1A1410;
+  --background: #FEF5EC;
+  --foreground: #201F1D;
+  --card: #FDFAF6;
+  --card-foreground: #201F1D;
+  --popover: #FDFAF6;
+  --popover-foreground: #201F1D;
+  /* Studio Think yellow primary — NOT hot pink */
+  --primary: #F7F780;
+  --primary-foreground: #201F1D;
+  --secondary: #FDFAF6;
+  --secondary-foreground: #201F1D;
+  --muted: #F3E8DC;
+  --muted-foreground: #6B635A;
+  --accent: #F7F780;
+  --accent-foreground: #201F1D;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #E5D5C4;
-  --input: #E5D5C4;
-  --ring: #E85A7A;
-  --chart-1: #E85A7A;
-  --chart-2: #C4A35A;
+  --border: #E8DDD0;
+  --input: #E8DDD0;
+  --ring: #201F1D;
+  --chart-1: #F7F780;
+  --chart-2: #E85A7A;
   --chart-3: #F4B8C5;
-  --chart-4: #1A1410;
-  --chart-5: #F6EDE4;
+  --chart-4: #201F1D;
+  --chart-5: #FEF5EC;
   --radius: 1rem;
-  --sidebar: #FFF8F0;
-  --sidebar-foreground: #1A1410;
-  --sidebar-primary: #E85A7A;
-  --sidebar-primary-foreground: #FFF8F0;
-  --sidebar-accent: #F4B8C5;
-  --sidebar-accent-foreground: #1A1410;
-  --sidebar-border: #E5D5C4;
-  --sidebar-ring: #E85A7A;
+  --sidebar: #FDFAF6;
+  --sidebar-foreground: #201F1D;
+  --sidebar-primary: #F7F780;
+  --sidebar-primary-foreground: #201F1D;
+  --sidebar-accent: #F3E8DC;
+  --sidebar-accent-foreground: #201F1D;
+  --sidebar-border: #E8DDD0;
+  --sidebar-ring: #201F1D;
 }
 
 @layer base {
@@ -102,11 +102,12 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    /* Soft paper grain — Studio Think craft */
+    /* Faint beige paper grid ~48px — Studio Think */
+    background-color: #FEF5EC;
     background-image:
-      radial-gradient(ellipse 120% 80% at 100% -10%, rgba(244, 184, 197, 0.22), transparent 55%),
-      radial-gradient(ellipse 90% 60% at -5% 90%, rgba(196, 163, 90, 0.12), transparent 50%),
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      linear-gradient(rgba(32, 31, 29, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(32, 31, 29, 0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
     background-attachment: fixed;
   }
   html {
@@ -115,15 +116,28 @@
 }
 
 @layer utilities {
-  /* Ocha-style editorial kicker */
   .section-kicker {
-    @apply text-[0.65rem] font-medium tracking-[0.32em] text-pink uppercase;
+    @apply font-sans text-[0.7rem] font-medium tracking-[0.08em] text-muted-foreground uppercase;
   }
 
-  /* Paper craft card shadow */
+  .font-hand {
+    font-family: var(--font-hand), "Caveat", cursive;
+  }
+
   .paper-shadow {
     box-shadow:
-      0 1px 0 rgba(26, 20, 16, 0.04),
-      0 12px 40px -18px rgba(26, 20, 16, 0.18);
+      0 1px 0 rgba(32, 31, 29, 0.04),
+      0 14px 44px -20px rgba(32, 31, 29, 0.16);
+  }
+
+  .yellow-highlight {
+    background-color: #F7F780;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding: 0.05em 0.18em;
+  }
+
+  .site-gutter {
+    @apply px-5 sm:px-8 lg:px-16;
   }
 }

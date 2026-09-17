@@ -1,24 +1,11 @@
 import Link from "next/link";
-import {
-  Feather,
-  Heart,
-  Link2,
-  MapPin,
-  Sparkles,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { DisplayTitle } from "@/components/display-title";
 import { FadeIn } from "@/components/fade-in";
 import { InterleavingAnimals } from "@/components/interleaving-animals";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { StickyCta } from "@/components/sticky-cta";
 import {
   CavaloIcon,
   InstantaneoIcon,
@@ -28,24 +15,24 @@ import {
 
 const STEPS = [
   {
+    n: "01",
     title: "Escreva",
     description: "Despeje o coração em uma carta delicada, no seu ritmo.",
-    Icon: Feather,
   },
   {
+    n: "02",
     title: "Escolha o visual",
     description: "Templates românticos com tipografia e texturas suaves.",
-    Icon: Sparkles,
   },
   {
+    n: "03",
     title: "Envie com um mensageiro",
     description: "Pombo, cavalo, jegue ou entrega instantânea — você decide.",
-    Icon: Heart,
   },
   {
+    n: "04",
     title: "Compartilhe e acompanhe",
     description: "Um link especial e, em breve, o mapa da jornada.",
-    Icon: MapPin,
   },
 ];
 
@@ -53,30 +40,49 @@ const MESSENGERS = [
   {
     name: "Pombo",
     blurb: "Elegante e clássico, para cartas que merecem asas.",
-    time: "2–3 dias",
+    meta: "2–3 dias",
     price: "R$ 12",
     Icon: PomboIcon,
   },
   {
     name: "Cavalo",
     blurb: "Rápido e nobre, com um toque de aventura.",
-    time: "1 dia",
+    meta: "1 dia",
     price: "R$ 24",
     Icon: CavaloIcon,
   },
   {
     name: "Jegue",
     blurb: "Devagar e com humor — a espera também é romance.",
-    time: "5–7 dias",
+    meta: "5–7 dias",
     price: "R$ 8",
     Icon: JegueIcon,
   },
   {
     name: "Instantâneo",
     blurb: "Chega na hora, com um flash de ouro e estrelas.",
-    time: "Na hora",
+    meta: "Na hora",
     price: "R$ 36",
     Icon: InstantaneoIcon,
+  },
+];
+
+const REVIEWS = [
+  {
+    quote: "Chegou como um segredo doce. Chorei na primeira linha.",
+    who: "Marina · SP",
+  },
+  {
+    quote: "O jegue demorou — e a espera fez tudo mais especial.",
+    who: "Thiago · RJ",
+  },
+  {
+    quote: "Parece papel de verdade. Intenção em cada detalhe.",
+    who: "Lívia · BH",
+  },
+  {
+    quote: "Mandamos no pombo. Ele guardou o link como tesouro.",
+    who: "Ana & Leo",
   },
 ];
 
@@ -84,38 +90,53 @@ export default function HomePage() {
   return (
     <>
       <SiteHeader />
-      <main className="flex-1 pt-16">
-        {/* Hero — asymmetric: text left, craft object right */}
+      <main className="flex-1 pt-[58px]">
+        {/* ── Hero — Studio Think centered structure ── */}
         <section className="relative overflow-hidden">
-          <div className="pointer-events-none absolute -top-32 right-0 size-80 rounded-full bg-blush/30 blur-3xl" />
-          <div className="pointer-events-none absolute bottom-8 left-0 size-72 rounded-full bg-gold/15 blur-3xl" />
+          {/* Hand-drawn corner annotations */}
+          <p
+            className="font-hand pointer-events-none absolute top-16 left-6 hidden rotate-[-8deg] text-xl text-ink/40 sm:block lg:left-12 lg:text-2xl"
+            aria-hidden
+          >
+            ← drag →
+          </p>
+          <p
+            className="font-hand pointer-events-none absolute top-24 right-6 hidden rotate-[7deg] text-xl text-ink/40 sm:block lg:right-14 lg:text-2xl"
+            aria-hidden
+          >
+            confiança no caminho
+          </p>
+          <p
+            className="font-hand pointer-events-none absolute bottom-8 left-1/4 hidden rotate-[-4deg] text-lg text-ink/35 md:block"
+            aria-hidden
+          >
+            feito à mão digital ♡
+          </p>
 
-          <div className="mx-auto grid max-w-6xl gap-16 px-5 py-20 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-20 lg:py-28">
-            <FadeIn className="space-y-8">
-              <p className="section-kicker inline-flex items-center gap-2 rounded-full border border-blush/45 bg-[#FFF8F0]/80 px-3.5 py-1.5">
-                <Link2 className="size-3 text-pink" aria-hidden />
-                Entrega com afeto
-              </p>
+          <div className="site-gutter mx-auto flex max-w-[1100px] flex-col items-center px-5 pt-20 pb-8 text-center sm:pt-28 sm:pb-12">
+            <FadeIn className="space-y-6">
+              <p className="section-kicker">Entrega com afeto · São Paulo</p>
 
               <DisplayTitle
-                tracking="wide"
+                as="h1"
                 weight="bold"
-                className="max-w-lg text-4xl leading-[1.15] sm:text-5xl lg:text-[3.35rem]"
+                className="mx-auto max-w-4xl text-[clamp(2.75rem,8vw,5.75rem)] leading-[1.08]"
               >
-                Cartas para o meu amor
+                Cartas para o{" "}
+                <span className="yellow-highlight inline">meu amor</span>
               </DisplayTitle>
 
-              <p className="max-w-md font-heading text-base leading-relaxed text-muted-foreground sm:text-lg sm:leading-relaxed">
+              <p className="mx-auto max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
                 Escreva com intenção. Escolha um mensageiro. Envie um link
-                especial — feito à mão digital, para derreter corações.
+                especial — paper craft digital, para derreter corações.
               </p>
 
-              <div className="flex flex-wrap items-center gap-4 pt-2">
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 <Button
                   nativeButton={false}
                   render={<Link href="/escrever" />}
                   size="lg"
-                  className="h-12 rounded-full bg-pink px-8 text-sm font-medium tracking-wide text-primary-foreground shadow-[0_12px_32px_-12px_rgba(232,90,122,0.75)] hover:bg-pink/90"
+                  className="h-11 rounded-full bg-yellow px-8 text-sm font-medium text-ink hover:bg-[#f3f06a]"
                 >
                   Escrever uma carta
                 </Button>
@@ -124,135 +145,194 @@ export default function HomePage() {
                   render={<a href="#mensageiros" />}
                   variant="outline"
                   size="lg"
-                  className="h-12 rounded-full border-gold/45 bg-transparent px-6 text-sm tracking-wide text-ink hover:bg-gold/10"
+                  className="h-11 rounded-full border-ink/15 bg-transparent px-6 text-sm text-ink hover:bg-paper"
                 >
                   Ver mensageiros
                 </Button>
               </div>
             </FadeIn>
 
-            <FadeIn delay={0.12} className="lg:justify-self-end lg:w-full">
-              <InterleavingAnimals />
+            <FadeIn delay={0.15} className="mt-16 w-full sm:mt-20">
+              <InterleavingAnimals word="CARTAS" />
             </FadeIn>
           </div>
         </section>
 
-        {/* Como funciona */}
-        <section className="border-y border-[#E5D5C4]/70 bg-[#FFF8F0]/45 py-24 sm:py-28">
-          <div className="mx-auto max-w-6xl px-5 sm:px-8">
-            <FadeIn className="mb-14 max-w-xl space-y-4">
-              <p className="section-kicker">Como funciona</p>
-              <DisplayTitle as="h2" tracking="display" className="text-3xl sm:text-4xl">
-                Do sentimento ao envio
-              </DisplayTitle>
-              <p className="font-heading text-muted-foreground italic">
-                Quatro passos suaves — sem pressa, com cuidado.
-              </p>
-            </FadeIn>
+        {/* ── Como funciona — oversized serif process rows ── */}
+        <section
+          id="como-funciona"
+          className="site-gutter mx-auto max-w-[1100px] py-24 sm:py-32 lg:py-36"
+        >
+          <FadeIn className="mb-16 max-w-2xl space-y-3">
+            <p className="section-kicker">Processo</p>
+            <DisplayTitle as="h2" className="text-4xl sm:text-5xl lg:text-6xl">
+              Como funciona
+            </DisplayTitle>
+            <p className="font-hand text-2xl text-ink/50">
+              quatro passos suaves — sem pressa
+            </p>
+          </FadeIn>
 
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-              {STEPS.map((step, index) => (
-                <FadeIn key={step.title} delay={index * 0.07}>
-                  <Card className="paper-shadow h-full rounded-2xl border border-[#E5D5C4]/80 bg-cream/90 ring-0">
-                    <CardHeader className="gap-3">
-                      <div className="mb-1 flex size-11 items-center justify-center rounded-full bg-pink/12 text-pink">
-                        <step.Icon className="size-5" aria-hidden />
-                      </div>
-                      <p className="text-[0.6rem] tracking-[0.28em] text-gold uppercase">
-                        Passo {index + 1}
+          <div className="divide-y divide-[#E8DDD0] border-y border-[#E8DDD0]">
+            {STEPS.map((step, index) => (
+              <FadeIn key={step.n} delay={index * 0.06}>
+                <div className="group grid gap-4 py-10 sm:grid-cols-[5rem_1fr_1.2fr] sm:items-baseline sm:gap-8 lg:py-12">
+                  <span className="font-sans text-sm font-medium tracking-[0.12em] text-ink/35">
+                    {step.n}
+                  </span>
+                  <DisplayTitle
+                    as="h3"
+                    weight="medium"
+                    className="text-3xl sm:text-4xl lg:text-[2.75rem]"
+                  >
+                    {step.title}
+                  </DisplayTitle>
+                  <p className="max-w-md text-base leading-relaxed text-muted-foreground sm:justify-self-end sm:text-right">
+                    {step.description}
+                  </p>
+                </div>
+              </FadeIn>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Mensageiros — Ocha menu rows on cream panel ── */}
+        <section
+          id="mensageiros"
+          className="site-gutter mx-auto max-w-[1100px] pb-24 sm:pb-32 lg:pb-36"
+        >
+          <FadeIn className="mb-12 max-w-2xl space-y-3">
+            <p className="section-kicker">Cardápio</p>
+            <DisplayTitle as="h2" className="text-4xl sm:text-5xl lg:text-6xl">
+              Mensageiros
+            </DisplayTitle>
+            <p className="text-muted-foreground">
+              Cada um com seu tempo, humor e preço — valores ilustrativos.
+            </p>
+          </FadeIn>
+
+          <FadeIn>
+            <div className="overflow-hidden rounded-[1.5rem] border border-[#E8DDD0] bg-paper paper-shadow">
+              <ul className="divide-y divide-[#E8DDD0]">
+                {MESSENGERS.map((m) => (
+                  <li
+                    key={m.name}
+                    className="flex flex-col gap-4 px-6 py-8 transition-colors hover:bg-cream/60 sm:flex-row sm:items-center sm:gap-6 sm:px-10 sm:py-9"
+                  >
+                    <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-[#E8DDD0] bg-cream text-pink/80">
+                      <m.Icon className="size-8" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <DisplayTitle
+                        as="h3"
+                        weight="medium"
+                        className="text-2xl sm:text-3xl lg:text-4xl"
+                      >
+                        {m.name}
+                      </DisplayTitle>
+                      <p className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
+                        {m.blurb}
                       </p>
-                      <CardTitle className="font-display text-sm tracking-[0.18em] uppercase">
-                        {step.title}
-                      </CardTitle>
-                      <CardDescription className="leading-relaxed text-muted-foreground">
-                        {step.description}
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
-                </FadeIn>
-              ))}
+                    </div>
+                    <div className="flex shrink-0 items-baseline justify-between gap-8 sm:flex-col sm:items-end sm:justify-center sm:gap-1">
+                      <span className="font-hand text-lg text-ink/45">
+                        {m.meta}
+                      </span>
+                      <span className="font-display text-xl tracking-[-0.02em] text-ink sm:text-2xl">
+                        {m.price}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
+          </FadeIn>
         </section>
 
-        {/* Mensageiros */}
-        <section id="mensageiros" className="py-24 sm:py-28">
-          <div className="mx-auto max-w-6xl px-5 sm:px-8">
-            <FadeIn className="mb-14 max-w-xl space-y-4">
-              <p className="section-kicker">Mensageiros</p>
-              <DisplayTitle as="h2" tracking="display" className="text-3xl sm:text-4xl">
-                Quem leva a carta
+        {/* ── Depoimentos — drifting overlapping cards ── */}
+        <section
+          id="depoimentos"
+          className="overflow-hidden border-y border-[#E8DDD0]/80 bg-paper/50 py-24 sm:py-32"
+        >
+          <div className="site-gutter mx-auto mb-12 max-w-[1100px]">
+            <FadeIn className="space-y-3">
+              <p className="section-kicker">Cartinhas recebidas</p>
+              <DisplayTitle as="h2" className="text-4xl sm:text-5xl">
+                O que dizem
               </DisplayTitle>
-              <p className="font-heading text-muted-foreground italic">
-                Cada um com seu tempo, humor e preço — valores ilustrativos.
-              </p>
             </FadeIn>
+          </div>
 
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-              {MESSENGERS.map((messenger, index) => (
-                <FadeIn key={messenger.name} delay={index * 0.07}>
-                  <Card className="paper-shadow h-full rounded-2xl border border-[#E5D5C4]/80 bg-[#FFF8F0] ring-0">
-                    <CardHeader>
-                      <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blush/35 to-gold/15 text-pink">
-                        <messenger.Icon className="size-8" />
-                      </div>
-                      <CardTitle className="font-display text-sm tracking-[0.2em] uppercase">
-                        {messenger.name}
-                      </CardTitle>
-                      <CardDescription className="leading-relaxed">
-                        {messenger.blurb}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex items-end justify-between gap-3 pt-0">
-                      <div>
-                        <p className="text-[0.6rem] tracking-[0.22em] text-muted-foreground uppercase">
-                          Tempo
-                        </p>
-                        <p className="mt-0.5 font-medium text-ink">{messenger.time}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[0.6rem] tracking-[0.22em] text-muted-foreground uppercase">
-                          A partir de
-                        </p>
-                        <p className="font-display text-lg tracking-[0.14em] text-pink">
-                          {messenger.price}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
+          <div className="relative">
+            <div className="flex gap-5 overflow-x-auto px-[max(1.25rem,calc((100%-1100px)/2+1rem))] pb-6 scroll-px-5 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {REVIEWS.map((review, i) => (
+                <FadeIn
+                  key={review.who}
+                  delay={i * 0.08}
+                  className="w-[280px] shrink-0 snap-start sm:w-[320px]"
+                  style={{
+                    marginTop: i % 2 === 0 ? 0 : 28,
+                    rotate: `${i % 2 === 0 ? -1.5 : 2}deg`,
+                  }}
+                >
+                  <article className="paper-shadow flex h-full flex-col justify-between rounded-2xl border border-[#E8DDD0] bg-cream p-7 sm:p-8">
+                    <p className="font-display text-xl leading-snug tracking-[-0.02em] text-ink sm:text-2xl">
+                      “{review.quote}”
+                    </p>
+                    <p className="font-hand mt-8 text-lg text-ink/50">
+                      — {review.who}
+                    </p>
+                  </article>
                 </FadeIn>
               ))}
+              {/* Peek next card hint */}
+              <div className="w-16 shrink-0 sm:w-24" aria-hidden />
             </div>
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="pb-28">
-          <FadeIn className="mx-auto max-w-3xl px-5 text-center sm:px-8">
-            <div className="paper-shadow rounded-[2rem] border border-blush/35 bg-gradient-to-br from-blush/25 via-cream to-gold/15 px-8 py-16 sm:px-14">
-              <p className="section-kicker mb-5">Comece agora</p>
-              <DisplayTitle as="h2" tracking="display" className="text-3xl sm:text-4xl">
-                Pronto para escrever?
-              </DisplayTitle>
-              <p className="mx-auto mt-5 max-w-md font-heading text-muted-foreground italic">
-                O editor, o mapa e o pagamento chegam nos próximos passos —
-                por enquanto, sonhe com a carta.
-              </p>
-              <div className="mt-10">
-                <Button
-                  nativeButton={false}
-                  render={<Link href="/escrever" />}
-                  size="lg"
-                  className="h-12 rounded-full bg-pink px-10 text-sm font-medium tracking-wide text-primary-foreground shadow-[0_12px_32px_-12px_rgba(232,90,122,0.75)] hover:bg-pink/90"
+        {/* ── Dark final CTA — Studio Think "Let's work together" ── */}
+        <section className="site-gutter mx-auto max-w-[1100px] py-24 sm:py-32 lg:py-36">
+          <FadeIn>
+            <div className="relative overflow-hidden rounded-[1.75rem] bg-ink px-8 py-16 text-cream sm:px-14 sm:py-20 lg:px-20">
+              <div
+                className="pointer-events-none absolute inset-0 opacity-[0.06]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(rgba(254,245,236,1) 1px, transparent 1px), linear-gradient(90deg, rgba(254,245,236,1) 1px, transparent 1px)",
+                  backgroundSize: "48px 48px",
+                }}
+                aria-hidden
+              />
+              <div className="relative mx-auto max-w-2xl text-center">
+                <p className="font-hand text-2xl text-yellow">vamos começar?</p>
+                <DisplayTitle
+                  as="h2"
+                  className="mt-4 text-4xl text-cream sm:text-5xl lg:text-6xl"
                 >
-                  Escrever uma carta
-                </Button>
+                  Pronto para escrever?
+                </DisplayTitle>
+                <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-cream/55">
+                  O editor, o mapa e o pagamento chegam nos próximos passos —
+                  por enquanto, sonhe com a carta.
+                </p>
+                <div className="mt-10">
+                  <Button
+                    nativeButton={false}
+                    render={<Link href="/escrever" />}
+                    size="lg"
+                    className="h-12 rounded-full bg-yellow px-10 text-sm font-medium text-ink hover:bg-[#f3f06a]"
+                  >
+                    Escrever uma carta
+                  </Button>
+                </div>
               </div>
             </div>
           </FadeIn>
         </section>
       </main>
       <SiteFooter />
+      <StickyCta />
     </>
   );
 }

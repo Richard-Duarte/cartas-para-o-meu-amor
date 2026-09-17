@@ -4,15 +4,19 @@ type DisplayTitleProps = {
   as?: "h1" | "h2" | "h3" | "p" | "span";
   children: React.ReactNode;
   className?: string;
-  /** Ocha-wide tracking: snug | display (default) | wide */
-  tracking?: "snug" | "display" | "wide";
+  /**
+   * Studio Think serif is TIGHT by default (negative tracking).
+   * Use "wide" only for rare Ocha-style kickers — not hero titles.
+   */
+  tracking?: "tight" | "normal" | "wide";
   weight?: "medium" | "semibold" | "bold";
+  uppercase?: boolean;
 };
 
 const trackingMap = {
-  snug: "tracking-[0.18em]",
-  display: "tracking-[0.26em]",
-  wide: "tracking-[0.34em]",
+  tight: "tracking-[-0.02em]",
+  normal: "tracking-[-0.01em]",
+  wide: "tracking-[0.18em]",
 } as const;
 
 const weightMap = {
@@ -25,15 +29,17 @@ export function DisplayTitle({
   as: Tag = "h1",
   children,
   className,
-  tracking = "display",
+  tracking = "tight",
   weight = "semibold",
+  uppercase = false,
 }: DisplayTitleProps) {
   return (
     <Tag
       className={cn(
-        "font-display text-ink uppercase",
+        "font-display text-ink",
         trackingMap[tracking],
         weightMap[weight],
+        uppercase && "uppercase",
         className
       )}
     >

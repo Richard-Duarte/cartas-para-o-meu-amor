@@ -24,22 +24,38 @@ Landing, design system, InterleavingAnimals, shadcn button/card, `/login` and `/
 
 Mapbox, Stripe, Resend — leave for later passos.
 
-## Design blend (Ocha × Studio Think)
+## Design rules
 
-Must feel like **both** references — not just pink on cream.
+**Visual = Studio Think · Components = Ocha**
+
+Not a pink Ocha clone. Not a pink SaaS romantic template.
 
 | Layer | Source | Rules |
 |-------|--------|--------|
-| Canvas | Studio Think | Paper cream `#F6EDE4`, generous padding/gaps, soft grain, quiet chrome |
-| Type | Ocha | Huge uppercase display, tracking ~0.22–0.35em; calm serif body for storytelling |
-| Accent | Both | Vivid pink `#E85A7A` CTAs + sparingly gold `#C4A35A` craft accents |
-| Layout | Blend | Asymmetric hero (copy left, InterleavingAnimals right); Ocha kickers (`COMO FUNCIONA`) above titles |
-| Cards | Studio Think | Paper/cream, soft shadow, soft borders — craft studio, not glassy SaaS |
-| Motion | Blend | Organic cross (animals exit/enter opposite x, `mode="sync"`); snappy enough for Ocha energy |
-| Header / footer | Blend | Minimal craft chrome; one strong pink CTA; quiet footer |
+| Canvas | Studio Think | Paper `#FEF5EC`, faint beige grid ~48px, generous gutters (~64px), long vertical whitespace (100–160px) |
+| Type | Studio Think | Huge serif (Fraunces) with **tight** tracking `~-0.02em` — NOT wide Ocha letter-spacing. Manrope for nav/labels. Handwritten (`Just Me Again Down Here`) for annotations |
+| Accent | Studio Think | Yellow pill CTA `#F7F780` + dark ink `#201F1D` + cream. Soft blush/pink **only** as secondary romantic accent on animal icons — never primary button fill |
+| Layout | Studio Think | Centered hero, yellow highlight behind one word, hand annotations, fixed cream header ~58px, dark grid footer |
+| Components | Ocha patterns | Sticky “Escrever uma carta” chip; InterleavingAnimals as SPECIALS (giant bg word + floating cutouts); process rows; cream menu list with prices; drifting review cards; dark final CTA panel |
+| Motion | Blend | AnimatePresence cross-slide animals; scroll FadeIn; partially visible next cards in strips |
 
-- Fonts: Fraunces (display) + Geist (UI body)
-- Icons: Lucide / simple SVG messengers — no 3D
+### Tokens
+
+- Background paper: `#FEF5EC`
+- Secondary off-white: `#FDFAF6`
+- Ink: `#201F1D`
+- Yellow CTA: `#F7F780`
+- Soft blush (secondary only): `#F4B8C5` / `#E85A7A`
+
+### Fonts
+
+- Display/serif: Fraunces (tight tracking)
+- Sans/UI: Manrope
+- Hand annotations: Just Me Again Down Here
+
+### Icons
+
+Lucide / simple SVG messengers — no 3D.
 
 ## Next passos (suggested)
 
