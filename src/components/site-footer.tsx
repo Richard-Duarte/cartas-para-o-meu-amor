@@ -2,16 +2,16 @@ import Link from "next/link";
 
 export function SiteFooter() {
   return (
-    <footer className="bg-foreground text-background">
-      <div className="flex items-center justify-between gap-6 px-5 py-8 md:px-20 md:py-10">
+    <footer className="border-t border-foreground/6 bg-[#FEF5EC]">
+      <div className="flex flex-col items-center justify-between gap-4 px-5 py-10 text-center md:flex-row md:px-12 md:text-left lg:px-20">
         <Link
           href="/"
-          className="font-serif text-2xl font-bold italic md:text-3xl"
+          className="font-[family-name:var(--font-fraunces)] text-lg font-medium tracking-tight text-foreground"
         >
-          Cartas
+          Cartas para o meu amor
         </Link>
-        <p className="text-xs uppercase tracking-wide md:text-sm">
-          © {new Date().getFullYear()} Cartas para o meu amor
+        <p className="text-xs tracking-wide text-muted-foreground">
+          © {new Date().getFullYear()} · Feito com carinho
         </p>
       </div>
     </footer>

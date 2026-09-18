@@ -5,27 +5,31 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Extra theme bridges for shadcn radius helpers */
 @theme inline {
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-heading: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
-  --font-display: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+  --font-heading: var(--font-fraunces), "Fraunces", Georgia, serif;
+  --font-display: var(--font-fraunces), "Fraunces", Georgia, serif;
   --font-body: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
-  --font-serif: var(--font-lora), "Lora", Georgia, serif;
+  --font-serif: var(--font-fraunces), "Fraunces", Georgia, serif;
+  --font-sans: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
 
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.25);
+  --radius-2xl: calc(var(--radius) * 1.5);
+  --radius-3xl: calc(var(--radius) * 1.85);
+  --radius-4xl: calc(var(--radius) * 2.2);
 
   --color-chart-1: var(--card-yellow);
   --color-chart-2: var(--card-magenta);
   --color-chart-3: var(--card-blue);
   --color-chart-4: var(--card-mint);
   --color-chart-5: var(--card-lavender);
+
+  --shadow-paper-soft: 0 4px 24px rgba(42, 33, 28, 0.06), 0 1px 3px rgba(42, 33, 28, 0.04);
+  --shadow-paper-lift: 0 12px 40px rgba(42, 33, 28, 0.1), 0 4px 12px rgba(42, 33, 28, 0.05);
+  --shadow-paper-mascot: 0 20px 50px rgba(42, 33, 28, 0.12), 0 8px 20px rgba(232, 160, 176, 0.15);
 }
 
 @layer base {
@@ -62,8 +66,9 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, sans-serif;
-    font-weight: var(--font-heading-weight, 700);
+    font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+    font-weight: var(--font-heading-weight, 500);
+    letter-spacing: -0.02em;
   }
 
   button,
@@ -73,182 +78,142 @@
 }
 
 @layer components {
+  /* Soft premium CTAs — never harsh SaaS uppercase chrome */
   .btn-filled {
-    @apply bg-primary hover:bg-primary-hover
-           border-2 border-foreground text-foreground uppercase font-bold
-           py-3 px-7 rounded-full inline-flex items-center gap-2
-           transition-all duration-200;
-    transition-timing-function: cubic-bezier(0.34, 1, 0.64, 1);
+    @apply inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3
+           text-sm font-medium text-primary-foreground
+           transition-all duration-300 hover:bg-primary-hover hover:shadow-lg;
+    box-shadow: var(--shadow-soft);
+    transition-timing-function: var(--ease-romantic);
   }
 
   .btn-transparent {
-    @apply bg-transparent hover:bg-foreground hover:text-background
-           border-2 border-foreground text-foreground uppercase font-bold
-           py-3 px-7 rounded-full inline-flex items-center gap-2
-           transition-all duration-200;
+    @apply inline-flex items-center gap-2 rounded-full border border-foreground/15
+           bg-transparent px-7 py-3 text-sm font-medium text-foreground
+           transition-all duration-300 hover:border-foreground/30 hover:bg-foreground/5;
+    transition-timing-function: var(--ease-romantic);
+  }
+
+  .btn-ghost-link {
+    @apply inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground
+           transition-colors duration-300 hover:text-foreground;
   }
 
   .card-hover {
-    @apply transition-transform duration-500 hover:scale-[1.02];
-    transition-timing-function: cubic-bezier(0.34, 1, 0.64, 1);
+    @apply transition-all duration-500;
+    transition-timing-function: var(--ease-romantic);
   }
 
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* Editorial display type */
   .heading-xl {
-    @apply font-black text-6xl md:text-8xl lg:text-9xl uppercase
-           tracking-tighter leading-[0.85];
+    font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+    @apply text-5xl font-medium tracking-tight text-foreground md:text-7xl lg:text-8xl;
+    line-height: 1.05;
   }
 
   .heading-lg {
-    @apply font-extrabold md:font-black text-3xl md:text-5xl lg:text-5xl
-           tracking-normal leading-[1.15];
+    font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+    @apply text-3xl font-medium tracking-tight text-foreground md:text-5xl;
+    line-height: 1.15;
   }
 
   .heading-md {
-    @apply font-extrabold text-2xl md:text-3xl tracking-normal leading-[1.2];
+    font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+    @apply text-2xl font-medium tracking-tight text-foreground md:text-3xl;
+    line-height: 1.2;
   }
 
   .heading-sm {
-    @apply font-bold text-xl uppercase tracking-tight;
+    font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+    @apply text-xl font-medium tracking-tight text-foreground;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.22em] text-muted-foreground;
+    font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
   }
 
   .nav-text {
-    @apply uppercase font-bold text-sm tracking-[1.8px];
+    @apply text-sm font-medium tracking-wide text-foreground/70 transition-colors;
+    font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+  }
+
+  .nav-text:hover {
+    @apply text-foreground;
   }
 
   .body-text {
-    @apply font-normal leading-[1.25] text-[2rem] md:text-[3.2rem];
-    font-family: var(--font-lora), "Lora", Georgia, serif;
+    font-family: var(--font-fraunces), "Fraunces", Georgia, serif;
+    @apply text-xl leading-relaxed text-muted-foreground md:text-2xl;
+  }
+
+  .prose-romantic {
+    @apply text-base leading-relaxed text-muted-foreground md:text-lg;
+    font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
   }
 
   .footer-header {
-    @apply uppercase font-bold text-xs md:text-sm tracking-[1.8px] text-foreground mb-3 md:mb-4;
+    @apply mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground md:mb-4;
   }
 
   .footer-link {
-    @apply underline decoration-2 text-sm md:text-base text-foreground
-           hover:opacity-70 transition-opacity duration-200;
+    @apply text-sm text-foreground/70 transition-opacity duration-200 hover:opacity-70;
   }
 
   .site-gutter {
-    @apply px-5 md:px-20;
+    @apply px-5 md:px-12 lg:px-20;
+  }
+
+  .paper-card {
+    @apply rounded-3xl border border-foreground/8 bg-card;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .ambient-wash {
+    pointer-events: none;
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(80px);
   }
 }
 
-/* ── CyclerNav ────────────────────────────────────────────────── */
-
-.cycler-tabs-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+/* Mascot float bob */
+@keyframes mascot-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
-.cycler-tabs-nav button {
-  padding: 0.5rem 1rem;
-  border-radius: 3.2rem;
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 2px solid #fff;
-  color: rgba(255, 255, 255, 0.7);
-  transition:
-    background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-    color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+.mascot-bob {
+  animation: mascot-bob 4.5s var(--ease-romantic) infinite;
 }
 
-.cycler-tabs-nav button .timer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.15);
-  display: none;
-  z-index: 1;
+@keyframes petal-drift {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.7;
+  }
+  90% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-120px) rotate(25deg);
+    opacity: 0;
+  }
 }
 
-.cycler-tabs-nav button > *:not(.timer) {
-  position: relative;
-  z-index: 2;
-}
-
-.cycler-tabs-nav button.active {
-  color: #000;
-  border-color: #fff;
-  background: #fff;
-}
-
-.cycler-tabs-nav button:not(.active):hover {
-  background: #fff;
-  color: #000;
-}
-
-.cycler-tabs-nav button.active .timer {
-  display: block;
-}
-
-.cycler-tabs-nav button.toggle-autoplay {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  display: block;
-  width: 2.375rem;
-  height: 2.375rem;
-  padding: 0;
-  border-radius: 2.375rem;
-}
-
-.cycler-tabs-nav button.toggle-autoplay svg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate3d(-50%, -50%, 0);
-}
-
-.cycler-tabs-nav button.toggle-autoplay.playing svg.play,
-.cycler-tabs-nav button.toggle-autoplay:not(.playing) svg.pause {
-  opacity: 0;
-}
-
-.cycler-tabs-nav button.toggle-autoplay:not(.playing) svg.play {
-  opacity: 1;
-}
-
-.cycler-tabs-nav.light button {
-  color: var(--muted-foreground);
-  border-color: var(--foreground);
-}
-
-.cycler-tabs-nav.light button.active {
-  color: var(--background);
-  border-color: var(--foreground);
-  background: var(--foreground);
-}
-
-.cycler-tabs-nav.light button .timer {
-  background: var(--background);
-}
-
-.cycler-tabs-nav.light button:not(.active):hover {
-  background: var(--foreground);
-  color: var(--background);
-}
-
-.cycler-tabs-nav.light button.toggle-autoplay {
-  background: transparent;
-  color: var(--foreground);
-  border-color: var(--foreground);
-}
-
-.cycler-tabs-nav.light button.toggle-autoplay:hover {
-  background: var(--foreground);
-  color: var(--background);
+.petal {
+  animation: petal-drift 12s var(--ease-romantic) infinite;
 }

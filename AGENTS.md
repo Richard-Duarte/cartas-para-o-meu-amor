@@ -12,13 +12,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Product
 
-Romantic letter delivery: write a letter → pick template → pick animal messenger (pombo / cavalo / jegue / instantâneo) → share link → track on map (later).
+Romantic letter delivery: write a letter → pick template → pick animal messenger → share link → track on map (later).
 
 UI copy is **pt-BR**. Code, variables, and file names are **English**.
 
 ## Passo 1 (done)
 
-Landing, design system, InterleavingAnimals, shadcn button/card, `/login` and `/escrever` placeholders. No backend.
+Landing, design system, InterleavingAnimals with 3D mascot JPGs, shadcn button/card, `/login` and `/escrever` placeholders. No backend.
 
 ## Do not install yet
 
@@ -26,42 +26,63 @@ Mapbox, Stripe, Resend — leave for later passos.
 
 ## Design rules
 
-**Design source of truth = QuizHub** (`Richard-Duarte/quizhub`)
+**Design source of truth = Cream editorial storybook** (NOT QuizHub pink SaaS).
 
-Same product family as QuizHub: pink canvas, bold uppercase DM Sans, Lora body/serif moments, multi-column hero, bordered wine cards. Content stays Cartas (messengers), not quizzes.
+Inspired by Framer romantic product landings: Amorette, WeddingDay, New Chapter, All Natural, ComingSo Interactive, Bloome/Lunea softness.
 
-| Layer | Source | Rules |
-|-------|--------|--------|
-| Canvas | QuizHub | Solid brand pink `#cf4c67` / `oklch(59.5% 0.166 8)`, white foreground |
-| Cards | QuizHub | Deeper wine `oklch(47% 0.155 8)`, `border-2 border-foreground`, `rounded-3xl` / radius `1.5rem` |
-| Type | QuizHub | DM Sans for headings/nav — black/extrabold UPPERCASE, `tracking-tighter` on huge titles, leading ~0.85–0.9; Lora for body/serif moments |
-| Buttons | QuizHub | `rounded-full`, uppercase bold, `border-2 border-foreground`; primary deep wine; outline-white on colored columns |
-| Header | QuizHub | Sticky pink bg, italic serif/bold logo, `.nav-text` links, filled CTA with ArrowRight |
-| Hero | QuizHub × Cartas | Full-bleed color columns (one per messenger: pink / blue / green / orange) |
-| Sections | QuizHub × Cartas | Feature cycler over photo + CyclerNav; testimonials auto-cycle; messenger pricing cards; FAQ accordion; CTA banner; inverted footer |
-| Motion | QuizHub | `cubic-bezier(0.34, 1, 0.64, 1)`; `useAutoCycle` + `CyclerNav` |
+| Layer | Rules |
+|-------|--------|
+| Canvas | Warm cream `#FBF6F0` / `#FEF5EC` — never flat neon pink |
+| Ink | `#2A211C` |
+| Accents | Soft blush `#E8A0B0`, coral, peach, muted gold `#C4A35A`, soft sky, olive (tartaruga) |
+| Cards | Soft paper: white, light border, soft shadow — rounded-3xl, generous whitespace |
+| Type | **Fraunces** (serif display) for emotional headlines; **DM Sans** for UI/nav/body |
+| Buttons | Soft rounded-full, medium weight — blush primary / ink secondary; no harsh uppercase border chrome |
+| Header | Cream sticky + blur, refined serif logo, Entrar + Começar |
+| Hero | Centered emotional composition + InterleavingAnimals diorama (real JPG mascots) |
+| Motion | Framer Motion, romantic easing `cubic-bezier(0.22, 1, 0.36, 1)` — scroll FadeIn, hover lift/tilt |
 
-### Tokens
+### Messengers (assets in `public/messengers/`)
 
-- Background: `#cf4c67` / `oklch(59.5% 0.166 8)`
-- Foreground: white
-- Card: `oklch(47% 0.155 8)`
-- Primary: deep wine
-- Vibrant cards: yellow, purple, magenta, blue, coral, mint, orange, lavender
-- Radius: `1.5rem`
+| id | File | Personality cue |
+|----|------|-----------------|
+| pombo | pombo.jpg | Classic pigeon + pink bow |
+| cavalo | cavalo.jpg | Horse with satchel |
+| tartaruga | tartaruga.jpg | Slow & steady (replaces jegue) |
+| cegonha | cegonha.jpg | Stork with parcel |
+| ganso | ganso.jpg | Goose with floating envelope |
+| aviao | aviao.jpg | Toy airplane — instant |
+
+Use `next/image`. Soft drop shadows. Hover: slight tilt, float/bob, scale.
+
+Shared data: `src/lib/messengers.ts`.
+
+### Tokens (`src/styles/theme.css`)
+
+- Background: `#FBF6F0`
+- Foreground: `#2A211C`
+- Primary: soft blush rose `#C4788A`
+- Secondary: muted gold `#C4A35A`
+- Shadows: `--shadow-soft`, `--shadow-lift`, `--shadow-mascot`
+- Washes: `--wash-blush`, `--wash-gold`, `--wash-peach`
 
 ### Fonts
 
-- Sans/UI/headings: DM Sans
-- Serif/body moments: Lora
+- Display/headings: Fraunces
+- UI/body: DM Sans
 
 ### Utilities (`src/app/globals.css`)
 
-`.btn-filled`, `.btn-transparent`, `.heading-xl` / `.heading-lg` / `.heading-md` / `.heading-sm`, `.nav-text`, `.body-text`, `.card-hover`, `.cycler-tabs-nav`
+`.btn-filled`, `.btn-transparent`, `.heading-xl` / `.heading-lg` / `.heading-md` / `.heading-sm`, `.eyebrow`, `.nav-text`, `.prose-romantic`, `.paper-card`, `.ambient-wash`, `.card-hover`, `.mascot-bob`
 
-### Icons
+### Page chapters (landing)
 
-Lucide / simple SVG messengers — no 3D.
+1. Hero (centered + mascot diorama)
+2. Como funciona (editorial steps)
+3. Mensageiros `#mensageiros` (6 cards)
+4. Quote / emotional strip
+5. Final CTA (envelope feeling)
+6. Minimal footer
 
 ## Next passos (suggested)
 

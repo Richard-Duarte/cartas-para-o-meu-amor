@@ -1,115 +1,43 @@
+"use client";
+
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Check } from "lucide-react";
-import AiButton from "@/components/ui/ai-button";
-import { FeatureCycler } from "@/components/feature-cycler";
-import { FaqAccordion } from "@/components/faq-accordion";
+import { ArrowRight, Heart, PenLine, Share2, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
+import { HeroPetals } from "@/components/hero-petals";
+import { InterleavingAnimals } from "@/components/interleaving-animals";
+import { FadeIn } from "@/components/motion/fade-in";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StickyCta } from "@/components/sticky-cta";
-import { TestimonialsStrip } from "@/components/testimonials-strip";
-import {
-  CavaloIcon,
-  InstantaneoIcon,
-  JegueIcon,
-  PomboIcon,
-} from "@/components/messenger-icons";
-import { cn } from "@/lib/utils";
+import { MESSENGERS } from "@/lib/messengers";
 
-const HERO_COLUMNS = [
-  {
-    name: "Pombo",
-    title1: "Pombo",
-    title2: "correio",
-    desc: "Elegante e clássico, para cartas que merecem asas.",
-    href: "/escrever",
-    bg: "#cf4c67",
-    text: "text-white",
-    muted: "text-white/80",
-    label: "text-white/80",
-    ctaVariant: "outline-white" as const,
-    hoverTint: "hover:text-[#cf4c67]!",
-  },
-  {
-    name: "Cavalo",
-    title1: "Cavalo",
-    title2: "nobre",
-    desc: "Rápido e ousado, com um toque de aventura.",
-    href: "/escrever",
-    bg: "#273FF5",
-    text: "text-white",
-    muted: "text-white/80",
-    label: "text-white/80",
-    ctaVariant: "outline-white" as const,
-    hoverTint: "hover:text-[#273FF5]!",
-  },
-  {
-    name: "Jegue",
-    title1: "Jegue",
-    title2: "devagar",
-    desc: "A espera também é romance — humor no caminho.",
-    href: "/escrever",
-    bg: "#27F56C",
-    text: "text-[#064c1f]",
-    muted: "text-[#064c1f]/80",
-    label: "text-[#064c1f]/70",
-    ctaVariant: "outline" as const,
-    hoverTint: "border-[#064c1f] text-[#064c1f] hover:bg-[#064c1f] hover:text-white",
-  },
-  {
-    name: "Instantâneo",
-    title1: "Flash",
-    title2: "agora",
-    desc: "Chega na hora, com um brilho de ouro e estrelas.",
-    href: "/escrever",
-    bg: "#F5A027",
-    text: "text-[#3a1f00]",
-    muted: "text-[#3a1f00]/80",
-    label: "text-[#3a1f00]/70",
-    ctaVariant: "outline" as const,
-    hoverTint: "border-[#3a1f00] text-[#3a1f00] hover:bg-[#3a1f00] hover:text-white",
-  },
-];
+const easeRomantic = [0.22, 1, 0.36, 1] as const;
 
-const MESSENGERS = [
+const STEPS = [
   {
-    name: "Pombo",
-    description: "Elegante e clássico",
-    price: "R$ 12",
-    period: "/carta",
-    meta: "2–3 dias",
-    features: ["Entrega com asas", "Link especial", "Tom clássico"],
-    highlighted: false,
-    Icon: PomboIcon,
+    n: "01",
+    title: "Escreva com o coração",
+    body: "Despeje o que às vezes fica preso na garganta. Sem pressa, sem filtros — só você e o papel.",
+    icon: PenLine,
   },
   {
-    name: "Cavalo",
-    description: "Rápido e nobre",
-    price: "R$ 24",
-    period: "/carta",
-    meta: "1 dia",
-    features: ["Galope expresso", "Toque de aventura", "Link especial"],
-    highlighted: true,
-    Icon: CavaloIcon,
+    n: "02",
+    title: "Escolha quem leva",
+    body: "Pombo, cavalo, tartaruga, cegonha, ganso ou avião. Cada um com seu tempo e sua personalidade.",
+    icon: Sparkles,
   },
   {
-    name: "Jegue",
-    description: "Devagar e com humor",
-    price: "R$ 8",
-    period: "/carta",
-    meta: "5–7 dias",
-    features: ["Espera romântica", "Humor no caminho", "Link especial"],
-    highlighted: false,
-    Icon: JegueIcon,
+    n: "03",
+    title: "Envie o link",
+    body: "Compartilhe um presente digital. A pessoa abre, lê e sente que alguém pensou nela de verdade.",
+    icon: Share2,
   },
   {
-    name: "Instantâneo",
-    description: "Na hora, com flash",
-    price: "R$ 36",
-    period: "/carta",
-    meta: "Na hora",
-    features: ["Entrega imediata", "Brilho de ouro", "Link especial"],
-    highlighted: false,
-    Icon: InstantaneoIcon,
+    n: "04",
+    title: "O amor chega",
+    body: "Acompanhe a jornada do mensageiro. A espera vira ritual — e a leitura, um momento só de vocês.",
+    icon: Heart,
   },
 ];
 
@@ -118,145 +46,243 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main>
-        {/* Hero — 4 messenger columns */}
-        <section className="flex min-h-[80vh] flex-col md:flex-row md:flex-wrap xl:flex-nowrap">
-          {HERO_COLUMNS.map((col) => (
-            <Link
-              key={col.name}
-              href={col.href}
-              className="group relative flex min-h-[40vh] flex-1 flex-col items-center justify-center p-8 text-center transition-transform duration-300 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/50 md:min-h-[50vh] md:basis-1/2 xl:min-h-0 xl:basis-0"
-              style={{ backgroundColor: col.bg }}
+        {/* ── 1. Hero ─────────────────────────────────────────── */}
+        <section className="relative overflow-hidden">
+          {/* Ambient washes */}
+          <div
+            aria-hidden
+            className="ambient-wash -left-20 -top-10 h-[420px] w-[420px]"
+            style={{ background: "var(--wash-blush)" }}
+          />
+          <div
+            aria-hidden
+            className="ambient-wash -right-16 top-32 h-[380px] w-[380px]"
+            style={{ background: "var(--wash-gold)" }}
+          />
+          <div
+            aria-hidden
+            className="ambient-wash bottom-0 left-1/3 h-[280px] w-[280px]"
+            style={{ background: "var(--wash-peach)" }}
+          />
+          <HeroPetals />
+
+          <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pb-16 pt-14 text-center md:px-12 md:pb-24 md:pt-20 lg:px-20">
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: easeRomantic }}
+              className="eyebrow"
             >
-              <span
-                className={cn(
-                  "mb-4 text-sm uppercase tracking-widest md:text-base",
-                  col.label,
-                )}
-              >
-                Cartas
-              </span>
-              <h2
-                className={cn(
-                  "text-4xl font-extrabold uppercase leading-[0.9] md:text-5xl lg:text-6xl",
-                  col.text,
-                )}
-              >
-                {col.title1}
-                <br />
-                {col.title2}
-              </h2>
-              <p
-                className={cn(
-                  "mt-4 max-w-xs font-serif text-base md:text-lg",
-                  col.muted,
-                )}
-              >
-                {col.desc}
-              </p>
-              <AiButton
-                size="lg"
-                variant={col.ctaVariant}
-                className={cn(
-                  "mt-8 opacity-0 transition-opacity duration-300 group-hover:opacity-100",
-                  col.hoverTint,
-                )}
-                tabIndex={-1}
-              >
-                Escrever
-                <ArrowRight />
-              </AiButton>
-            </Link>
-          ))}
+              Entrega com afeto
+            </motion.p>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, delay: 0.1, ease: easeRomantic }}
+              className="heading-xl mt-5 max-w-3xl"
+            >
+              Uma carta encontra
+              <br className="hidden sm:block" /> o caminho até
+              <br className="hidden sm:block" /> quem você ama.
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.25, ease: easeRomantic }}
+              className="prose-romantic mt-6 max-w-xl"
+            >
+              Escreva o que o coração guarda. Escolha um mensageiro. Deixe a
+              espera virar romance — e a leitura, um presente inesquecível.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.4, ease: easeRomantic }}
+              className="mt-9 flex flex-wrap items-center justify-center gap-3"
+            >
+              <Link href="/escrever" className="btn-filled">
+                Escrever uma carta
+                <ArrowRight className="size-4" />
+              </Link>
+              <a href="#mensageiros" className="btn-transparent">
+                Conhecer os mensageiros
+              </a>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, delay: 0.35, ease: easeRomantic }}
+              className="mt-12 w-full md:mt-16"
+            >
+              <InterleavingAnimals />
+            </motion.div>
+          </div>
         </section>
 
-        <FeatureCycler />
+        {/* ── 2. Como funciona ────────────────────────────────── */}
+        <section
+          id="como-funciona"
+          className="scroll-mt-24 border-t border-foreground/5 bg-[#FEF5EC]/60 px-5 py-20 md:px-12 md:py-28 lg:px-20"
+        >
+          <FadeIn className="mx-auto max-w-3xl text-center">
+            <p className="eyebrow">O ritual</p>
+            <h2 className="heading-lg mt-3">Como uma carta ganha vida</h2>
+            <p className="prose-romantic mx-auto mt-4 max-w-lg">
+              Quatro passos simples. O resto é sentimento.
+            </p>
+          </FadeIn>
 
-        <TestimonialsStrip />
-
-        {/* Mensageiros — QuizHub pricing cards */}
-        <section id="mensageiros" className="scroll-mt-24 px-5 py-16 md:px-20">
-          <h2 className="heading-md text-center">Mensageiros</h2>
-          <p className="mt-2 mb-10 text-center font-serif text-muted-foreground">
-            Cada um com seu tempo, humor e preço — valores ilustrativos.
-          </p>
-          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {MESSENGERS.map((tier) => (
-              <div
-                key={tier.name}
-                className={cn(
-                  "relative flex flex-col rounded-3xl border-2 border-foreground bg-card p-8 transition-shadow duration-200",
-                  tier.highlighted && "shadow-lg ring-2 ring-primary md:-translate-y-2",
-                )}
-              >
-                {tier.highlighted && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-foreground bg-primary px-3 py-1 text-xs font-bold uppercase text-foreground">
-                    Popular
-                  </span>
-                )}
-                <div className="mb-4 flex size-12 items-center justify-center rounded-full border-2 border-foreground bg-background">
-                  <tier.Icon className="size-6" />
-                </div>
-                <h3 className="text-lg font-bold uppercase">{tier.name}</h3>
-                <p className="mt-1 font-serif text-sm text-muted-foreground">
-                  {tier.description} · {tier.meta}
-                </p>
-                <div className="mt-6 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold tracking-tight">
-                    {tier.price}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {tier.period}
-                  </span>
-                </div>
-                <AiButton
-                  nativeButton={false}
-                  render={<Link href="/escrever" />}
-                  variant={tier.highlighted ? "default" : "outline"}
-                  className="mt-8 w-full"
-                >
-                  Escolher
-                  <ArrowRight />
-                </AiButton>
-                <div className="mt-8 border-t-2 border-foreground pt-8">
-                  <ul className="flex flex-col gap-3">
-                    {tier.features.map((f) => (
-                      <li key={f} className="flex items-start gap-3">
-                        <Check className="mt-0.5 size-4 shrink-0 text-foreground" />
-                        <span className="font-serif text-sm text-muted-foreground">
-                          {f}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+          <div className="mx-auto mt-14 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {STEPS.map((step, i) => (
+              <FadeIn key={step.n} delay={i * 0.08}>
+                <article className="paper-card card-hover flex h-full flex-col p-6 md:p-7">
+                  <div className="mb-5 flex items-center justify-between">
+                    <span className="eyebrow text-primary/80">{step.n}</span>
+                    <span className="flex size-9 items-center justify-center rounded-full bg-accent text-foreground/70">
+                      <step.icon className="size-4" aria-hidden />
+                    </span>
+                  </div>
+                  <h3 className="heading-sm text-lg">{step.title}</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    {step.body}
+                  </p>
+                </article>
+              </FadeIn>
             ))}
           </div>
         </section>
 
-        <FaqAccordion />
+        {/* ── 3. Mensageiros ──────────────────────────────────── */}
+        <section
+          id="mensageiros"
+          className="scroll-mt-24 px-5 py-20 md:px-12 md:py-28 lg:px-20"
+        >
+          <FadeIn className="mx-auto max-w-3xl text-center">
+            <p className="eyebrow">Companheiros de rota</p>
+            <h2 className="heading-lg mt-3">Os mensageiros</h2>
+            <p className="prose-romantic mx-auto mt-4 max-w-lg">
+              Seis personalidades. Seis tempos. Escolha quem leva o que só você
+              sabe dizer.
+            </p>
+          </FadeIn>
 
-        {/* CTA Banner */}
-        <section className="relative py-20 text-center">
+          <div className="mx-auto mt-14 grid max-w-6xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {MESSENGERS.map((m, i) => (
+              <FadeIn key={m.id} delay={i * 0.06}>
+                <Link
+                  href="/escrever"
+                  className="paper-card card-hover group flex h-full flex-col overflow-hidden"
+                >
+                  <div
+                    className="relative flex aspect-[4/3] items-center justify-center overflow-hidden"
+                    style={{ background: m.accentSoft }}
+                  >
+                    <div
+                      className="relative size-[72%] transition-transform duration-500 group-hover:scale-105 group-hover:-rotate-2"
+                      style={{
+                        filter: "drop-shadow(0 16px 32px rgba(42,33,28,0.14))",
+                        transitionTimingFunction: "var(--ease-romantic)",
+                      }}
+                    >
+                      <Image
+                        src={m.image}
+                        alt={m.name}
+                        fill
+                        sizes="(max-width: 640px) 90vw, (max-width: 1024px) 40vw, 280px"
+                        className="object-contain"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <h3 className="font-[family-name:var(--font-fraunces)] text-xl font-medium tracking-tight">
+                        {m.name}
+                      </h3>
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: m.accent }}
+                        aria-hidden
+                      />
+                    </div>
+                    <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+                      {m.personality}
+                    </p>
+                    <div className="mt-5 flex items-center justify-between border-t border-foreground/6 pt-4 text-sm">
+                      <span className="text-muted-foreground">{m.time}</span>
+                      <span className="font-medium text-foreground">
+                        {m.price}
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          /carta
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </FadeIn>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 4. Momento emocional ────────────────────────────── */}
+        <section className="relative overflow-hidden border-y border-foreground/5 bg-[#FEF5EC] px-5 py-24 md:px-12 md:py-32 lg:px-20">
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 -z-0 bg-[radial-gradient(ellipse_at_center,var(--color-primary)/0.18,transparent_60%)]"
+            className="ambient-wash left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2"
+            style={{ background: "var(--wash-blush)" }}
           />
-          <div className="relative">
-            <h2 className="heading-lg">Pronto para escrever?</h2>
-            <p className="mt-4 font-serif text-lg text-muted-foreground">
-              Escolha um mensageiro e envie uma carta que derrete corações.
+          <FadeIn className="relative mx-auto max-w-3xl text-center">
+            <p className="eyebrow">Por que escrever</p>
+            <blockquote className="mt-6 font-[family-name:var(--font-fraunces)] text-2xl font-medium leading-snug tracking-tight text-foreground md:text-4xl md:leading-[1.25]">
+              &ldquo;Uma mensagem some no feed.
+              <br />
+              Uma carta fica — no bolso, na gaveta,
+              <br className="hidden sm:block" /> no coração.&rdquo;
+            </blockquote>
+            <p className="prose-romantic mx-auto mt-8 max-w-md">
+              Em um mundo de respostas rápidas, escolher escrever é um gesto
+              raro. É dizer: você merece meu tempo.
             </p>
-            <AiButton
-              nativeButton={false}
-              render={<Link href="/escrever" />}
-              size="lg"
-              className="mt-8"
-            >
-              Escrever uma carta
-              <ArrowRight />
-            </AiButton>
-          </div>
+          </FadeIn>
+        </section>
+
+        {/* ── 5. Final CTA ────────────────────────────────────── */}
+        <section className="relative px-5 py-24 md:px-12 md:py-32 lg:px-20">
+          <div
+            aria-hidden
+            className="ambient-wash -right-10 top-10 h-[300px] w-[300px]"
+            style={{ background: "var(--wash-gold)" }}
+          />
+          <FadeIn className="relative mx-auto max-w-2xl text-center">
+            <div className="paper-card mx-auto max-w-xl px-8 py-14 md:px-12 md:py-16">
+              <div
+                aria-hidden
+                className="mx-auto mb-8 flex size-16 items-center justify-center rounded-2xl bg-accent"
+              >
+                <span className="font-[family-name:var(--font-fraunces)] text-3xl text-primary">
+                  ✉
+                </span>
+              </div>
+              <p className="eyebrow">O envelope espera</p>
+              <h2 className="heading-lg mt-3">
+                Comece a carta
+                <br />
+                que alguém vai guardar.
+              </h2>
+              <p className="prose-romantic mx-auto mt-5 max-w-sm">
+                Abra o editor. Escolha o mensageiro. Deixe o amor encontrar o
+                caminho.
+              </p>
+              <Link href="/escrever" className="btn-filled mt-9 inline-flex">
+                Escrever uma carta
+                <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          </FadeIn>
         </section>
       </main>
       <SiteFooter />

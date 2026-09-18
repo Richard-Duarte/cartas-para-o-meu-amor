@@ -1,105 +1,116 @@
 /*
- * QuizHub Theme Tokens
- *
- * This file is separate from index.css so shadcn/Lovable updates
- * won't overwrite our brand tokens. index.css imports this file.
- *
- * Format: bare oklch channels so Tailwind v4 opacity modifiers work.
- * e.g. bg-accent/50 → oklch(85% 0.04 68 / 0.5)
+ * Cartas — Cream Editorial Storybook Tokens
+ * Inspired by Framer romantic product landings (Amorette, Bloome, New Chapter).
  */
 
 :root {
-  /* Font weights — overridden by style packs via SET_FONTS */
-  --font-heading-weight: 700;
+  --font-heading-weight: 500;
   --font-body-weight: 400;
 
-  /* Base — solid brand pink #cf4c67 */
-  --background: oklch(59.5% 0.166 8);       /* #cf4c67 */
-  --foreground: oklch(100% 0 0);            /* white */
+  /* Base — warm cream paper */
+  --background: #fbf6f0;
+  --background-warm: #fef5ec;
+  --foreground: #2a211c;
 
-  /* Card — deeper wine so cards lift off the pink canvas */
-  --card: oklch(47% 0.155 8);
-  --card-foreground: oklch(100% 0 0);
+  /* Card — soft lifted paper */
+  --card: #ffffff;
+  --card-foreground: #2a211c;
 
-  /* Primary — deep wine so white label text stays legible on pink */
-  --primary: oklch(35% 0.14 8);
-  --primary-foreground: oklch(100% 0 0);
-  --primary-hover: oklch(28% 0.12 8);
+  /* Primary — soft blush rose */
+  --primary: #c4788a;
+  --primary-foreground: #ffffff;
+  --primary-hover: #b0687a;
 
-
-  /* Secondary */
-  --secondary: oklch(35% 0.14 8);
-  --secondary-foreground: oklch(100% 0 0);
-  --secondary-hover: oklch(30% 0.12 8);
+  /* Secondary — muted gold */
+  --secondary: #c4a35a;
+  --secondary-foreground: #2a211c;
+  --secondary-hover: #b3924a;
 
   /* Accent */
-  --accent: oklch(42% 0.15 8);
-  --accent-foreground: oklch(100% 0 0);
-  --accent-red: oklch(59% 0.22 30);
-  --accent-pink: oklch(72% 0.16 345);
+  --accent: #f5e6dc;
+  --accent-foreground: #2a211c;
+  --accent-blush: #e8a0b0;
+  --accent-coral: #e8a090;
+  --accent-peach: #f0c4a8;
+  --accent-gold: #c4a35a;
+  --accent-sky: #a8c4d4;
+  --accent-olive: #8a9a6e;
+  --accent-ink: #2a211c;
 
   /* Muted */
-  --muted: oklch(45% 0.15 8);
-  --muted-foreground: oklch(90% 0.03 8);
+  --muted: #f3ebe3;
+  --muted-foreground: #6b5c52;
 
   /* Popover */
-  --popover: oklch(47% 0.155 8);
-  --popover-foreground: oklch(100% 0 0);
+  --popover: #ffffff;
+  --popover-foreground: #2a211c;
 
   /* Destructive */
-  --destructive: oklch(64.6% 0.196 12.214);
-  --destructive-foreground: oklch(100% 0 0);
+  --destructive: #c45c5c;
+  --destructive-foreground: #ffffff;
 
   /* Sidebar */
-  --sidebar: oklch(50% 0.16 8);
-  --sidebar-foreground: oklch(100% 0 0);
-  --sidebar-accent: oklch(44% 0.15 8);
-  --sidebar-accent-foreground: oklch(100% 0 0);
-  --sidebar-border: oklch(100% 0 0 / 0.22);
-  --sidebar-ring: oklch(97% 0.015 8);
+  --sidebar: #fef5ec;
+  --sidebar-foreground: #2a211c;
+  --sidebar-accent: #f5e6dc;
+  --sidebar-accent-foreground: #2a211c;
+  --sidebar-border: rgba(42, 33, 28, 0.08);
+  --sidebar-ring: #c4788a;
 
-  /* UI Elements */
-  --border: oklch(100% 0 0 / 0.28);
-  --input: oklch(100% 0 0 / 0.28);
-  --ring: oklch(97% 0.015 8);
-  --radius: 1.5rem;
+  /* UI Elements — soft, never harsh */
+  --border: rgba(42, 33, 28, 0.1);
+  --input: rgba(42, 33, 28, 0.12);
+  --ring: #c4788a;
+  --radius: 1.25rem;
 
-  /* Vibrant Card Backgrounds */
-  --card-yellow: oklch(83% 0.15 85);
-  --card-purple: oklch(78% 0.1 295);
-  --card-magenta: oklch(60% 0.2 335);
-  --card-blue: oklch(83% 0.1 220);
-  --card-coral: oklch(70% 0.15 10);
-  --card-mint: oklch(85% 0.12 165);
-  --card-orange: oklch(75% 0.15 55);
-  --card-lavender: oklch(80% 0.12 285);
+  /* Soft paper shadows */
+  --shadow-soft: 0 4px 24px rgba(42, 33, 28, 0.06), 0 1px 3px rgba(42, 33, 28, 0.04);
+  --shadow-lift: 0 12px 40px rgba(42, 33, 28, 0.1), 0 4px 12px rgba(42, 33, 28, 0.05);
+  --shadow-mascot: 0 20px 50px rgba(42, 33, 28, 0.12), 0 8px 20px rgba(232, 160, 176, 0.15);
+
+  /* Ambient washes */
+  --wash-blush: rgba(232, 160, 176, 0.28);
+  --wash-gold: rgba(196, 163, 90, 0.18);
+  --wash-peach: rgba(240, 196, 168, 0.35);
+  --wash-sky: rgba(168, 196, 212, 0.22);
 
   /* Status */
-  --success: oklch(70% 0.15 165);
-  --warning: oklch(75% 0.16 80);
-  --error: oklch(60% 0.2 25);
-  --info: oklch(70% 0.12 210);
+  --success: #6a9a7a;
+  --warning: #c4a35a;
+  --error: #c45c5c;
+  --info: #7a9ab0;
 
-  /* Transitions */
-  --transition-fast: 150ms ease-in-out;
-  --transition-medium: 300ms ease-in-out;
-  --transition-slow: 500ms cubic-bezier(0.34, 1, 0.64, 1);
+  /* Transitions — romantic, not snappy */
+  --ease-romantic: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-fast: 200ms var(--ease-romantic);
+  --transition-medium: 450ms var(--ease-romantic);
+  --transition-slow: 700ms var(--ease-romantic);
+
+  /* Legacy vibrant aliases (softened) */
+  --card-yellow: #f5e6c8;
+  --card-purple: #e8dce8;
+  --card-magenta: #e8a0b0;
+  --card-blue: #a8c4d4;
+  --card-coral: #e8a090;
+  --card-mint: #c8dcc8;
+  --card-orange: #f0c4a8;
+  --card-lavender: #e0d4e8;
 }
 
 .dark {
-  --background: oklch(59.5% 0.166 8);
-  --foreground: oklch(100% 0 0);
-  --card: oklch(43% 0.15 8);
-  --card-foreground: oklch(100% 0 0);
-  --border: oklch(100% 0 0 / 0.28);
-  --input: oklch(100% 0 0 / 0.28);
+  --background: #1f1916;
+  --foreground: #fbf6f0;
+  --card: #2a211c;
+  --card-foreground: #fbf6f0;
+  --border: rgba(251, 246, 240, 0.12);
+  --input: rgba(251, 246, 240, 0.12);
+  --muted: #3a302a;
+  --muted-foreground: #c4b8ae;
 }
-
-
-/* ── Expose tokens to Tailwind v4 ──────────────────────────── */
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-warm: var(--background-warm);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -111,8 +122,12 @@
   --color-secondary-hover: var(--secondary-hover);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-accent-red: var(--accent-red);
-  --color-accent-pink: var(--accent-pink);
+  --color-accent-blush: var(--accent-blush);
+  --color-accent-coral: var(--accent-coral);
+  --color-accent-peach: var(--accent-peach);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-sky: var(--accent-sky);
+  --color-accent-olive: var(--accent-olive);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-popover: var(--popover);
@@ -142,18 +157,16 @@
   --color-status-info: var(--info);
   --radius: var(--radius);
 
-  /* Screens */
   --breakpoint-sm-590: 590px;
   --breakpoint-lg-layout: 821px;
   --breakpoint-canvas-show: 1261px;
 
-  /* Fonts — --font-body/--font-heading set by style packs via SET_FONTS */
   --font-sans: var(--font-dm-sans), "DM Sans", system-ui, -apple-system, sans-serif;
-  --font-serif: var(--font-lora), "Lora", Georgia, serif;
+  --font-serif: var(--font-fraunces), "Fraunces", Georgia, serif;
+  --font-display: var(--font-fraunces), "Fraunces", Georgia, serif;
 }
 
-/* Next.js font bridges */
 :root {
   --font-body: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
-  --font-heading: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+  --font-heading: var(--font-fraunces), "Fraunces", Georgia, serif;
 }
