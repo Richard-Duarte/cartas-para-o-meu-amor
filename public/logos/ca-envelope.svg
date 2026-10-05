@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 72" fill="none" aria-hidden="true">
+  <path
+    stroke="#1A1410"
+    stroke-width="2.25"
+    stroke-linejoin="round"
+    d="M8 18.5h64v37.5a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V18.5z"
+  />
+  <path
+    stroke="#1A1410"
+    stroke-width="2.25"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    d="M8 18.5 40 39.5 72 18.5"
+  />
+  <path
+    stroke="#1A1410"
+    stroke-width="1.7"
+    stroke-linecap="round"
+    d="M12 56.5 27 46.5M68 56.5 53 46.5"
+  />
+  <circle cx="40" cy="42" r="13" fill="#F6EDE4" stroke="#1A1410" stroke-width="2.25" />
+  <path
+    fill="#1A1410"
+    d="M40 49.2c-.4 0-8.4-5.2-8.4-10.15 0-2.85 2.15-4.85 4.7-4.85 1.5 0 2.85.8 3.7 2.1.85-1.3 2.2-2.1 3.7-2.1 2.55 0 4.7 2 4.7 4.85C48.4 44 40.4 49.2 40 49.2z"
+  />
+</svg>
