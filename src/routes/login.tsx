@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { authClient, authEnabled } from "@/lib/auth/client";
+import { SocialSignInButtons } from "@/components/auth/SocialButtons";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 
 export const Route = createFileRoute("/login")({
@@ -44,18 +45,10 @@ function Login() {
         </p>
         {authEnabled ? (
           <>
-            <div className="grid gap-2">
-              {GROK_PROVIDERS.map((p) => (
-                <button
-                  key={p.providerId}
-                  type="button"
-                  onClick={() => signIn(p.providerId, { callbackURL: after })}
-                  className="min-h-11 rounded-full border border-line bg-paper"
-                >
-                  Continuar com {p.label}
-                </button>
-              ))}
-            </div>
+            <SocialSignInButtons
+              callbackURL={after}
+              onError={(message) => setError(message)}
+            />
             <p className="text-center text-xs uppercase tracking-widest text-muted">ou e-mail</p>
             <form className="pay-card-form" onSubmit={(e) => void onEmail(e)}>
               <label>

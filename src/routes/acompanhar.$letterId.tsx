@@ -6,14 +6,7 @@ import { LetterSheet } from "@/components/letters/LetterSheet";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { downloadLetterPng } from "@/lib/download-letter";
-import {
-  getLetter,
-  letterFromRecord,
-  rememberLetter,
-  seedDemoLetter,
-  shareUrl,
-  type Letter,
-} from "@/lib/letters";
+import { getLetter, letterFromRecord, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { getCity, getMessenger } from "@/lib/messengers";
 import { addressLine } from "@/lib/address";
 import { openSharedLetter } from "@/lib/server/shop";
@@ -148,7 +141,7 @@ function TrackView({
       <main className="mx-auto max-w-5xl px-5 py-10">
         <p className="text-xs uppercase tracking-widest text-rose">Acompanhar</p>
         <h1 className="mt-2 break-words font-display text-3xl sm:text-4xl">
-          {letter.fromName} → {letter.toName}
+          {shownFromName(letter, "public")} → {letter.toName}
         </h1>
         <p className="mt-2 break-words text-muted">
           {letter.fromAddress?.street ? addressLine(letter.fromAddress) : from.name}
@@ -207,7 +200,7 @@ function TrackView({
             <LetterSheet
               ref={sheetRef}
               designId={letter.designId ?? "classico"}
-              fromName={letter.fromName}
+              fromName={shownFromName(letter, "public")}
               toName={letter.toName}
               body={letter.body}
               pages={letter.pages}

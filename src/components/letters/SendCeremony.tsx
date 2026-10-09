@@ -123,6 +123,21 @@ export function SendCeremony({ letter }: Props) {
             <p className="section-kicker">A caminho</p>
             <h2 id="send-title">O envelope fechou. O link é o correio.</h2>
             <p>Quem abrir entra na conta e a carta fica na caixa de recebidos.</p>
+            {letter.anonymous ? (
+              <p>
+                {letter.linkSent
+                  ? "O link foi para o WhatsApp de quem recebe, sem o seu nome."
+                  : "A carta ficou salva. O WhatsApp não saiu agora."}
+              </p>
+            ) : null}
+            {letter.notice === "instant" ? <p>A viagem é curta: não enviamos aviso de chegada.</p> : null}
+            {letter.notice === "queued" ? (
+              <p>Quando estiver perto, avisamos você e quem recebe por e-mail e por WhatsApp.</p>
+            ) : null}
+            {letter.notice === "sent" ? <p>O aviso de que está chegando já foi para os dois.</p> : null}
+            {letter.notice === "unconfigured" ? (
+              <p>O aviso de chegada espera o e-mail e o WhatsApp estarem ligados.</p>
+            ) : null}
             <code className="send-link">{url}</code>
             <div className="share-bar">
               <button type="button" onClick={() => void copy()}>

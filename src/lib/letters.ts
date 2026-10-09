@@ -32,6 +32,15 @@ export type Letter = {
   paidMethod?: string;
   couponCode?: string;
   affiliateCode?: string;
+  anonymous?: boolean;
+  scheduled?: boolean;
+  departAt?: number;
+  arriveAt?: number;
+  recipientPhone?: string;
+  recipientEmail?: string;
+  senderPhone?: string;
+  notice?: "instant" | "queued" | "sent" | "unconfigured";
+  linkSent?: boolean;
   startedAt: number;
   demoDurationMs: number;
   senderUserId?: string;
@@ -54,6 +63,13 @@ export type LetterRecord = {
   paid_brl: number;
   coupon_code: string | null;
   affiliate_code: string | null;
+  anonymous?: boolean | null;
+  scheduled?: boolean | null;
+  depart_at?: string | null;
+  arrive_at?: string | null;
+  recipient_phone?: string | null;
+  recipient_email?: string | null;
+  sender_phone?: string | null;
   started_at: string;
   demo_duration_ms: number;
 };
@@ -101,6 +117,13 @@ export function letterFromRecord(row: LetterRecord): Letter {
     paidBrl: row.paid_brl,
     couponCode: row.coupon_code ?? undefined,
     affiliateCode: row.affiliate_code ?? undefined,
+    anonymous: Boolean(row.anonymous),
+    scheduled: Boolean(row.scheduled),
+    departAt: row.depart_at ? new Date(row.depart_at).getTime() : undefined,
+    arriveAt: row.arrive_at ? new Date(row.arrive_at).getTime() : undefined,
+    recipientPhone: row.recipient_phone ?? undefined,
+    recipientEmail: row.recipient_email ?? undefined,
+    senderPhone: row.sender_phone ?? undefined,
     startedAt: new Date(row.started_at).getTime() || Date.now(),
     demoDurationMs: row.demo_duration_ms || 20000,
     senderUserId: row.user_id,
@@ -137,13 +160,32 @@ export function letterProgress(letter: Letter, now = Date.now()) {
     from,
     to,
   });
-  const progress = Math.min(1, Math.max(0, (now - letter.startedAt) / letter.demoDurationMs));
+  const departAt = letter.departAt ?? letter.startedAt;
+  const arriveAt = letter.arriveAt ?? letter.startedAt + real.durationMs;
+  const hasClock = letter.arriveAt != null && letter.departAt != null;
+  const progress = hasClock
+    ? now <= departAt
+      ? 0
+      : (now - departAt) / Math.max(1, arriveAt - departAt)
+    : (now - letter.startedAt) / letter.demoDurationMs;
+  const clamped = Math.min(1, Math.max(0, progress));
   return {
     ...real,
-    progress,
-    arrived: progress >= 1,
+    progress: clamped,
+    arrived: clamped >= 1,
     remainingDemoMs: Math.max(0, letter.demoDurationMs - (now - letter.startedAt)),
+    departAt,
+    arriveAt,
+    waiting: hasClock && now < departAt,
   };
+}
+
+export function shownFromName(
+  letter: Pick<Letter, "fromName" | "anonymous">,
+  viewer: "sender" | "public",
+) {
+  if (!letter.anonymous) return letter.fromName;
+  return viewer === "sender" ? "Você, sem nome" : "Alguém";
 }
 
 export function seedDemoLetter(): Letter {

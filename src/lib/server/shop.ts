@@ -2,7 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
+import { approachNoticeAt, cleanEmail, formatArrival, planArrival, whatsAppNumber } from "@/lib/delivery";
 import { requireAdminSession } from "@/lib/server/admin-auth";
+import {
+  dispatchDueNotices,
+  dispatchLetterNotice,
+  safeOrigin,
+  sendAnonymousLink,
+  type NoticeState,
+} from "@/lib/server/notices";
+import type { Geo } from "@/lib/messengers";
 
 function code6() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -29,6 +38,12 @@ export const pingVisit = createServerFn({ method: "POST" })
   .handler(async ({ data: path }) => {
     const sql = await getSql();
     await sql`insert into visits (path) values (${path})`;
+    try {
+      await ensureDeliveryColumns(sql);
+      await dispatchDueNotices();
+    } catch {
+      /* o aviso tenta de novo na próxima visita */
+    }
     return { ok: true };
   });
 
@@ -142,22 +157,55 @@ export const checkoutLetter = createServerFn({ method: "POST" })
       affiliateCode: z.string().optional(),
       demoDurationMs: z.number(),
       method: z.string(),
+      anonymous: z.boolean().optional(),
+      scheduled: z.boolean().optional(),
+      arriveOn: z.string().optional(),
+      recipientPhone: z.string().optional(),
+      recipientEmail: z.string().optional(),
+      senderPhone: z.string().optional(),
+      origin: z.string().optional(),
     }),
   )
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await ensureProfile(sql, context.userId);
+    await ensureDeliveryColumns(sql);
     const id = crypto.randomUUID().slice(0, 8);
+    const from = parseGeo(data.fromGeoJson) ?? { lat: -23.55, lng: -46.63 };
+    const to = parseGeo(data.toGeoJson) ?? { lat: -22.9, lng: -43.17 };
+    const plan = planArrival({
+      messengerId: data.messengerId,
+      from,
+      to,
+      arriveOn: data.scheduled ? data.arriveOn || null : null,
+    });
+    if (data.scheduled && !plan.fits) {
+      throw new Error("Esse mensageiro não chega na data escolhida.");
+    }
+    const authUser = await sql<{ email: string }>`
+      select email from "user" where id = ${context.userId} limit 1
+    `;
+    const senderEmail = cleanEmail(authUser[0]?.email ?? "") ?? "";
+    const recipientPhone = whatsAppNumber(data.recipientPhone ?? "") ?? "";
+    const senderPhone = whatsAppNumber(data.senderPhone ?? "") ?? "";
+    const recipientEmail = cleanEmail(data.recipientEmail ?? "") ?? "";
+    const origin = safeOrigin(data.origin);
+    const anonymous = Boolean(data.anonymous);
     await sql`
       insert into letters (
         id, user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json,
-        paid_brl, coupon_code, affiliate_code, demo_duration_ms
+        paid_brl, coupon_code, affiliate_code, demo_duration_ms,
+        anonymous, scheduled, recipient_phone, recipient_email, sender_phone, sender_email,
+        share_origin, depart_at, arrive_at
       ) values (
         ${id}, ${context.userId}, ${data.fromName}, ${data.toName}, ${data.pagesJson},
         ${data.templateId}, ${data.messengerId}, ${data.fromAddressJson}, ${data.toAddressJson},
         ${data.fromGeoJson}, ${data.toGeoJson}, ${data.paidBrl}, ${data.couponCode ?? null},
-        ${data.affiliateCode ?? null}, ${data.demoDurationMs}
+        ${data.affiliateCode ?? null}, ${data.demoDurationMs},
+        ${anonymous}, ${Boolean(data.scheduled)}, ${recipientPhone || null}, ${recipientEmail || null},
+        ${senderPhone || null}, ${senderEmail || null}, ${origin},
+        ${plan.departAt.toISOString()}, ${plan.arriveAt.toISOString()}
       )
     `;
     await sql`
@@ -192,7 +240,27 @@ export const checkoutLetter = createServerFn({ method: "POST" })
     if (data.paidBrl === 0) {
       await sql`update profiles set credit_brl = greatest(credit_brl - 0, credit_brl) where user_id = ${context.userId}`;
     }
-    return { id };
+    let linkSent = false;
+    if (anonymous && recipientPhone) {
+      const sent = await sendAnonymousLink({
+        id,
+        toName: data.toName,
+        phone: recipientPhone,
+        origin,
+        when: formatArrival(plan.arriveAt),
+        instant: plan.instant,
+      });
+      linkSent = sent.ok;
+    }
+    let notice: NoticeState = plan.instant ? "instant" : "queued";
+    if (!plan.instant) {
+      const at = approachNoticeAt(new Date(), plan.departAt, plan.arriveAt);
+      if (at) {
+        await sql`update letters set notice_at = ${at.toISOString()} where id = ${id}`;
+        if (at.getTime() <= Date.now()) notice = await dispatchLetterNotice(id);
+      }
+    }
+    return { id, linkSent, notice };
   });
 
 export const adminDashboard = createServerFn({ method: "GET" })
@@ -518,6 +586,31 @@ async function ensureLetterInbox(sql: Awaited<ReturnType<typeof getSql>>) {
   await sql`alter table letters add column if not exists recipient_user_id text`;
 }
 
+async function ensureDeliveryColumns(sql: Awaited<ReturnType<typeof getSql>>) {
+  await sql`alter table letters add column if not exists anonymous boolean not null default false`;
+  await sql`alter table letters add column if not exists recipient_phone text`;
+  await sql`alter table letters add column if not exists recipient_email text`;
+  await sql`alter table letters add column if not exists sender_phone text`;
+  await sql`alter table letters add column if not exists sender_email text`;
+  await sql`alter table letters add column if not exists share_origin text`;
+  await sql`alter table letters add column if not exists scheduled boolean not null default false`;
+  await sql`alter table letters add column if not exists depart_at timestamptz`;
+  await sql`alter table letters add column if not exists arrive_at timestamptz`;
+  await sql`alter table letters add column if not exists notice_at timestamptz`;
+  await sql`alter table letters add column if not exists notice_sent_at timestamptz`;
+  await sql`alter table letters add column if not exists notice_error text`;
+}
+
+function parseGeo(raw: string): Geo | null {
+  try {
+    const geo = JSON.parse(raw) as Geo;
+    if (typeof geo.lat !== "number" || typeof geo.lng !== "number" || Number.isNaN(geo.lat)) return null;
+    return geo;
+  } catch {
+    return null;
+  }
+}
+
 type LetterRow = {
   id: string;
   user_id: string;
@@ -534,6 +627,13 @@ type LetterRow = {
   paid_brl: number;
   coupon_code: string | null;
   affiliate_code: string | null;
+  anonymous: boolean | null;
+  scheduled: boolean | null;
+  recipient_phone: string | null;
+  recipient_email: string | null;
+  sender_phone: string | null;
+  depart_at: string | null;
+  arrive_at: string | null;
   started_at: string;
   demo_duration_ms: number;
 };
@@ -543,17 +643,20 @@ export const myMailbox = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sql = await getSql();
     await ensureLetterInbox(sql);
+    await ensureDeliveryColumns(sql);
     const sent = await sql<LetterRow>`
       select id, user_id, recipient_user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
-        affiliate_code, started_at::text, demo_duration_ms
+        affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
+        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms
       from letters where user_id = ${context.userId}
       order by started_at desc
     `;
     const received = await sql<LetterRow>`
       select id, user_id, recipient_user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
-        affiliate_code, started_at::text, demo_duration_ms
+        affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
+        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms
       from letters where recipient_user_id = ${context.userId}
       order by started_at desc
     `;
@@ -566,10 +669,12 @@ export const openSharedLetter = createServerFn({ method: "POST" })
   .handler(async ({ context, data: id }) => {
     const sql = await getSql();
     await ensureLetterInbox(sql);
+    await ensureDeliveryColumns(sql);
     const rows = await sql<LetterRow>`
       select id, user_id, recipient_user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
-        affiliate_code, started_at::text, demo_duration_ms
+        affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
+        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms
       from letters where id = ${id} limit 1
     `;
     const row = rows[0];

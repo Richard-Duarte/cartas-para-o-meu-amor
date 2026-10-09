@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { AnonymousSection } from "@/components/home/AnonymousSection";
 import { CinematicHero } from "@/components/home/CinematicHero";
 import { MessengerMarquee } from "@/components/home/MessengerMarquee";
 import { MessengerShowcase } from "@/components/home/MessengerShowcase";
@@ -24,6 +25,7 @@ function Home() {
         <div id="mensageiros">
           <MessengerShowcase />
         </div>
+        <AnonymousSection />
         <ClotheslineSection className="border-y border-line bg-paper/50" />
         <section className="closing-cta">
           <p className="section-kicker">Agora</p>

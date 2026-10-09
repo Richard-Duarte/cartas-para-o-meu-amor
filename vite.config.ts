@@ -34,19 +34,26 @@ function pgliteBootstrapPlugin(): Plugin {
   return {
     name: "app-builder:pglite-bootstrap",
     apply: "serve",
-    async configureServer(server) {
+    configureServer(server) {
       if (!hasGlobbedMigrations(server.config.root)) return;
-      try {
-        const mod = (await server.ssrLoadModule("/src/lib/db.ts")) as {
-          ensureDbReady?: () => Promise<void>;
-        };
-        if (typeof mod.ensureDbReady === "function") {
-          await mod.ensureDbReady();
-        }
-      } catch (err) {
-        console.error("[app-builder] DB bootstrap failed:", err);
-        throw err;
-      }
+      // Boot Postgres after the port is open. Awaiting it inside this hook
+      // deadlocks Vite's module loader, so the preview never appears and the
+      // database never finishes starting. The first query still waits on the
+      // same ready promise.
+      const boot = () => {
+        void server
+          .ssrLoadModule("/src/lib/db.ts")
+          .then(async (mod) => {
+            const ready = (mod as { ensureDbReady?: () => Promise<void> }).ensureDbReady;
+            if (typeof ready === "function") await ready();
+            console.log("[db] pronto");
+          })
+          .catch((err) => {
+            console.error("[app-builder] DB bootstrap failed:", err);
+          });
+      };
+      if (server.httpServer?.listening) boot();
+      else server.httpServer?.once("listening", boot);
     },
   };
 }

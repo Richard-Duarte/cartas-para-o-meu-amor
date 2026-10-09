@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { letterFromRecord, letterProgress, type Letter } from "@/lib/letters";
+import { letterFromRecord, letterProgress, shownFromName, type Letter } from "@/lib/letters";
 import { getMessenger } from "@/lib/messengers";
 import { myMailbox } from "@/lib/server/shop";
 
@@ -88,7 +88,7 @@ function LetterCard({ letter, tone }: { letter: Letter; tone: "sent" | "received
       <Link to="/acompanhar/$letterId" params={{ letterId: letter.id }} className="mailbox-card">
         <p className="cart-kicker">{tone === "sent" ? "Enviada" : "Recebida"} · {m.name}</p>
         <strong>
-          {letter.fromName} → {letter.toName}
+          {shownFromName(letter, tone === "sent" ? "sender" : "public")} → {letter.toName}
         </strong>
         <span>{stats.arrived ? "Chegou" : `A caminho · ${Math.round(stats.progress * 100)}%`}</span>
       </Link>

@@ -17,6 +17,8 @@ type Props = {
   value: MessengerId;
   onChange: (id: MessengerId) => void;
   hoursById?: Partial<Record<MessengerId, number>>;
+  arriveLabelById?: Partial<Record<MessengerId, string>>;
+  disabledIds?: Set<string>;
 };
 
 function PreviewClip({ id, name }: { id: MessengerId; name: string }) {
@@ -45,7 +47,7 @@ function PreviewClip({ id, name }: { id: MessengerId; name: string }) {
   );
 }
 
-export function MessengerPicker({ value, onChange, hoursById }: Props) {
+export function MessengerPicker({ value, onChange, hoursById, arriveLabelById, disabledIds }: Props) {
   const selected = MESSENGERS.find((m) => m.id === value) ?? MESSENGERS[0];
 
   return (
@@ -54,13 +56,17 @@ export function MessengerPicker({ value, onChange, hoursById }: Props) {
         {MESSENGERS.map((m) => {
           const active = m.id === value;
           const hours = hoursById?.[m.id];
+          const blocked = disabledIds?.has(m.id) ?? false;
+          const when = arriveLabelById?.[m.id];
           return (
             <button
               key={m.id}
               type="button"
+              disabled={blocked}
               onClick={() => onChange(m.id)}
               className={cn(
                 "flex min-h-11 items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
+                blocked && "messenger-disabled",
                 active
                   ? "border-rose bg-paper shadow-md"
                   : "border-line bg-paper/50 hover:border-ink/25",
@@ -76,7 +82,7 @@ export function MessengerPicker({ value, onChange, hoursById }: Props) {
                 <span className="mt-0.5 block text-sm text-muted">{m.tagline}</span>
                 <span className="mt-2 block text-xs uppercase tracking-widest text-gold">
                   R$ {m.basePriceBrl}
-                  {hours != null ? ` · ${formatEta(hours)}` : ""}
+                  {when ? ` · ${when}` : hours != null ? ` · ${formatEta(hours)}` : ""}
                 </span>
               </span>
             </button>

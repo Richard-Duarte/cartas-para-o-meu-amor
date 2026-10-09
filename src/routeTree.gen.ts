@@ -19,6 +19,7 @@ import { Route as PagarRouteImport } from './routes/pagar'
 import { Route as AcompanharIndexRouteImport } from './routes/acompanhar.index'
 import { Route as AcompanharLetterIdRouteImport } from './routes/acompanhar.$letterId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronNoticesRouteImport } from './routes/api/cron/notices'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -70,6 +71,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronNoticesRoute = ApiCronNoticesRouteImport.update({
+  id: '/api/cron/notices',
+  path: '/api/cron/notices',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/acompanhar/$letterId': typeof AcompanharLetterIdRoute
   '/acompanhar/': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/notices': typeof ApiCronNoticesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/acompanhar/$letterId': typeof AcompanharLetterIdRoute
   '/acompanhar': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/notices': typeof ApiCronNoticesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/acompanhar/$letterId': typeof AcompanharLetterIdRoute
   '/acompanhar/': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/notices': typeof ApiCronNoticesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/acompanhar/$letterId'
     | '/acompanhar/'
     | '/api/auth/$'
+    | '/api/cron/notices'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/acompanhar/$letterId'
     | '/acompanhar'
     | '/api/auth/$'
+    | '/api/cron/notices'
   id:
     | '__root__'
     | '/'
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/acompanhar/$letterId'
     | '/acompanhar/'
     | '/api/auth/$'
+    | '/api/cron/notices'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PagarRoute: typeof PagarRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronNoticesRoute: typeof ApiCronNoticesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/notices': {
+      id: '/api/cron/notices'
+      path: '/api/cron/notices'
+      fullPath: '/api/cron/notices'
+      preLoaderRoute: typeof ApiCronNoticesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -254,6 +274,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PagarRoute: PagarRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronNoticesRoute: ApiCronNoticesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

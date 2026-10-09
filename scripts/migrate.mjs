@@ -84,11 +84,26 @@ async function main() {
   }
 }
 
+function databaseUnreachable(err) {
+  const code = String(err?.code || "");
+  const message = String(err?.message || "");
+  if (["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENETUNREACH"].includes(code)) {
+    return true;
+  }
+  return /tenant\/user .* not found|getaddrinfo|Connection terminated|could not connect|ECONNRESET/i.test(
+    message,
+  );
+}
+
 main().catch((err) => {
   console.error("[migrate] failed:", err?.message || err);
   // pg errors carry the context needed to debug a bad SQL file.
   for (const key of ["code", "detail", "hint", "position", "where"]) {
     if (err?.[key] != null) console.error(`[migrate]   ${key}: ${err[key]}`);
+  }
+  if (databaseUnreachable(err)) {
+    console.error("[migrate] banco inacessível — o app segue sem aplicar migração agora.");
+    process.exit(0);
   }
   process.exit(1);
 });

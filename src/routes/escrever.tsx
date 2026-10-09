@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AddressFields } from "@/components/letters/AddressFields";
 import { CanvaEditor } from "@/components/letters/CanvaEditor";
+import { deliveryCanContinue, DeliveryChoices } from "@/components/letters/DeliveryChoices";
 import { CartDock, CartSummary } from "@/components/cart/CartSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { MessengerPicker } from "@/components/messengers/MessengerPicker";
@@ -14,6 +15,7 @@ import {
   type LetterDraft,
 } from "@/lib/cart";
 import { bootCatalog } from "@/lib/catalog";
+import { formatArrival, planArrival } from "@/lib/delivery";
 import { DESIGNS, type DesignId } from "@/lib/designs";
 import { geocodeAddress } from "@/lib/server/shop";
 import { cn } from "@/lib/utils";
@@ -25,13 +27,14 @@ import {
 } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
 
-type WriteSearch = { papel?: string; ref?: string };
+type WriteSearch = { papel?: string; ref?: string; anonimo?: string };
 
 export const Route = createFileRoute("/escrever")({
   component: WritePage,
   validateSearch: (s: Record<string, unknown>): WriteSearch => ({
     papel: typeof s.papel === "string" ? s.papel : undefined,
     ref: typeof s.ref === "string" ? s.ref : undefined,
+    anonimo: s.anonimo === "1" ? "1" : undefined,
   }),
 });
 
@@ -42,6 +45,9 @@ const STEPS = [
   { n: 4, label: "Entrega" },
   { n: 5, label: "Pagar" },
 ] as const;
+
+const FALLBACK_FROM: Geo = { lat: -23.55, lng: -46.63 };
+const FALLBACK_TO: Geo = { lat: -22.9, lng: -43.17 };
 
 function goWithMotion(apply: () => void) {
   const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
@@ -64,6 +70,12 @@ function WritePage() {
   const [fromGeo, setFromGeo] = useState<Geo | undefined>();
   const [toGeo, setToGeo] = useState<Geo | undefined>();
   const [affiliateCode, setAffiliateCode] = useState<string | undefined>();
+  const [anonymous, setAnonymous] = useState(false);
+  const [scheduled, setScheduled] = useState(false);
+  const [arriveOn, setArriveOn] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [senderPhone, setSenderPhone] = useState("");
 
   useEffect(() => {
     void bootCatalog().then(() => {
@@ -80,15 +92,22 @@ function WritePage() {
         setFromGeo(draft.fromGeo);
         setToGeo(draft.toGeo);
         setAffiliateCode(search.ref ?? draft.affiliateCode);
+        setAnonymous(search.anonimo === "1" || Boolean(draft.anonymous));
+        setScheduled(Boolean(draft.scheduled));
+        setArriveOn(draft.arriveOn ?? "");
+        setRecipientPhone(draft.recipientPhone ?? "");
+        setRecipientEmail(draft.recipientEmail ?? "");
+        setSenderPhone(draft.senderPhone ?? "");
       } else if (fromUrl) {
         setDesignId(fromUrl.id);
         if (search.ref) setAffiliateCode(search.ref);
       } else if (search.ref) {
         setAffiliateCode(search.ref);
       }
+      if (!draft && search.anonimo === "1") setAnonymous(true);
       setReady(true);
     });
-  }, [search.papel, search.ref]);
+  }, [search.papel, search.ref, search.anonimo]);
 
   const draft: LetterDraft = {
     fromName: fromName.trim() || "Você",
@@ -101,6 +120,12 @@ function WritePage() {
     fromGeo,
     toGeo,
     affiliateCode,
+    anonymous,
+    scheduled,
+    arriveOn,
+    recipientPhone,
+    recipientEmail,
+    senderPhone,
   };
 
   useEffect(() => {
@@ -118,22 +143,116 @@ function WritePage() {
     fromGeo,
     toGeo,
     affiliateCode,
+    anonymous,
+    scheduled,
+    arriveOn,
+    recipientPhone,
+    recipientEmail,
+    senderPhone,
   ]);
 
+  const routeFrom = fromGeo ?? FALLBACK_FROM;
+  const routeTo = toGeo ?? FALLBACK_TO;
+
   const hoursById = useMemo(() => {
-    const from = fromGeo ?? { lat: -23.55, lng: -46.63 };
-    const to = toGeo ?? { lat: -22.9, lng: -43.17 };
     const map: Partial<Record<string, number>> = {};
     for (const m of MESSENGERS) {
-      map[m.id] = estimateDelivery({ messengerId: m.id, from, to }).hours;
+      map[m.id] = estimateDelivery({ messengerId: m.id, from: routeFrom, to: routeTo }).hours;
     }
     return map;
-  }, [fromGeo, toGeo]);
+  }, [routeFrom, routeTo]);
 
-  const cart = buildCart(designId, messengerId);
+  const arriveLabelById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of MESSENGERS) {
+      const plan = planArrival({
+        messengerId: m.id,
+        from: routeFrom,
+        to: routeTo,
+        arriveOn: scheduled ? arriveOn || null : null,
+      });
+      map[m.id] = plan.fits ? `Chega ${formatArrival(plan.arriveAt)}` : "Não chega nesse dia";
+    }
+    return map;
+  }, [routeFrom, routeTo, scheduled, arriveOn]);
+
+  const cart = buildCart(designId, messengerId, { anonymous });
   const canWrite = pagesPlainText(pages).length > 1;
   const canNames = fromName.trim().length > 1 && toName.trim().length > 1;
   const canAddress = Boolean(fromAddress.cep && toAddress.cep && fromAddress.city && toAddress.city);
+  const deliveryProps = {
+    messengerId,
+    onMessenger: setMessengerId,
+    from: routeFrom,
+    to: routeTo,
+    knownRoute: Boolean(fromGeo && toGeo),
+    anonymous,
+    onAnonymous: setAnonymous,
+    scheduled,
+    onScheduled: setScheduled,
+    arriveOn,
+    onArriveOn: setArriveOn,
+    recipientPhone,
+    onRecipientPhone: setRecipientPhone,
+    recipientEmail,
+    onRecipientEmail: setRecipientEmail,
+    senderPhone,
+    onSenderPhone: setSenderPhone,
+  };
+  const canDeliver = canAddress && deliveryCanContinue(deliveryProps);
+  const blockedMessengers = new Set(
+    scheduled
+      ? MESSENGERS.filter((m) => arriveLabelById[m.id] === "Não chega nesse dia").map((m) => m.id)
+      : [],
+  );
+
+  useEffect(() => {
+    if (!canAddress) return;
+    let cancel = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const [fromHit, toHit] = await Promise.all([
+            geocodeAddress({
+              data: {
+                street: fromAddress.street,
+                number: fromAddress.number,
+                city: fromAddress.city,
+                state: fromAddress.state,
+              },
+            }),
+            geocodeAddress({
+              data: {
+                street: toAddress.street,
+                number: toAddress.number,
+                city: toAddress.city,
+                state: toAddress.state,
+              },
+            }),
+          ]);
+          if (cancel) return;
+          setFromGeo(fromHit);
+          setToGeo(toHit);
+        } catch {
+          /* a estimativa de São Paulo–Rio segue até o mapa responder */
+        }
+      })();
+    }, 700);
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    canAddress,
+    fromAddress.street,
+    fromAddress.number,
+    fromAddress.city,
+    fromAddress.state,
+    toAddress.street,
+    toAddress.number,
+    toAddress.city,
+    toAddress.state,
+  ]);
 
   async function goPay() {
     writeDraft(draft);
@@ -195,7 +314,9 @@ function WritePage() {
       <div className="write-shell min-h-dvh">
         <SiteHeader />
         <main className="write-main mx-auto max-w-lg px-5">
-          <p className="text-xs uppercase tracking-widest text-rose">Nova carta</p>
+          <p className="text-xs uppercase tracking-widest text-rose">
+            {anonymous ? "Nova carta anônima" : "Nova carta"}
+          </p>
           <h1 className="mt-2 font-logo text-4xl italic leading-tight sm:text-5xl">De quem. Para quem.</h1>
           <p className="mt-3 text-muted">
             Esses nomes aparecem no topo da carta, inclusive em tela cheia.
@@ -272,7 +393,13 @@ function WritePage() {
                   <p className="text-sm uppercase tracking-widest text-muted">Mensageiro</p>
                   <h2 className="mt-1 font-display text-3xl">Quem atravessa a cidade.</h2>
                 </div>
-                <MessengerPicker value={messengerId} onChange={setMessengerId} hoursById={hoursById} />
+                <MessengerPicker
+                  value={messengerId}
+                  onChange={setMessengerId}
+                  hoursById={hoursById}
+                  arriveLabelById={arriveLabelById}
+                  disabledIds={blockedMessengers}
+                />
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
@@ -305,6 +432,7 @@ function WritePage() {
                   <AddressFields label="Origem" value={fromAddress} onChange={setFromAddress} />
                   <AddressFields label="Destino" value={toAddress} onChange={setToAddress} />
                 </div>
+                <DeliveryChoices {...deliveryProps} />
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
@@ -315,7 +443,7 @@ function WritePage() {
                   </button>
                   <button
                     type="button"
-                    disabled={!canAddress}
+                    disabled={!canDeliver}
                     onClick={() => void goPay()}
                     className="min-h-11 rounded-full bg-rose px-8 text-paper disabled:opacity-40"
                   >

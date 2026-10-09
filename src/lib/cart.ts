@@ -1,11 +1,12 @@
 import { emptyAddress, type Address } from "./address";
 import { getDesign, type DesignId } from "./designs";
 import { newPage, type LetterPage } from "./pages";
+import { ANONYMOUS_FEE_BRL } from "./delivery";
 import { getMessenger, messengerPhoto, type Geo, type MessengerId } from "./messengers";
 
 export type CartLine = {
   id: string;
-  kind: "paper" | "messenger" | "discount";
+  kind: "paper" | "messenger" | "discount" | "extra";
   title: string;
   detail: string;
   priceBrl: number;
@@ -24,6 +25,12 @@ export type LetterDraft = {
   toGeo?: Geo;
   couponCode?: string;
   affiliateCode?: string;
+  anonymous?: boolean;
+  recipientPhone?: string;
+  recipientEmail?: string;
+  senderPhone?: string;
+  scheduled?: boolean;
+  arriveOn?: string;
 };
 
 const DRAFT_KEY = "cartas-para-o-meu-amor:draft:v2";
@@ -46,13 +53,19 @@ export function emptyDraft(): LetterDraft {
     messengerId: "pigeon",
     fromAddress: emptyAddress(),
     toAddress: emptyAddress(),
+    anonymous: false,
+    recipientPhone: "",
+    recipientEmail: "",
+    senderPhone: "",
+    scheduled: false,
+    arriveOn: "",
   };
 }
 
 export function buildCart(
   designId: DesignId,
   messengerId: MessengerId,
-  opts?: { percent?: number; amountBrl?: number; creditBrl?: number },
+  opts?: { percent?: number; amountBrl?: number; creditBrl?: number; anonymous?: boolean },
 ) {
   const paper = getDesign(designId);
   const messenger = getMessenger(messengerId);
@@ -74,6 +87,16 @@ export function buildCart(
       image: messengerPhoto(messenger.id),
     },
   ];
+  if (opts?.anonymous) {
+    lines.push({
+      id: "anonymous",
+      kind: "extra",
+      title: "Envio anônimo",
+      detail: "O nome não aparece",
+      priceBrl: ANONYMOUS_FEE_BRL,
+      image: "/envelope/seal.png",
+    });
+  }
   let total = lines.reduce((sum, line) => sum + line.priceBrl, 0);
   if (opts?.percent) {
     const cut = Math.round(total * (opts.percent / 100));

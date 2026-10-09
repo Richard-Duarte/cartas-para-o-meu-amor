@@ -3712,3 +3712,232 @@ body.is-placing {
 .person-pin {
   max-width: 16rem;
 }
+
+.anon-section {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  align-items: end;
+  min-height: 34rem;
+  padding: 2.2rem 1.2rem 2.4rem;
+  background: #f3e6d4;
+  border-top: 1px solid var(--color-line);
+}
+
+.anon-film {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 42%;
+  pointer-events: none;
+  background: #f3e6d4;
+}
+
+.anon-section::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgb(243 230 212 / 0.08) 0%,
+    rgb(243 230 212 / 0.2) 42%,
+    rgb(243 230 212 / 0.92) 78%,
+    #f3e6d4 100%
+  );
+}
+
+.anon-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.anon-copy h2 {
+  margin: 0.45rem 0 0;
+  max-width: 12ch;
+  font-family: var(--font-logo);
+  font-size: clamp(2.3rem, 6vw, 3.8rem);
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.anon-copy > p {
+  margin: 1rem 0 0;
+  max-width: 36rem;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+.anon-copy ul {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.anon-copy li {
+  padding-left: 1rem;
+  border-left: 2px solid var(--color-blush);
+  color: var(--color-ink);
+  line-height: 1.45;
+}
+
+.anon-cta {
+  display: inline-flex;
+  min-height: 3.4rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.4rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+  padding: 0 1.6rem;
+  color: var(--color-paper);
+  font-size: 1.05rem;
+  box-shadow: 0 16px 32px rgb(26 20 16 / 0.16);
+}
+
+.anon-cta:active {
+  transform: scale(0.97);
+}
+
+.anon-cta:disabled {
+  cursor: wait;
+}
+
+.delivery-block {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.choice-grid {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.choice-card {
+  min-height: 4.4rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1.1rem;
+  background: var(--color-paper);
+  text-align: left;
+  color: inherit;
+}
+
+.choice-card.is-on {
+  border-color: var(--color-rose);
+  box-shadow: inset 0 0 0 1px var(--color-rose);
+}
+
+.choice-card strong {
+  display: block;
+}
+
+.choice-card span {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.arrival-note {
+  margin: 0;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1.1rem;
+  background: #fff;
+  line-height: 1.5;
+}
+
+.delivery-date {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.delivery-date input {
+  min-height: 2.75rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.85rem;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.messenger-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+@media (max-width: 899px) {
+  .anon-section {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+    padding: 0 0 2.2rem;
+  }
+
+  .anon-film {
+    position: relative;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-position: center;
+  }
+
+  .anon-section::after {
+    display: none;
+  }
+
+  .anon-copy {
+    padding: 1.5rem 1.2rem 0;
+  }
+
+  .anon-cta {
+    width: 100%;
+  }
+}
+
+@media (min-width: 900px) {
+  .anon-section {
+    align-items: center;
+    min-height: 40rem;
+    max-width: none;
+    margin: 0;
+    padding: 4.5rem 6vw 4.5rem;
+  }
+
+  .anon-section::after {
+    background: linear-gradient(
+      90deg,
+      #f3e6d4 0%,
+      rgb(243 230 212 / 0.94) 28%,
+      rgb(243 230 212 / 0.55) 46%,
+      rgb(243 230 212 / 0.05) 68%,
+      transparent 100%
+    );
+  }
+
+  .anon-copy {
+    max-width: 34rem;
+  }
+
+  .choice-grid.two {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+

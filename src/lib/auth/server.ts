@@ -103,10 +103,23 @@ const LOCAL_DEV_ORIGINS: string[] = [
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
 ];
+// Better Auth matches the Host header exactly, and locally that header includes
+// the port (`127.0.0.1:8080`). A host-only pattern misses, so the OAuth
+// redirect_uri falls back to `http://localhost:8080` even when the visitor is
+// on `127.0.0.1`. Google and X then reject the round-trip as an invalid
+// redirect URI, and the state cookie never comes back to the same origin.
+const LOCAL_DEV_HOSTS: string[] = [
+  "localhost",
+  "localhost:8080",
+  "127.0.0.1",
+  "127.0.0.1:8080",
+  "[::1]",
+  "[::1]:8080",
+];
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
   // (not only the preview wildcard).
-  allowedHosts: [...previewAllowedHosts, "localhost", "127.0.0.1", "[::1]"],
+  allowedHosts: [...previewAllowedHosts, ...LOCAL_DEV_HOSTS],
   // `auto` → trust both http:// and https:// expansions of allowedHosts
   // (preview is https; local dev is http).
   protocol: "auto" as const,

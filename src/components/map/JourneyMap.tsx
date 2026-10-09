@@ -4,13 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as LeafletMap, Marker as LeafletMarker, Polyline, TileLayer } from "leaflet";
 import {
   FLIES,
-  formatEta,
   getCity,
   getMessenger,
   messengerGif,
   messengerArrivalGif,
   type Geo,
 } from "@/lib/messengers";
+import { formatArrival } from "@/lib/delivery";
 import { letterProgress, type Letter } from "@/lib/letters";
 import { addressLine } from "@/lib/address";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,11 @@ export function JourneyMap({ letter, onArrived }: Props) {
   const flying = FLIES[letter.messengerId];
   const current = positionOnRoute(from.geo, to.geo, stats.progress, flying);
   const faceRight = facingRight(from.geo, to.geo, stats.progress, flying);
-  const fromLabel = letter.fromAddress?.street ? addressLine(letter.fromAddress) : letter.fromName;
+  const fromLabel = letter.fromAddress?.street
+    ? addressLine(letter.fromAddress)
+    : letter.anonymous
+      ? "Alguém"
+      : letter.fromName;
   const toLabel = letter.toAddress?.street ? addressLine(letter.toAddress) : letter.toName;
 
   useEffect(() => {
@@ -143,7 +147,7 @@ export function JourneyMap({ letter, onArrived }: Props) {
           <StreetMap
             from={from}
             to={to}
-            fromLabel={letter.fromName}
+            fromLabel={letter.anonymous ? "Alguém" : letter.fromName}
             toLabel={letter.toName}
             current={current}
             progress={stats.progress}
@@ -176,9 +180,12 @@ export function JourneyMap({ letter, onArrived }: Props) {
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs uppercase tracking-widest text-muted tabular-nums">
             <span>{stats.km.toFixed(0)} km</span>
             <span>
-              {arrived ? "no destino" : `preview ${Math.ceil(stats.remainingDemoMs / 1000)}s`}
+              {arrived
+                ? "no destino"
+                : stats.waiting
+                  ? `sai ${formatArrival(new Date(stats.departAt))}`
+                  : `chega ${formatArrival(new Date(stats.arriveAt))}`}
             </span>
-            <span>real {formatEta(stats.hours)}</span>
           </div>
           {arrived && (
             <p className="mt-4 rounded-xl bg-paper px-4 py-3 text-sm">{m.arrivalCopy}</p>

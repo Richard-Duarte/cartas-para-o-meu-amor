@@ -5,7 +5,7 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { authClient, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { formatMoney } from "@/lib/cart";
-import { letterFromRecord, letterProgress, type Letter } from "@/lib/letters";
+import { letterFromRecord, letterProgress, shownFromName, type Letter } from "@/lib/letters";
 import { getMessenger } from "@/lib/messengers";
 import { accountAuthKind, saveAccountPassword } from "@/lib/server/account";
 import {
@@ -422,7 +422,7 @@ function MailCard({ letter, tone }: { letter: Letter; tone: "sent" | "received" 
           {tone === "sent" ? "Enviada" : "Recebida"} · {m.name}
         </p>
         <strong>
-          {letter.fromName} → {letter.toName}
+          {shownFromName(letter, tone === "sent" ? "sender" : "public")} → {letter.toName}
         </strong>
         <span>{stats.arrived ? "Chegou" : `A caminho · ${Math.round(stats.progress * 100)}%`}</span>
       </Link>

@@ -15,7 +15,8 @@ import {
   writeDraft,
   type LetterDraft,
 } from "@/lib/cart";
-import { saveLetter, type Letter } from "@/lib/letters";
+import { saveLetter, shownFromName, type Letter } from "@/lib/letters";
+import { formatArrival, planArrival } from "@/lib/delivery";
 import { getMessenger, demoDurationMs } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
 import { applyCoupon as checkCoupon, checkoutLetter, myProfile, spendCredit } from "@/lib/server/shop";
@@ -52,6 +53,7 @@ function PayPage() {
       percent: couponInfo?.percent,
       amountBrl: couponInfo?.amountBrl,
       creditBrl: useCredit ? credit : 0,
+      anonymous: draft.anonymous,
     });
   }, [draft, couponInfo, credit, useCredit]);
 
@@ -61,7 +63,22 @@ function PayPage() {
     setError("");
     await new Promise((r) => window.setTimeout(r, 900));
     const body = pagesPlainText(draft.pages) || "…";
+    const from = draft.fromGeo ?? { lat: -23.55, lng: -46.63 };
+    const to = draft.toGeo ?? { lat: -22.9, lng: -43.17 };
+    const plan = planArrival({
+      messengerId: draft.messengerId,
+      from,
+      to,
+      arriveOn: draft.scheduled ? draft.arriveOn || null : null,
+    });
+    if (draft.scheduled && !plan.fits) {
+      setBusy(false);
+      setError("Esse mensageiro não chega na data escolhida.");
+      return;
+    }
     let id: string | undefined;
+    let linkSent = false;
+    let notice: Letter["notice"];
     try {
       const saved = await Promise.race([
         checkoutLetter({
@@ -80,6 +97,13 @@ function PayPage() {
             affiliateCode: draft.affiliateCode,
             demoDurationMs: demoDurationMs(getMessenger(draft.messengerId).speedKmh),
             method,
+            anonymous: Boolean(draft.anonymous),
+            scheduled: Boolean(draft.scheduled),
+            arriveOn: draft.arriveOn,
+            recipientPhone: draft.recipientPhone,
+            recipientEmail: draft.recipientEmail,
+            senderPhone: draft.senderPhone,
+            origin: window.location.origin,
           },
         }),
         new Promise<never>((_, reject) =>
@@ -87,10 +111,17 @@ function PayPage() {
         ),
       ]);
       id = saved.id;
+      linkSent = saved.linkSent;
+      notice = saved.notice;
       const spent = cart.lines.find((l) => l.id === "credit");
       if (spent && spent.priceBrl < 0) await spendCredit({ data: Math.abs(spent.priceBrl) });
-    } catch {
-      /* local letter still tracks in this preview */
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message.includes("mensageiro")) {
+        setBusy(false);
+        setError("Esse mensageiro não chega na data escolhida.");
+        return;
+      }
     }
     const letter = saveLetter({
       id,
@@ -110,6 +141,15 @@ function PayPage() {
       paidMethod: method,
       couponCode: couponInfo?.code,
       affiliateCode: draft.affiliateCode,
+      anonymous: draft.anonymous,
+      scheduled: draft.scheduled,
+      departAt: plan.departAt.getTime(),
+      arriveAt: plan.arriveAt.getTime(),
+      recipientPhone: draft.recipientPhone,
+      recipientEmail: draft.recipientEmail,
+      senderPhone: draft.senderPhone,
+      linkSent,
+      notice: notice ?? (plan.instant ? "instant" : "queued"),
     });
     clearDraft();
     setBusy(false);
@@ -147,6 +187,13 @@ function PayPage() {
     );
   }
 
+  const arrival = planArrival({
+    messengerId: draft.messengerId,
+    from: draft.fromGeo ?? { lat: -23.55, lng: -46.63 },
+    to: draft.toGeo ?? { lat: -22.9, lng: -43.17 },
+    arriveOn: draft.scheduled ? draft.arriveOn || null : null,
+  });
+
   return (
     <div className="min-h-dvh">
       <SiteHeader />
@@ -159,10 +206,17 @@ function PayPage() {
             <br />
             {addressLine(draft.toAddress) || "Destino"}
           </p>
+          <p className="mt-2 max-w-xl">
+            {getMessenger(draft.messengerId).name} chega {formatArrival(arrival.arriveAt)}.{" "}
+            {draft.anonymous ? "O nome não vai na carta." : "O nome vai na carta."}{" "}
+            {arrival.instant
+              ? "Viagem curta: sem aviso de chegada."
+              : "Quando estiver perto, o aviso sai por e-mail e WhatsApp, para você e para quem recebe."}
+          </p>
           <div className="mt-8">
             <LetterSheet
               designId={draft.designId}
-              fromName={draft.fromName}
+              fromName={shownFromName({ fromName: draft.fromName, anonymous: draft.anonymous }, "public")}
               toName={draft.toName}
               body={pagesPlainText(draft.pages)}
               pages={draft.pages}
@@ -200,13 +254,13 @@ function PayPage() {
               Usar {credit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de crédito
             </label>
           ) : null}
-          {cart.total <= 0 ? (
-            <button type="button" className="pay-submit" onClick={() => void pay("credit")} disabled={busy}>
-              {busy ? "Enviando…" : "Enviar com crédito"}
-            </button>
-          ) : (
+          <button type="button" className="pay-submit" onClick={() => void pay("teste")} disabled={busy}>
+            {busy ? "Enviando…" : "Continuar"}
+          </button>
+          <p className="pay-fine">Teste: a carta segue sem PIX nem cartão.</p>
+          {cart.total > 0 ? (
             <CheckoutForm total={cart.total} busy={busy} onPay={(m) => void pay(m)} />
-          )}
+          ) : null}
           {error ? <p className="mt-3 text-sm text-rose">{error}</p> : null}
         </div>
       </main>
