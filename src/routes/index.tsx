@@ -41,26 +41,3 @@ function Home() {
     </div>
   );
 }
-        <MessengerMarquee />
-        <StoryFilm />
-        <RitualSteps />
-        <div id="mensageiros">
-          <MessengerShowcase />
-        </div>
-        <ClotheslineSection className="border-y border-line bg-paper/50" />
-        <section className="closing-cta">
-          <p className="section-kicker">Agora</p>
-          <h2>A saudade tem endereço. A carta também.</h2>
-          <p>
-            Escreva hoje. Escolha o bicho. Deixe o mapa contar o resto — até pousar
-            nas mãos certas.
-          </p>
-          <Link to="/escrever" className="closing-cta-btn">
-            Escrever uma carta
-          </Link>
-        </section>
-      </main>
-      <SiteFooter />
-    </div>
-  );
-}
