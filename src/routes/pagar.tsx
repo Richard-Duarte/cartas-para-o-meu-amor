@@ -153,7 +153,7 @@ function PayPage() {
       <main className="checkout">
         <div>
           <p className="text-xs uppercase tracking-widest text-rose">Passo 5</p>
-          <h1 className="mt-2 font-logo text-5xl italic leading-tight">O lacre antes da viagem.</h1>
+          <h1 className="mt-2 font-logo text-4xl italic leading-tight sm:text-5xl">O lacre antes da viagem.</h1>
           <p className="mt-3 max-w-xl text-muted">
             {addressLine(draft.fromAddress) || "Origem"}
             <br />

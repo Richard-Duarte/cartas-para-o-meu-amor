@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { RedirectToSignIn } from "@/lib/auth/gates";
-import { authClient } from "@/lib/auth/client";
+import { authClient, signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { formatMoney } from "@/lib/cart";
 import { letterFromRecord, letterProgress, type Letter } from "@/lib/letters";
@@ -27,6 +27,8 @@ function AccountPage() {
   const [sent, setSent] = useState<Letter[]>([]);
   const [received, setReceived] = useState<Letter[]>([]);
   const [payouts, setPayouts] = useState<Awaited<ReturnType<typeof myPayouts>>>([]);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -69,7 +71,7 @@ function AccountPage() {
       <SiteHeader />
       <main className="mx-auto max-w-2xl px-5 py-16">
         <p className="text-xs uppercase tracking-widest text-rose">Minha conta</p>
-        <h1 className="mt-2 font-logo text-5xl italic">Sua caixa de cartas.</h1>
+        <h1 className="mt-2 font-logo text-4xl italic sm:text-5xl">Sua caixa de cartas.</h1>
         <p className="mt-3 text-muted">
           Enviadas, recebidas, e o crédito de quem chega pelo seu convite.
         </p>
@@ -79,6 +81,23 @@ function AccountPage() {
           email={user.primaryEmail}
           image={user.profileImageUrl}
         />
+
+        <button
+          type="button"
+          className="sign-out-btn"
+          disabled={signingOut}
+          onClick={() => {
+            setSigningOut(true);
+            setSignOutError("");
+            void signOut("/").catch(() => {
+              setSigningOut(false);
+              setSignOutError("Não foi possível sair. Tente de novo.");
+            });
+          }}
+        >
+          {signingOut ? "Saindo…" : "Sair"}
+        </button>
+        {signOutError ? <p className="mt-2 text-sm text-rose">{signOutError}</p> : null}
 
         <section className="mt-10">
           <h2 className="font-display text-2xl">Enviadas</h2>

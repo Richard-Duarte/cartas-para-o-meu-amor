@@ -38,7 +38,7 @@ function Login() {
       <SiteHeader />
       <main className="mx-auto grid max-w-md gap-6 px-5 py-16">
         <p className="text-xs uppercase tracking-widest text-rose">Conta</p>
-        <h1 className="font-logo text-5xl italic">Entre para lacrar a carta.</h1>
+        <h1 className="font-logo text-4xl italic sm:text-5xl">Entre para lacrar a carta.</h1>
         <p className="text-muted">
           Quem recebe também entra para acompanhar. O histórico fica na sua conta.
         </p>

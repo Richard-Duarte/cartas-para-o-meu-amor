@@ -616,7 +616,7 @@ function AdminLogin({ onOk }: { onOk: () => void }) {
   return (
     <main className="mx-auto max-w-sm px-5 py-16">
       <p className="text-xs uppercase tracking-widest text-rose">Administração</p>
-      <h1 className="mt-2 font-logo text-5xl italic">O escritório.</h1>
+      <h1 className="mt-2 font-logo text-4xl italic sm:text-5xl">O escritório.</h1>
       <form
         className="pay-card-form mt-8"
         onSubmit={(e) => {

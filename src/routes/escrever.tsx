@@ -196,7 +196,7 @@ function WritePage() {
         <SiteHeader />
         <main className="write-main mx-auto max-w-lg px-5">
           <p className="text-xs uppercase tracking-widest text-rose">Nova carta</p>
-          <h1 className="mt-2 font-logo text-5xl italic leading-tight">De quem. Para quem.</h1>
+          <h1 className="mt-2 font-logo text-4xl italic leading-tight sm:text-5xl">De quem. Para quem.</h1>
           <p className="mt-3 text-muted">
             Esses nomes aparecem no topo da carta, inclusive em tela cheia.
           </p>

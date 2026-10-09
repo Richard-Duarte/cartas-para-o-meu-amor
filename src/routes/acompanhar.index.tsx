@@ -48,7 +48,7 @@ function TrackInbox() {
       <SiteHeader />
       <main className="mx-auto max-w-2xl px-5 py-12">
         <p className="text-xs uppercase tracking-widest text-rose">Acompanhar</p>
-        <h1 className="mt-2 font-logo text-5xl italic leading-tight">Cartas no ar.</h1>
+        <h1 className="mt-2 font-logo text-4xl italic leading-tight sm:text-5xl">Cartas no ar.</h1>
         <p className="mt-3 max-w-lg text-muted">
           O mapa só abre o que é seu — enviadas por você ou recebidas no seu nome.
         </p>

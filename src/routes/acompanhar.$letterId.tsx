@@ -147,10 +147,10 @@ function TrackView({
       <SiteHeader />
       <main className="mx-auto max-w-5xl px-5 py-10">
         <p className="text-xs uppercase tracking-widest text-rose">Acompanhar</p>
-        <h1 className="mt-2 font-display text-4xl">
+        <h1 className="mt-2 break-words font-display text-3xl sm:text-4xl">
           {letter.fromName} → {letter.toName}
         </h1>
-        <p className="mt-2 text-muted">
+        <p className="mt-2 break-words text-muted">
           {letter.fromAddress?.street ? addressLine(letter.fromAddress) : from.name}
           {" → "}
           {letter.toAddress?.street ? addressLine(letter.toAddress) : to.name}
