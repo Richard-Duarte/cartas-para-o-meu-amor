@@ -9,7 +9,6 @@ import {
   dispatchDueNotices,
   dispatchLetterNotice,
   safeOrigin,
-  sendAnonymousLink,
   type NoticeState,
 } from "@/lib/server/notices";
 import type { Geo } from "@/lib/messengers";
@@ -193,13 +192,15 @@ export const checkoutLetter = createServerFn({ method: "POST" })
     if (data.scheduled && !plan.fits) {
       throw new Error("Esse mensageiro não chega na data escolhida.");
     }
+    await sql`alter table profiles add column if not exists phone text`;
     const authUser = await sql<{ email: string }>`
       select email from "user" where id = ${context.userId} limit 1
     `;
+    const profile = await sql<{ phone: string | null }>`
+      select phone from profiles where user_id = ${context.userId} limit 1
+    `;
     const senderEmail = cleanEmail(authUser[0]?.email ?? "") ?? "";
-    const recipientPhone = whatsAppNumber(data.recipientPhone ?? "") ?? "";
-    const senderPhone = whatsAppNumber(data.senderPhone ?? "") ?? "";
-    const recipientEmail = cleanEmail(data.recipientEmail ?? "") ?? "";
+    const senderPhone = whatsAppNumber(profile[0]?.phone ?? "") ?? "";
     const origin = safeOrigin(data.origin);
     const anonymous = Boolean(data.anonymous);
     await sql`
@@ -214,7 +215,7 @@ export const checkoutLetter = createServerFn({ method: "POST" })
         ${data.templateId}, ${data.messengerId}, ${data.fromAddressJson}, ${data.toAddressJson},
         ${data.fromGeoJson}, ${data.toGeoJson}, ${data.paidBrl}, ${data.couponCode ?? null},
         ${data.affiliateCode ?? null}, ${data.demoDurationMs},
-        ${anonymous}, ${Boolean(data.scheduled)}, ${recipientPhone || null}, ${recipientEmail || null},
+        ${anonymous}, ${Boolean(data.scheduled)}, ${null}, ${null},
         ${senderPhone || null}, ${senderEmail || null}, ${origin},
         ${plan.departAt.toISOString()}, ${plan.arriveAt.toISOString()}
       )
@@ -251,18 +252,7 @@ export const checkoutLetter = createServerFn({ method: "POST" })
     if (data.paidBrl === 0) {
       await sql`update profiles set credit_brl = greatest(credit_brl - 0, credit_brl) where user_id = ${context.userId}`;
     }
-    let linkSent = false;
-    if (anonymous && recipientPhone) {
-      const sent = await sendAnonymousLink({
-        id,
-        toName: data.toName,
-        phone: recipientPhone,
-        origin,
-        when: formatArrival(plan.arriveAt),
-        instant: plan.instant,
-      });
-      linkSent = sent.ok;
-    }
+    const linkSent = false;
     let notice: NoticeState = plan.instant ? "instant" : "queued";
     if (!plan.instant) {
       const at = approachNoticeAt(new Date(), plan.departAt, plan.arriveAt);
@@ -697,6 +687,25 @@ export const openSharedLetter = createServerFn({ method: "POST" })
       await sql`update letters set recipient_user_id = ${context.userId} where id = ${id} and recipient_user_id is null`;
       row.recipient_user_id = context.userId;
       role = "recipient";
+    }
+    if (role === "recipient" && row.user_id !== context.userId) {
+      await sql`alter table profiles add column if not exists phone text`;
+      const authUser = await sql<{ email: string }>`
+        select email from "user" where id = ${context.userId} limit 1
+      `;
+      const profile = await sql<{ phone: string | null }>`
+        select phone from profiles where user_id = ${context.userId} limit 1
+      `;
+      const email = cleanEmail(authUser[0]?.email ?? "");
+      const phone = whatsAppNumber(profile[0]?.phone ?? "");
+      if (email || phone) {
+        await sql`
+          update letters
+          set recipient_email = coalesce(${email}, recipient_email),
+              recipient_phone = coalesce(${phone}, recipient_phone)
+          where id = ${id} and recipient_user_id = ${context.userId}
+        `;
+      }
     }
     if (role === "recipient" && row.anonymous && row.user_id !== context.userId) {
       try {

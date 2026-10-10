@@ -73,10 +73,6 @@ function WritePage() {
   const [anonymous, setAnonymous] = useState(false);
   const [scheduled, setScheduled] = useState(false);
   const [arriveOn, setArriveOn] = useState("");
-  const [recipientPhone, setRecipientPhone] = useState("");
-  const [recipientEmail, setRecipientEmail] = useState("");
-  const [senderPhone, setSenderPhone] = useState("");
-
   useEffect(() => {
     void bootCatalog().then(() => {
       const draft = readDraft();
@@ -95,9 +91,6 @@ function WritePage() {
         setAnonymous(search.anonimo === "1");
         setScheduled(false);
         setArriveOn(draft.arriveOn ?? "");
-        setRecipientPhone(draft.recipientPhone ?? "");
-        setRecipientEmail(draft.recipientEmail ?? "");
-        setSenderPhone(draft.senderPhone ?? "");
       } else if (fromUrl) {
         setDesignId(fromUrl.id);
         if (search.ref) setAffiliateCode(search.ref);
@@ -123,9 +116,6 @@ function WritePage() {
     anonymous,
     scheduled,
     arriveOn,
-    recipientPhone,
-    recipientEmail,
-    senderPhone,
   };
 
   useEffect(() => {
@@ -146,9 +136,6 @@ function WritePage() {
     anonymous,
     scheduled,
     arriveOn,
-    recipientPhone,
-    recipientEmail,
-    senderPhone,
   ]);
 
   const routeFrom = fromGeo ?? FALLBACK_FROM;
@@ -192,12 +179,6 @@ function WritePage() {
     onScheduled: setScheduled,
     arriveOn,
     onArriveOn: setArriveOn,
-    recipientPhone,
-    onRecipientPhone: setRecipientPhone,
-    recipientEmail,
-    onRecipientEmail: setRecipientEmail,
-    senderPhone,
-    onSenderPhone: setSenderPhone,
   };
   const canDeliver = canAddress && deliveryCanContinue(deliveryProps);
   const blockedMessengers = new Set(

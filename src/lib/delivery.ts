@@ -152,17 +152,9 @@ export function cleanEmail(raw: string) {
   return v;
 }
 
-export function contactsReady(opts: {
-  anonymous: boolean;
-  instant: boolean;
-  recipientPhone: string;
-  recipientEmail: string;
-  senderPhone: string;
-}) {
-  const recipientPhone = whatsAppNumber(opts.recipientPhone);
-  if (opts.anonymous && !recipientPhone) return false;
-  if (opts.instant) return true;
-  return Boolean(recipientPhone && whatsAppNumber(opts.senderPhone) && cleanEmail(opts.recipientEmail));
+/** E-mail e WhatsApp saem da conta de quem está logado, não do formulário. */
+export function contactsReady() {
+  return true;
 }
 
 export function anonymousLinkCopy(opts: {

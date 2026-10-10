@@ -37,9 +37,11 @@ export const LetterSheet = forwardRef<HTMLDivElement, Props>(function LetterShee
           key={page?.id ?? "body"}
           data-letter-page={i + 1}
           className={cn("letter-sheet", design.ink === "light" && "is-light")}
-          style={{ fontFamily: design.fontFamily }}
+          style={{
+            fontFamily: design.fontFamily,
+            backgroundImage: `url(${design.src})`,
+          }}
         >
-          <img src={design.src} alt="" className="letter-sheet-bg" />
           <div className="letter-sheet-inner">
             <p className="letter-sheet-meta">
               De {fromName || "Você"}
@@ -50,22 +52,25 @@ export const LetterSheet = forwardRef<HTMLDivElement, Props>(function LetterShee
             {page ? (
               <div className="letter-sheet-stage">
                 {page.blocks.map((b) =>
-                  b.kind === "sticker" || b.src ? (
+                  b.kind === "sticker" && b.src ? (
                     <img
                       key={b.id}
                       src={b.src}
                       alt=""
-                      className="letter-sheet-abs"
+                      className="letter-sheet-abs letter-sheet-sticker"
                       style={{
                         left: `${b.x}%`,
                         top: `${b.y}%`,
-                        width: `${b.w}%`,
-                        height: `${b.h}%`,
+                        width: `${Math.max(b.w, 8)}%`,
+                        height: `${Math.max(b.h, 8)}%`,
                         objectFit: "contain",
                         transform: `scaleX(${b.flipX ? -1 : 1})`,
                       }}
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none";
+                      }}
                     />
-                  ) : (
+                  ) : b.kind === "sticker" ? null : (
                     <p
                       key={b.id}
                       className="letter-sheet-abs"

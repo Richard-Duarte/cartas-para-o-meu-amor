@@ -11,6 +11,7 @@ import { getCity, getMessenger } from "@/lib/messengers";
 import { addressLine } from "@/lib/address";
 import { LetterReply } from "@/components/letters/LetterReply";
 import { openSharedLetter } from "@/lib/server/shop";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/acompanhar/$letterId")({
   component: TrackPage,
@@ -203,17 +204,17 @@ function TrackView({
           </button>
         )}
 
-        <div className="mt-8">
+        <div className={cn("mt-8", showLetter && "letter-arrive")}>
           {showLetter ? (
             <LetterSheet
               ref={sheetRef}
-              designId={letter.designId ?? "classico"}
-              fromName={shownFromName(letter, "public")}
-              toName={letter.toName}
-              body={letter.body}
-              pages={letter.pages}
-              kind={letter.kind}
-              drawingDataUrl={letter.drawingDataUrl}
+              designId={liveLetter.designId ?? "classico"}
+              fromName={shownFromName(liveLetter, "public")}
+              toName={liveLetter.toName}
+              body={liveLetter.body}
+              pages={liveLetter.pages}
+              kind={liveLetter.kind}
+              drawingDataUrl={liveLetter.drawingDataUrl}
               className="mx-auto max-w-md"
             />
           ) : (

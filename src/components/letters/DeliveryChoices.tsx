@@ -26,12 +26,6 @@ type Props = {
   onScheduled: (value: boolean) => void;
   arriveOn: string;
   onArriveOn: (value: string) => void;
-  recipientPhone: string;
-  onRecipientPhone: (value: string) => void;
-  recipientEmail: string;
-  onRecipientEmail: (value: string) => void;
-  senderPhone: string;
-  onSenderPhone: (value: string) => void;
 };
 
 export function DeliveryChoices(props: Props) {
@@ -46,13 +40,7 @@ export function DeliveryChoices(props: Props) {
     now,
     arriveOn: day,
   });
-  const ready = contactsReady({
-    anonymous: props.anonymous,
-    instant: plan.instant,
-    recipientPhone: props.recipientPhone,
-    recipientEmail: props.recipientEmail,
-    senderPhone: props.senderPhone,
-  });
+  const ready = contactsReady();
 
   const blocked = new Set<string>();
   for (const item of MESSENGERS) {
@@ -128,66 +116,19 @@ export function DeliveryChoices(props: Props) {
           onClick={() => props.onAnonymous(true)}
         >
           <strong>Anônimo · {formatBrl(getAnonymousFee())}</strong>
-          <span>Entregamos a carta via WhatsApp para você sem o nome.</span>
+          <span>Quem abre entra na conta e não vê o seu nome.</span>
         </button>
       </div>
 
-      {plan.instant ? (
-        props.anonymous ? (
-          <p className="arrival-note">O link da carta, sem o seu nome, vai no WhatsApp de quem recebe.</p>
-        ) : null
-      ) : (
-        <p className="arrival-note">
-          Quando estiver perto, avisamos você e quem recebe, por e-mail e por WhatsApp.
-        </p>
-      )}
-
-      {props.anonymous || !plan.instant ? (
-        <div className="pay-card-form">
-          {props.anonymous || !plan.instant ? (
-            <label>
-              WhatsApp de quem recebe
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder="(11) 98888-7777"
-                value={props.recipientPhone}
-                onChange={(e) => props.onRecipientPhone(e.target.value)}
-              />
-            </label>
-          ) : null}
-          {!plan.instant ? (
-            <>
-              <label>
-                E-mail de quem recebe
-                <input
-                  type="email"
-                  autoComplete="email"
-                  placeholder="amor@email.com"
-                  value={props.recipientEmail}
-                  onChange={(e) => props.onRecipientEmail(e.target.value)}
-                />
-              </label>
-              <label>
-                Seu WhatsApp
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="(11) 97777-6666"
-                  value={props.senderPhone}
-                  onChange={(e) => props.onSenderPhone(e.target.value)}
-                />
-              </label>
-            </>
-          ) : null}
-        </div>
-      ) : null}
+      <p className="arrival-note">
+        {plan.instant
+          ? "Quem abrir o link entra na conta. E-mail e WhatsApp saem desse login."
+          : "Quando estiver perto, o aviso usa o e-mail e o WhatsApp da conta de quem enviou e de quem abriu o link."}
+      </p>
 
       {!plan.fits ? <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia.</p> : null}
       {plan.fits && !ready ? (
-        <p className="text-sm text-rose">Falta o contato para avisar, ou o WhatsApp de quem recebe.</p>
+        <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia.</p>
       ) : null}
     </div>
   );
@@ -200,16 +141,7 @@ export function deliveryCanContinue(opts: Props) {
     to: opts.to,
     arriveOn: opts.scheduled ? opts.arriveOn || earliestDay(opts.from, opts.to) : null,
   });
-  return (
-    plan.fits &&
-    contactsReady({
-      anonymous: opts.anonymous,
-      instant: plan.instant,
-      recipientPhone: opts.recipientPhone,
-      recipientEmail: opts.recipientEmail,
-      senderPhone: opts.senderPhone,
-    })
-  );
+  return plan.fits && contactsReady();
 }
 
 export { dayKey };
