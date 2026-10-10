@@ -3,7 +3,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { LogoMark } from "@/components/layout/LogoMark";
+import { NoticeBell } from "@/components/layout/NoticeBell";
+import { signOut } from "@/lib/auth/client";
 import { SignedIn, SignedOut } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
@@ -15,8 +18,11 @@ type Props = {
 export function SiteHeader({ className }: Props) {
   const { user, isPending } = useCurrentUserState();
   const [open, setOpen] = useState(false);
+  const [noticesOpen, setNoticesOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const lastY = useRef(0);
   const ghost = className?.includes("is-ghost");
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -24,9 +30,25 @@ export function SiteHeader({ className }: Props) {
   const initial = (user?.displayName || user?.primaryEmail || "A").charAt(0).toUpperCase();
 
   useEffect(() => {
-    document.body.classList.toggle("nav-open", open);
-    return () => document.body.classList.remove("nav-open");
+    setMounted(true);
+  }, []);
+
+  function leave(to: string) {
+    if (leaving) return;
+    setLeaving(true);
+    void signOut(to).catch(() => setLeaving(false));
+  }
+
+  useEffect(() => {
+    if (open) document.body.classList.add("nav-open");
+    else {
+      const timer = window.setTimeout(() => document.body.classList.remove("nav-open"), 680);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
   }, [open]);
+
+  useEffect(() => () => document.body.classList.remove("nav-open"), []);
 
   useEffect(() => {
     lastY.current = window.scrollY;
@@ -36,7 +58,7 @@ export function SiteHeader({ className }: Props) {
       const y = window.scrollY;
       if (ghost) setScrolled(y > 8);
       const marquee = document.querySelector(".marquee");
-      if (open || !marquee) {
+      if (open || noticesOpen || !marquee) {
         setHidden(false);
         lastY.current = y;
         return;
@@ -56,7 +78,7 @@ export function SiteHeader({ className }: Props) {
     window.addEventListener("scroll", onScroll, { passive: true });
     update();
     return () => window.removeEventListener("scroll", onScroll);
-  }, [ghost, open]);
+  }, [ghost, open, noticesOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -110,30 +132,55 @@ export function SiteHeader({ className }: Props) {
                 Escrever
               </Link>
             ) : null}
+            <SignedIn>
+              <NoticeBell
+                open={noticesOpen}
+                onOpenChange={(next) => {
+                  setNoticesOpen(next);
+                  if (next) setOpen(false);
+                }}
+              />
+            </SignedIn>
             <button
               type="button"
               className="site-header-burger"
               aria-expanded={open}
               aria-controls="site-menu"
               aria-label={open ? "Fechar menu" : "Abrir menu"}
-              onClick={() => setOpen((v) => !v)}
+              onClick={() => {
+                setNoticesOpen(false);
+                setOpen((v) => !v);
+              }}
             >
-              {open ? <X size={22} /> : <Menu size={22} />}
+              <span className={cn("site-header-burger-icon", open && "is-open")}>
+                {open ? <X size={22} /> : <Menu size={22} />}
+              </span>
             </button>
           </nav>
         </div>
       </header>
+      {mounted
+        ? createPortal(
       <nav
         id="site-menu"
         className={cn("site-menu", open && "is-open", ghost && !scrolled && "is-ghost-menu")}
         aria-hidden={!open}
         aria-label="Menu"
       >
+        <button
+          type="button"
+          className="site-menu-close"
+          style={{ "--i": 0 } as CSSProperties}
+          onClick={() => setOpen(false)}
+        >
+          <X size={18} />
+          Fechar
+        </button>
         {user ? (
+          <div className="site-menu-identity" style={{ "--i": 0 } as CSSProperties}>
           <Link
             to="/conta"
             className="site-menu-heart"
-            style={{ "--i": 0 } as CSSProperties}
             onClick={() => setOpen(false)}
             aria-label="Minha conta"
           >
@@ -152,6 +199,8 @@ export function SiteHeader({ className }: Props) {
               />
             </svg>
           </Link>
+          <p className="site-menu-name">{user.displayName || user.primaryEmail}</p>
+          </div>
         ) : null}
         <Link to="/" hash="mensageiros" style={{ "--i": 1 } as CSSProperties} onClick={() => setOpen(false)}>
           Mensageiros
@@ -178,8 +227,29 @@ export function SiteHeader({ className }: Props) {
           <Link to="/conta" style={{ "--i": 3 } as CSSProperties} onClick={() => setOpen(false)}>
             Minha conta
           </Link>
+          <button
+            type="button"
+            className="site-menu-link"
+            style={{ "--i": 4 } as CSSProperties}
+            disabled={leaving}
+            onClick={() => leave("/login")}
+          >
+            Trocar conta
+          </button>
+          <button
+            type="button"
+            className="site-menu-link"
+            style={{ "--i": 5 } as CSSProperties}
+            disabled={leaving}
+            onClick={() => leave("/")}
+          >
+            Sair
+          </button>
         </SignedIn>
-      </nav>
+      </nav>,
+      document.body,
+    )
+        : null}
     </>
   );
 }

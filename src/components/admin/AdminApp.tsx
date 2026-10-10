@@ -25,9 +25,10 @@ import {
   saveMessenger,
   saveTemplate,
 } from "@/lib/server/shop";
+import { adminListNotices, adminPublishNotice } from "@/lib/server/notifications";
 import { cn } from "@/lib/utils";
 
-type Tab = "painel" | "usuarios" | "templates" | "mensageiros" | "cupons" | "afiliados" | "senha";
+type Tab = "painel" | "usuarios" | "templates" | "mensageiros" | "cupons" | "afiliados" | "avisos" | "senha";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "painel", label: "Painel" },
@@ -36,6 +37,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "mensageiros", label: "Mensageiros" },
   { id: "cupons", label: "Cupons" },
   { id: "afiliados", label: "Afiliados" },
+  { id: "avisos", label: "Avisos" },
   { id: "senha", label: "Senha" },
 ];
 
@@ -92,6 +94,7 @@ export function AdminApp() {
         {tab === "mensageiros" ? <Messengers /> : null}
         {tab === "cupons" ? <Coupons /> : null}
         {tab === "afiliados" ? <Affiliates /> : null}
+        {tab === "avisos" ? <Notices /> : null}
         {tab === "senha" ? <PasswordPanel /> : null}
       </section>
     </div>
@@ -538,10 +541,16 @@ function Affiliates() {
   const [payouts, setPayouts] = useState<Awaited<ReturnType<typeof listPayouts>>>([]);
   const [percent, setPercent] = useState(10);
   const [msg, setMsg] = useState("");
+  const [anonFee, setAnonFee] = useState(9.9);
   useEffect(() => {
     void listAffiliates().then(setRows).catch(() => setRows([]));
     void listPayouts().then(setPayouts).catch(() => setPayouts([]));
-    void getSettings().then((st) => setPercent(st.affiliatePercent)).catch(() => {});
+    void getSettings()
+      .then((st) => {
+        setPercent(st.affiliatePercent);
+        if (Number.isFinite(st.anonymousFee)) setAnonFee(st.anonymousFee);
+      })
+      .catch(() => {});
   }, []);
   return (
     <div>
@@ -582,14 +591,27 @@ function Affiliates() {
         className="pay-card-form mb-6 mt-10 max-w-sm"
         onSubmit={(e) => {
           e.preventDefault();
-          void saveSettings({ data: { affiliatePercent: percent } }).then(() => setMsg("Porcentagem salva."));
+          void saveSettings({ data: { affiliatePercent: percent, anonymousFee: anonFee } }).then(
+            () => setMsg("Preços salvos."),
+          );
         }}
       >
         <label>
           Porcentagem a pagar
           <input type="number" min={0} max={80} value={percent} onChange={(e) => setPercent(Number(e.target.value))} />
         </label>
-        <button className="pay-submit" type="submit">Salvar comissão</button>
+        <label>
+          Carta anônima (R$)
+          <input
+            type="number"
+            min={0}
+            max={999}
+            step={0.01}
+            value={anonFee}
+            onChange={(e) => setAnonFee(Number(e.target.value))}
+          />
+        </label>
+        <button className="pay-submit" type="submit">Salvar preços</button>
         {msg ? <p className="text-sm text-muted">{msg}</p> : null}
       </form>
       <h3 className="font-display text-2xl">Todos os afiliados</h3>
@@ -601,6 +623,75 @@ function Affiliates() {
               {a.affiliate_code} · {a.events} indicações · crédito {formatMoney(a.credit_brl)} · saldo{" "}
               {formatMoney(a.payable_brl ?? 0)}
             </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Notices() {
+  const [rows, setRows] = useState<Awaited<ReturnType<typeof adminListNotices>>>([]);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [kind, setKind] = useState<"platform" | "update">("platform");
+  const [msg, setMsg] = useState("");
+
+  function reload() {
+    void adminListNotices().then(setRows).catch(() => setRows([]));
+  }
+
+  useEffect(() => {
+    reload();
+  }, []);
+
+  return (
+    <div>
+      <h2>Avisos</h2>
+      <p className="mb-4 text-muted">
+        Um aviso da plataforma ou uma atualização cai no sininho de cada conta. O clique só marca como lido.
+      </p>
+      <form
+        className="pay-card-form max-w-md"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setMsg("");
+          void adminPublishNotice({ data: { title, body, kind } })
+            .then(() => {
+              setTitle("");
+              setBody("");
+              setMsg("Publicado. Entra no sininho na próxima abertura.");
+              reload();
+            })
+            .catch(() => setMsg("Não foi possível publicar."));
+        }}
+      >
+        <label>
+          Título
+          <input value={title} onChange={(event) => setTitle(event.target.value)} required maxLength={80} />
+        </label>
+        <label>
+          Texto
+          <input value={body} onChange={(event) => setBody(event.target.value)} maxLength={400} />
+        </label>
+        <label>
+          Tipo
+          <select value={kind} onChange={(event) => setKind(event.target.value === "update" ? "update" : "platform")}>
+            <option value="platform">Aviso da plataforma</option>
+            <option value="update">Atualização</option>
+          </select>
+        </label>
+        <button className="pay-submit" type="submit">
+          Publicar
+        </button>
+        {msg ? <p className="text-sm text-muted">{msg}</p> : null}
+      </form>
+      <ul className="mt-6 grid gap-2">
+        {rows.map((row) => (
+          <li key={row.id} className="rounded-xl border border-line bg-paper px-4 py-3">
+            <p className="cart-kicker">{row.kind === "update" ? "Atualização" : "Aviso"}</p>
+            <strong>{row.title}</strong>
+            {row.body ? <p className="text-sm text-muted">{row.body}</p> : null}
           </li>
         ))}
       </ul>

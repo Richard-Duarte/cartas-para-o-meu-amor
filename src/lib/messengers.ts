@@ -189,8 +189,7 @@ export function messengerPreview(id: MessengerId) {
 }
 
 export function messengerGif(id: MessengerId) {
-  const m = MESSENGERS.find((x) => x.id === id);
-  return m?.mapSrc || `/messengers/${id}.webp`;
+  return `/messengers/${id}.gif`;
 }
 
 export function messengerArrivalGif(id: MessengerId) {

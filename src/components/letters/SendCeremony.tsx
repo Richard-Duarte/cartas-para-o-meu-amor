@@ -15,19 +15,28 @@ type Props = {
 
 export function SendCeremony({ letter }: Props) {
   const [phase, setPhase] = useState<Phase>("open");
-  const [modal, setModal] = useState(false);
+  const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [tilt, setTilt] = useState({ x: 2, y: 0 });
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Abra o envelope: ${url}`)}`;
   const pages = letter.pages?.[0] ? [letter.pages[0]] : letter.pages;
 
-  function send() {
-    if (phase !== "open") return;
-    setPhase("slide");
-    window.setTimeout(() => setPhase("closed"), 980);
-    window.setTimeout(() => setModal(true), 1900);
-  }
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setPhase("closed");
+      setRevealed(true);
+      return;
+    }
+    const slide = window.setTimeout(() => setPhase("slide"), 420);
+    const closed = window.setTimeout(() => setPhase("closed"), 1480);
+    const copy = window.setTimeout(() => setRevealed(true), 2280);
+    return () => {
+      window.clearTimeout(slide);
+      window.clearTimeout(closed);
+      window.clearTimeout(copy);
+    };
+  }, []);
 
   useEffect(() => {
     const fine = window.matchMedia("(pointer: fine)").matches;
@@ -80,10 +89,6 @@ export function SendCeremony({ letter }: Props) {
 
   return (
     <div className="send-ceremony">
-      <p className="section-kicker">Pronto para voar</p>
-      <h1>A carta espera no envelope.</h1>
-      <p>Ela já está escrita. Envie: o papel desliza, a aba fecha e o lacre sela.</p>
-
       <div className={cn("ef-scale", `is-${phase}`)}>
         <div
           className={cn("ef", `is-${phase}`)}
@@ -111,18 +116,11 @@ export function SendCeremony({ letter }: Props) {
         </div>
       </div>
 
-      {phase === "open" ? (
-        <button type="button" className="send-go" onClick={send}>
-          Enviar carta
-        </button>
-      ) : null}
-
-      {modal ? (
-        <div className="send-modal" role="dialog" aria-labelledby="send-title">
-          <div className="send-modal-card">
-            <p className="section-kicker">A caminho</p>
-            <h2 id="send-title">O envelope fechou. O link é o correio.</h2>
-            <p>Quem abrir entra na conta e a carta fica na caixa de recebidos.</p>
+      <div className={cn("send-copy", revealed && "is-in")}>
+        <p className="section-kicker">A caminho</p>
+        <h1 id="send-title">O envelope fechou. O link é o correio.</h1>
+        <p>Quem abrir entra na conta e a carta fica na caixa de recebidos.</p>
+        <div className="send-modal-card">
             {letter.anonymous ? (
               <p>
                 {letter.linkSent
@@ -155,9 +153,8 @@ export function SendCeremony({ letter }: Props) {
             <Link to="/acompanhar/$letterId" params={{ letterId: letter.id }} className="send-track">
               Acompanhar no mapa
             </Link>
-          </div>
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }

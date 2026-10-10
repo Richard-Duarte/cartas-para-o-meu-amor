@@ -4,6 +4,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import { approachNoticeAt, cleanEmail, formatArrival, planArrival, whatsAppNumber } from "@/lib/delivery";
 import { requireAdminSession } from "@/lib/server/admin-auth";
+import { recordAnonymousView } from "@/lib/server/notifications";
 import {
   dispatchDueNotices,
   dispatchLetterNotice,
@@ -74,7 +75,17 @@ export const listCatalog = createServerFn({ method: "GET" }).handler(async () =>
     token: string;
     sort_order: number;
   }>`select * from messengers_catalog order by sort_order, name`;
-  return { templates, messengers };
+  let anonymousFee = 9.9;
+  try {
+    const feeRows = await sql<{ value: string }>`
+      select value from app_settings where key = 'anonymous_fee' limit 1
+    `;
+    const parsed = Number(feeRows[0]?.value ?? 9.9);
+    if (Number.isFinite(parsed)) anonymousFee = parsed;
+  } catch {
+    /* setting table still applying */
+  }
+  return { templates, messengers, anonymousFee };
 });
 
 export const geocodeAddress = createServerFn({ method: "POST" })
@@ -686,6 +697,13 @@ export const openSharedLetter = createServerFn({ method: "POST" })
       await sql`update letters set recipient_user_id = ${context.userId} where id = ${id} and recipient_user_id is null`;
       row.recipient_user_id = context.userId;
       role = "recipient";
+    }
+    if (role === "recipient" && row.anonymous && row.user_id !== context.userId) {
+      try {
+        await recordAnonymousView(id, row.user_id);
+      } catch {
+        /* a próxima abertura tenta de novo se viewed_at ficou vazio */
+      }
     }
     return { letter: row, role };
   });

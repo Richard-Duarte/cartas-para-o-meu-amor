@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { authClient, signOut } from "@/lib/auth/client";
@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/cart";
 import { letterFromRecord, letterProgress, shownFromName, type Letter } from "@/lib/letters";
 import { getMessenger } from "@/lib/messengers";
 import { accountAuthKind, saveAccountPassword } from "@/lib/server/account";
+import { myPhone, saveMyPhone } from "@/lib/server/notifications";
 import {
   MIN_PAYOUT_BRL,
   myMailbox,
@@ -379,6 +380,8 @@ function ProfileSettings({
         />
       </div>
 
+      <PhoneField />
+
       {hasPassword === null ? null : (
         <form className="profile-pass" onSubmit={(e) => void onPassword(e)}>
           <h3>{hasPassword ? "Alterar senha" : "Cadastrar uma senha"}</h3>
@@ -409,6 +412,60 @@ function ProfileSettings({
         </form>
       )}
     </section>
+  );
+}
+
+function PhoneField() {
+  const [phone, setPhone] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void myPhone()
+      .then((row) => setPhone(row.phone ?? ""))
+      .catch(() => undefined);
+  }, []);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setMsg("");
+    const result = await saveMyPhone({ data: phone }).catch(() => ({
+      ok: false as const,
+      error: "Não foi possível salvar.",
+    }));
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error ?? "Não foi possível salvar.");
+      return;
+    }
+    setPhone(result.phone);
+    setMsg("Número salvo. Os avisos também podem chegar no WhatsApp.");
+    window.dispatchEvent(new Event("cartas:notices"));
+  }
+
+  return (
+    <form className="profile-pass" onSubmit={(event) => void save(event)}>
+      <h3>WhatsApp</h3>
+      <p className="text-sm text-muted">Opcional. Sem ele, a chegada da carta avisa só por e-mail.</p>
+      <label>
+        Celular com DDD
+        <input
+          inputMode="tel"
+          autoComplete="tel"
+          value={phone}
+          placeholder="11 98888-7777"
+          onChange={(event) => setPhone(event.target.value)}
+        />
+      </label>
+      {error ? <p className="text-sm text-rose">{error}</p> : null}
+      {msg ? <p className="text-sm">{msg}</p> : null}
+      <button type="submit" className="pay-submit" disabled={busy}>
+        {busy ? "Salvando…" : "Salvar número"}
+      </button>
+    </form>
   );
 }
 

@@ -62,6 +62,7 @@ export function AnonymousSection() {
 
   return (
     <section className="anon-section" id="anonimo">
+      <h2 className="anon-title">Envie uma carta anônima</h2>
       <video
         ref={videoRef}
         className="anon-film"
@@ -76,7 +77,7 @@ export function AnonymousSection() {
         <h2>A carta chega. O nome, não.</h2>
         <p>
           Os mesmos mensageiros, de capuz. Quem recebe acompanha a viagem e abre a carta
-          sem saber quem escreveu. O silêncio custa R$&nbsp;10.
+          sem saber quem escreveu.
         </p>
         <ul>
           <li>O seu nome some do envelope e do WhatsApp.</li>

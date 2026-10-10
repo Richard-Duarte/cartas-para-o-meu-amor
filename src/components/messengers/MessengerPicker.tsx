@@ -2,9 +2,9 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef } from "react";
+import { SCHEDULE_FEE_BRL } from "@/lib/delivery";
 import {
   MESSENGERS,
-  formatEta,
   messengerPhoto,
   messengerPreview,
   type MessengerId,
@@ -19,6 +19,7 @@ type Props = {
   hoursById?: Partial<Record<MessengerId, number>>;
   arriveLabelById?: Partial<Record<MessengerId, string>>;
   disabledIds?: Set<string>;
+  scheduled?: boolean;
 };
 
 function PreviewClip({ id, name }: { id: MessengerId; name: string }) {
@@ -47,17 +48,43 @@ function PreviewClip({ id, name }: { id: MessengerId; name: string }) {
   );
 }
 
-export function MessengerPicker({ value, onChange, hoursById, arriveLabelById, disabledIds }: Props) {
+export function MessengerLivePreview({ id }: { id: MessengerId }) {
+  const selected = MESSENGERS.find((m) => m.id === id) ?? MESSENGERS[0];
+  return (
+    <div className="mx-auto w-full max-w-sm overflow-hidden rounded-xl border border-line bg-[#f6eee6]">
+      <div className="relative aspect-square">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={selected.id}
+            className="absolute inset-0 overflow-hidden"
+            initial={{ opacity: 0, y: 12, filter: "blur(8px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: -10, filter: "blur(6px)" }}
+            transition={{ duration: 0.4, ease }}
+          >
+            <PreviewClip id={selected.id} name={selected.name} />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      <p className="px-4 py-3 font-display text-lg">{selected.name}</p>
+    </div>
+  );
+}
+
+export function MessengerPicker({ value, onChange, disabledIds, scheduled }: Props) {
   const selected = MESSENGERS.find((m) => m.id === value) ?? MESSENGERS[0];
+  const fee = SCHEDULE_FEE_BRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="grid gap-3 sm:grid-cols-2">
         {MESSENGERS.map((m) => {
           const active = m.id === value;
-          const hours = hoursById?.[m.id];
           const blocked = disabledIds?.has(m.id) ?? false;
-          const when = arriveLabelById?.[m.id];
+          const price = m.basePriceBrl.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          });
           return (
             <button
               key={m.id}
@@ -81,8 +108,9 @@ export function MessengerPicker({ value, onChange, hoursById, arriveLabelById, d
                 <span className="block font-medium">{m.name}</span>
                 <span className="mt-0.5 block text-sm text-muted">{m.tagline}</span>
                 <span className="mt-2 block text-xs uppercase tracking-widest text-gold">
-                  R$ {m.basePriceBrl}
-                  {when ? ` · ${when}` : hours != null ? ` · ${formatEta(hours)}` : ""}
+                  {price}
+                  {scheduled ? ` + ${fee}` : ""}
+                  {` · ${m.speedKmh} km/h`}
                 </span>
               </span>
             </button>

@@ -3,7 +3,21 @@ import { estimateDelivery, MESSENGERS, type Geo, type MessengerId } from "./mess
 /** Viagem mais curta que isto não recebe aviso de "está chegando". */
 export const INSTANT_MS = 60 * 60 * 1000;
 
-export const ANONYMOUS_FEE_BRL = 10;
+export const ANONYMOUS_FEE_BRL = 9.9;
+
+/** Soma no valor do mensageiro quando a chegada é num dia escolhido. */
+export const SCHEDULE_FEE_BRL = 4.9;
+
+let anonymousFeeBrl = ANONYMOUS_FEE_BRL;
+
+export function getAnonymousFee() {
+  return anonymousFeeBrl;
+}
+
+export function setAnonymousFee(value: number) {
+  if (!Number.isFinite(value) || value < 0) return;
+  anonymousFeeBrl = Math.round(value * 100) / 100;
+}
 
 const TZ = "America/Sao_Paulo";
 
@@ -158,7 +172,7 @@ export function anonymousLinkCopy(opts: {
   instant: boolean;
 }) {
   const whenLine = opts.instant
-    ? "A carta já pode ser aberta. Como a viagem é curta, este é o único recado."
+    ? "A carta já pode ser aberta."
     : `Quem leva chega por volta de ${opts.when}.`;
   return [
     `Oi, ${opts.toName}.`,

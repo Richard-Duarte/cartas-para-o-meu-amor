@@ -1,7 +1,7 @@
 import { emptyAddress, type Address } from "./address";
 import { getDesign, type DesignId } from "./designs";
 import { newPage, type LetterPage } from "./pages";
-import { ANONYMOUS_FEE_BRL } from "./delivery";
+import { getAnonymousFee, SCHEDULE_FEE_BRL } from "./delivery";
 import { getMessenger, messengerPhoto, type Geo, type MessengerId } from "./messengers";
 
 export type CartLine = {
@@ -65,7 +65,13 @@ export function emptyDraft(): LetterDraft {
 export function buildCart(
   designId: DesignId,
   messengerId: MessengerId,
-  opts?: { percent?: number; amountBrl?: number; creditBrl?: number; anonymous?: boolean },
+  opts?: {
+    percent?: number;
+    amountBrl?: number;
+    creditBrl?: number;
+    anonymous?: boolean;
+    scheduled?: boolean;
+  },
 ) {
   const paper = getDesign(designId);
   const messenger = getMessenger(messengerId);
@@ -93,7 +99,17 @@ export function buildCart(
       kind: "extra",
       title: "Envio anônimo",
       detail: "O nome não aparece",
-      priceBrl: ANONYMOUS_FEE_BRL,
+      priceBrl: getAnonymousFee(),
+      image: "/envelope/seal.png",
+    });
+  }
+  if (opts?.scheduled) {
+    lines.push({
+      id: "scheduled",
+      kind: "extra",
+      title: "Dia escolhido",
+      detail: "Chegada na data marcada",
+      priceBrl: SCHEDULE_FEE_BRL,
       image: "/envelope/seal.png",
     });
   }

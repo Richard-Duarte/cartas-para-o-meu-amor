@@ -5,7 +5,7 @@ import { CanvaEditor } from "@/components/letters/CanvaEditor";
 import { deliveryCanContinue, DeliveryChoices } from "@/components/letters/DeliveryChoices";
 import { CartDock, CartSummary } from "@/components/cart/CartSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { MessengerPicker } from "@/components/messengers/MessengerPicker";
+import { MessengerLivePreview, MessengerPicker } from "@/components/messengers/MessengerPicker";
 import { emptyAddress } from "@/lib/address";
 import {
   buildCart,
@@ -41,7 +41,7 @@ export const Route = createFileRoute("/escrever")({
 const STEPS = [
   { n: 1, label: "Nomes" },
   { n: 2, label: "Papel" },
-  { n: 3, label: "Leva" },
+  { n: 3, label: "Entregador" },
   { n: 4, label: "Entrega" },
   { n: 5, label: "Pagar" },
 ] as const;
@@ -92,8 +92,8 @@ function WritePage() {
         setFromGeo(draft.fromGeo);
         setToGeo(draft.toGeo);
         setAffiliateCode(search.ref ?? draft.affiliateCode);
-        setAnonymous(search.anonimo === "1" || Boolean(draft.anonymous));
-        setScheduled(Boolean(draft.scheduled));
+        setAnonymous(search.anonimo === "1");
+        setScheduled(false);
         setArriveOn(draft.arriveOn ?? "");
         setRecipientPhone(draft.recipientPhone ?? "");
         setRecipientEmail(draft.recipientEmail ?? "");
@@ -176,7 +176,7 @@ function WritePage() {
     return map;
   }, [routeFrom, routeTo, scheduled, arriveOn]);
 
-  const cart = buildCart(designId, messengerId, { anonymous });
+  const cart = buildCart(designId, messengerId, { anonymous, scheduled });
   const canWrite = pagesPlainText(pages).length > 1;
   const canNames = fromName.trim().length > 1 && toName.trim().length > 1;
   const canAddress = Boolean(fromAddress.cep && toAddress.cep && fromAddress.city && toAddress.city);
@@ -295,10 +295,10 @@ function WritePage() {
               <button
                 type="button"
                 className={cn("write-step", step === s.n && "is-on", step > s.n && "is-done")}
+                disabled={s.n >= step}
                 onClick={() => {
-                  if (s.n > 1 && !(fromName.trim().length > 1 && toName.trim().length > 1)) return;
-                  if (s.n === 5) void goPay();
-                  else goWithMotion(() => setStep(s.n));
+                  if (s.n >= step) return;
+                  goWithMotion(() => setStep(s.n));
                 }}
               >
                 <span className="write-step-n">{s.n}</span>
@@ -362,6 +362,7 @@ function WritePage() {
       <div className="write-shell min-h-dvh">
         <SiteHeader />
         <div className="canva-steps-wrap">{stepsNav}</div>
+        <div className="paper-arrive">
         <CanvaEditor
           designId={designId}
           onDesignId={setDesignId}
@@ -374,6 +375,7 @@ function WritePage() {
           canContinue={canWrite}
           onContinue={() => goWithMotion(() => setStep(3))}
         />
+        </div>
       </div>
     );
   }
@@ -432,6 +434,7 @@ function WritePage() {
                   <AddressFields label="Origem" value={fromAddress} onChange={setFromAddress} />
                   <AddressFields label="Destino" value={toAddress} onChange={setToAddress} />
                 </div>
+                <MessengerLivePreview id={messengerId} />
                 <DeliveryChoices {...deliveryProps} />
                 <div className="flex flex-wrap gap-3">
                   <button

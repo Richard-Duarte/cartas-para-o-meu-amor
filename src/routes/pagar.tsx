@@ -15,6 +15,7 @@ import {
   writeDraft,
   type LetterDraft,
 } from "@/lib/cart";
+import { bootCatalog } from "@/lib/catalog";
 import { saveLetter, shownFromName, type Letter } from "@/lib/letters";
 import { formatArrival, planArrival } from "@/lib/delivery";
 import { getMessenger, demoDurationMs } from "@/lib/messengers";
@@ -37,7 +38,7 @@ function PayPage() {
   const [sent, setSent] = useState<Letter | null>(null);
 
   useEffect(() => {
-    setDraft(readDraft());
+    void bootCatalog().then(() => setDraft(readDraft()));
   }, []);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function PayPage() {
       amountBrl: couponInfo?.amountBrl,
       creditBrl: useCredit ? credit : 0,
       anonymous: draft.anonymous,
+      scheduled: draft.scheduled,
     });
   }, [draft, couponInfo, credit, useCredit]);
 

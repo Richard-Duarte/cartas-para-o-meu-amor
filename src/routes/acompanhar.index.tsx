@@ -40,8 +40,6 @@ function TrackInbox() {
   if (!user) return <RedirectToSignIn next="/acompanhar" />;
 
   const box = sent ?? [];
-  const inFlight = box.filter((l) => !letterProgress(l).arrived);
-  const incoming = received.filter((l) => !letterProgress(l).arrived);
 
   return (
     <div className="min-h-dvh">
@@ -53,28 +51,35 @@ function TrackInbox() {
           O mapa só abre o que é seu — enviadas por você ou recebidas no seu nome.
         </p>
 
+        <Link to="/escrever" className="closing-cta-btn mt-10 inline-flex">
+          Escrever uma carta
+        </Link>
+
         <section className="mt-10">
-          <h2 className="font-display text-2xl">Em andamento</h2>
-          {inFlight.length + incoming.length === 0 ? (
-            <p className="mt-3 text-muted">Nenhuma carta a caminho agora.</p>
+          <h2 className="font-display text-2xl">Enviadas</h2>
+          {box.length === 0 ? (
+            <p className="mt-3 text-muted">Nenhuma carta enviada ainda.</p>
           ) : (
             <ul className="mailbox-list mt-4">
-              {inFlight.map((l) => (
+              {box.map((l) => (
                 <LetterCard key={l.id} letter={l} tone="sent" />
-              ))}
-              {incoming.map((l) => (
-                <LetterCard key={l.id} letter={l} tone="received" />
               ))}
             </ul>
           )}
         </section>
 
-        <Link to="/escrever" className="closing-cta-btn mt-10 inline-flex">
-          Escrever uma carta
-        </Link>
-        <Link to="/conta" className="mt-4 block text-sm text-muted underline-offset-4 hover:underline">
-          Ver enviadas e recebidas
-        </Link>
+        <section className="mt-10">
+          <h2 className="font-display text-2xl">Recebidas</h2>
+          {received.length === 0 ? (
+            <p className="mt-3 text-muted">Nenhuma carta recebida ainda.</p>
+          ) : (
+            <ul className="mailbox-list mt-4">
+              {received.map((l) => (
+                <LetterCard key={l.id} letter={l} tone="received" />
+              ))}
+            </ul>
+          )}
+        </section>
       </main>
     </div>
   );

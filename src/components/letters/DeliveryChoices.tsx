@@ -2,15 +2,16 @@
 
 import { useMemo } from "react";
 import { MessengerPicker } from "@/components/messengers/MessengerPicker";
+import { formatBrl } from "@/lib/cart";
 import {
   contactsReady,
   dayKey,
   earliestDay,
-  formatArrival,
+  getAnonymousFee,
   latestDay,
   planArrival,
 } from "@/lib/delivery";
-import { getMessenger, MESSENGERS, type Geo, type MessengerId } from "@/lib/messengers";
+import { MESSENGERS, type Geo, type MessengerId } from "@/lib/messengers";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -45,7 +46,6 @@ export function DeliveryChoices(props: Props) {
     now,
     arriveOn: day,
   });
-  const messenger = getMessenger(props.messengerId);
   const ready = contactsReady({
     anonymous: props.anonymous,
     instant: plan.instant,
@@ -54,32 +54,21 @@ export function DeliveryChoices(props: Props) {
     senderPhone: props.senderPhone,
   });
 
-  const labels: Record<string, string> = {};
   const blocked = new Set<string>();
-  if (props.scheduled && day) {
-    for (const item of MESSENGERS) {
-      const next = planArrival({
-        messengerId: item.id,
-        from: props.from,
-        to: props.to,
-        now,
-        arriveOn: day,
-      });
-      labels[item.id] = next.fits ? `Chega ${formatArrival(next.arriveAt)}` : "Não chega nesse dia";
-      if (!next.fits) blocked.add(item.id);
-    }
+  for (const item of MESSENGERS) {
+    const next = planArrival({
+      messengerId: item.id,
+      from: props.from,
+      to: props.to,
+      now,
+      arriveOn: day,
+    });
+    if (props.scheduled && day && !next.fits) blocked.add(item.id);
   }
 
   return (
     <div className="delivery-block">
-      <div className="arrival-note">
-        <p className="section-kicker">Prazo</p>
-        <p>
-          {props.knownRoute ? "Neste endereço, " : "Antes de cravar o mapa, "}
-          o {messenger.name.toLowerCase()}{" "}
-          {plan.fits ? `chega ${formatArrival(plan.arriveAt)}` : "não dá tempo nessa data"}.
-        </p>
-      </div>
+      <h3 className="delivery-type-title">Selecione o tipo de envio</h3>
 
       <div className="choice-grid two">
         <button
@@ -99,7 +88,7 @@ export function DeliveryChoices(props: Props) {
           }}
         >
           <strong>Escolher o dia</strong>
-          <span>Só aparecem os animais que chegam de verdade nessa data.</span>
+          <span>O animal habilitado chega nessa data. O envio soma R$ 4,90.</span>
         </button>
       </div>
 
@@ -118,8 +107,8 @@ export function DeliveryChoices(props: Props) {
           <MessengerPicker
             value={props.messengerId}
             onChange={props.onMessenger}
-            arriveLabelById={labels}
             disabledIds={blocked}
+            scheduled
           />
         </>
       ) : null}
@@ -138,16 +127,15 @@ export function DeliveryChoices(props: Props) {
           className={cn("choice-card", props.anonymous && "is-on")}
           onClick={() => props.onAnonymous(true)}
         >
-          <strong>Anônimo · R$ 10</strong>
-          <span>O nome some da carta e do WhatsApp.</span>
+          <strong>Anônimo · {formatBrl(getAnonymousFee())}</strong>
+          <span>Entregamos a carta via WhatsApp para você sem o nome.</span>
         </button>
       </div>
 
       {plan.instant ? (
-        <p className="arrival-note">
-          Esta viagem é curta. Não enviamos aviso de que está chegando.
-          {props.anonymous ? " O link da carta, sem o seu nome, vai no WhatsApp de quem recebe." : ""}
-        </p>
+        props.anonymous ? (
+          <p className="arrival-note">O link da carta, sem o seu nome, vai no WhatsApp de quem recebe.</p>
+        ) : null
       ) : (
         <p className="arrival-note">
           Quando estiver perto, avisamos você e quem recebe, por e-mail e por WhatsApp.

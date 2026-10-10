@@ -1,4 +1,5 @@
 import { replaceDesigns, type Design } from "./designs";
+import { setAnonymousFee } from "./delivery";
 import { replaceMessengers, type Messenger } from "./messengers";
 import { listCatalog } from "./server/shop";
 
@@ -34,6 +35,7 @@ export async function bootCatalog() {
     }));
     replaceDesigns(templates);
     replaceMessengers(messengers);
+    if (typeof data.anonymousFee === "number") setAnonymousFee(data.anonymousFee);
   } catch {
     /* seed in client modules remains */
   }

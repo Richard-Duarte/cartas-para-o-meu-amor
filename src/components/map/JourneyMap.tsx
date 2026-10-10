@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Maximize2, X } from "lucide-react";
 import type { Map as LeafletMap, Marker as LeafletMarker, Polyline, TileLayer } from "leaflet";
 import {
   FLIES,
@@ -12,7 +14,6 @@ import {
 } from "@/lib/messengers";
 import { formatArrival } from "@/lib/delivery";
 import { letterProgress, type Letter } from "@/lib/letters";
-import { addressLine } from "@/lib/address";
 import { cn } from "@/lib/utils";
 import "leaflet/dist/leaflet.css";
 
@@ -26,14 +27,12 @@ const LOOKS: { id: MapLook; label: string; swatch: string }[] = [
 
 const TILES: Record<MapLook, { url: string; attribution: string; subdomains?: string }> = {
   gray: {
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
-    subdomains: "abcd",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
   },
   map: {
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; OpenStreetMap &copy; CARTO",
-    subdomains: "abcd",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri",
   },
   real: {
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -42,6 +41,26 @@ const TILES: Record<MapLook, { url: string; attribution: string; subdomains?: st
 };
 
 const LOOK_KEY = "cartas-para-o-meu-amor:map-look";
+
+function usePresence(open: boolean, ms = 420) {
+  const [mounted, setMounted] = useState(open);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setShown(false);
+      const timer = window.setTimeout(() => setMounted(false), ms);
+      return () => window.clearTimeout(timer);
+    }
+    setMounted(true);
+    return undefined;
+  }, [open, ms]);
+  useEffect(() => {
+    if (!mounted || !open) return;
+    const frame = window.requestAnimationFrame(() => setShown(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [mounted, open]);
+  return { mounted, shown };
+}
 
 type Props = {
   letter: Letter;
@@ -52,6 +71,8 @@ export function JourneyMap({ letter, onArrived }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [celebrated, setCelebrated] = useState(false);
   const [look, setLook] = useState<MapLook>("gray");
+  const [full, setFull] = useState(false);
+  const stage = usePresence(full);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(LOOK_KEY);
@@ -59,9 +80,23 @@ export function JourneyMap({ letter, onArrived }: Props) {
   }, []);
 
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 250);
-    return () => window.clearInterval(id);
+    let frame = 0;
+    let last = 0;
+    const tick = (time: number) => {
+      if (time - last > 80) {
+        last = time;
+        setNow(Date.now());
+      }
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("map-full-open", full);
+    return () => document.body.classList.remove("map-full-open");
+  }, [full]);
 
   function chooseLook(next: MapLook) {
     setLook(next);
@@ -75,15 +110,15 @@ export function JourneyMap({ letter, onArrived }: Props) {
   const from = { ...fromCity, geo: letter.fromGeo ?? fromCity.geo };
   const to = { ...toCity, geo: letter.toGeo ?? toCity.geo };
   const arrived = stats.arrived;
+  const moving = !arrived && !stats.waiting;
+  const speedKmh = moving ? m.speedKmh : 0;
+  const kmLeft = Math.max(0, stats.km * (1 - stats.progress));
+  const kmDone = Math.max(0, stats.km - kmLeft);
   const flying = FLIES[letter.messengerId];
   const current = positionOnRoute(from.geo, to.geo, stats.progress, flying);
   const faceRight = facingRight(from.geo, to.geo, stats.progress, flying);
-  const fromLabel = letter.fromAddress?.street
-    ? addressLine(letter.fromAddress)
-    : letter.anonymous
-      ? "Alguém"
-      : letter.fromName;
-  const toLabel = letter.toAddress?.street ? addressLine(letter.toAddress) : letter.toName;
+  const fromLabel = letter.anonymous ? "Alguém" : from.name;
+  const toLabel = to.name;
 
   useEffect(() => {
     if (arrived && !celebrated) {
@@ -115,6 +150,10 @@ export function JourneyMap({ letter, onArrived }: Props) {
           pane="overview"
           className="h-64 md:h-80"
         />
+        <button type="button" className="map-expand" onClick={() => setFull(true)}>
+          <Maximize2 size={16} />
+          Tela cheia
+        </button>
         <div className="map-look-switch" role="radiogroup" aria-label="Estilo do mapa">
           {LOOKS.map((item) => (
             <button
@@ -178,7 +217,8 @@ export function JourneyMap({ letter, onArrived }: Props) {
             />
           </div>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs uppercase tracking-widest text-muted tabular-nums">
-            <span>{stats.km.toFixed(0)} km</span>
+            <span>{speedKmh.toLocaleString("pt-BR")} km/h</span>
+            <span>{kmLeft.toFixed(0)} km à frente</span>
             <span>
               {arrived
                 ? "no destino"
@@ -192,6 +232,58 @@ export function JourneyMap({ letter, onArrived }: Props) {
           )}
         </div>
       </div>
+      {stage.mounted
+        ? createPortal(
+            <div
+              className={cn("map-stage sheet-pop", stage.shown && "is-in")}
+              role="dialog"
+              aria-label="Mapa em tela cheia"
+            >
+              <header className="map-stage-bar">
+                <div>
+                  <p className="map-stage-kicker">
+                    {arrived ? "Chegou" : stats.waiting ? "Ainda não saiu" : "Ao vivo"}
+                  </p>
+                  <p className="map-stage-speed">
+                    {m.name} · {speedKmh.toLocaleString("pt-BR")} km/h
+                  </p>
+                </div>
+                <button type="button" className="map-stage-close" onClick={() => setFull(false)}>
+                  <X size={18} />
+                  Fechar
+                </button>
+              </header>
+              <StreetMap
+                from={from}
+                to={to}
+                fromLabel={fromLabel}
+                toLabel={toLabel}
+                current={current}
+                progress={stats.progress}
+                gif={
+                  arrived
+                    ? messengerArrivalGif(letter.messengerId)
+                    : messengerGif(letter.messengerId)
+                }
+                name={m.name}
+                flying={flying}
+                arrived={arrived}
+                faceRight={faceRight}
+                look={look}
+                pane="follow"
+                className="map-stage-map"
+              />
+              <footer className="map-stage-foot">
+                <span>{kmDone.toFixed(0)} km</span>
+                <div className="map-stage-track">
+                  <i style={{ width: `${Math.round(stats.progress * 100)}%` }} />
+                </div>
+                <span>{kmLeft.toFixed(0)} km</span>
+              </footer>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -295,16 +387,20 @@ function StreetMap({
 
       const full = routeLatLngs(from.geo, to.geo, flying);
       L.polyline(full, {
-        color: "#1a1410",
-        weight: 2,
-        opacity: 0.18,
-        dashArray: "6 8",
+        color: "#e85a7a",
+        weight: pane === "follow" ? 4 : 3,
+        opacity: 0.4,
+        dashArray: "1 12",
+        lineCap: "round",
+        lineJoin: "round",
       }).addTo(map);
 
       const traveled = L.polyline([full[0]], {
         color: "#e85a7a",
-        weight: 4,
-        opacity: 0.95,
+        weight: pane === "follow" ? 6 : 5,
+        opacity: 1,
+        lineCap: "round",
+        lineJoin: "round",
       }).addTo(map);
       traveledRef.current = traveled;
 
@@ -325,7 +421,7 @@ function StreetMap({
         map.setView([current.lat, current.lng], arrived ? 13 : FOLLOW_ZOOM);
       }
 
-      const size = pane === "follow" ? 116 : 88;
+      const size = pane === "follow" ? 148 : 120;
       const marker = L.marker([current.lat, current.lng], {
         icon: gifIcon(L, gif, name, size, arrived, faceRight),
         interactive: false,
@@ -366,14 +462,24 @@ function StreetMap({
   }, [look]);
 
   useEffect(() => {
+    const marker = markerRef.current;
+    const L = leafletRef.current;
+    if (!marker || !L) return;
+    const size = pane === "follow" ? 148 : 120;
+    marker.setIcon(gifIcon(L, gif, name, size, arrived, faceRight));
+  }, [gif, arrived, faceRight, name, pane]);
+
+  useEffect(() => {
     const map = mapRef.current;
     const marker = markerRef.current;
     if (!map || !marker) return;
 
     marker.setLatLng([current.lat, current.lng]);
     const full = routeLatLngs(from.geo, to.geo, flying);
-    const n = Math.max(2, Math.round(full.length * progress));
-    traveledRef.current?.setLatLngs(full.slice(0, n));
+    const n = Math.max(1, Math.round(full.length * progress));
+    const walked = full.slice(0, n);
+    walked.push([current.lat, current.lng]);
+    traveledRef.current?.setLatLngs(walked);
     applyClip(marker, gif, arrived, faceRight);
 
     if (pane === "follow") {

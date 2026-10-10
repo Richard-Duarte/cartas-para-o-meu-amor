@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { KeyboardLift } from "@/components/layout/KeyboardLift";
+import { SlowScroll } from "@/components/layout/SlowScroll";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { bootCatalog } from "@/lib/catalog";
 import { pingVisit } from "@/lib/server/shop";
@@ -51,6 +52,7 @@ export const Route = createRootRoute({
         <PreviewHostBridge />
         <AuthProvider>
           <Boot />
+          <SlowScroll />
           <KeyboardLift />
           <Outlet />
         </AuthProvider>

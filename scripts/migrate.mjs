@@ -18,7 +18,7 @@ import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = poolerUrl(process.env.DATABASE_URL);
 if (!databaseUrl) {
   console.log(
     "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
@@ -84,13 +84,28 @@ async function main() {
   }
 }
 
+function poolerUrl(url) {
+  if (!url) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.includes("pooler.supabase.com") && (parsed.port === "5432" || parsed.port === "")) {
+      parsed.port = "6543";
+      return parsed.toString();
+    }
+  } catch {
+    /* keep the original string */
+  }
+  return url;
+}
+
 function databaseUnreachable(err) {
   const code = String(err?.code || "");
   const message = String(err?.message || "");
   if (["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENETUNREACH"].includes(code)) {
     return true;
   }
-  return /tenant\/user .* not found|getaddrinfo|Connection terminated|could not connect|ECONNRESET/i.test(
+  if (code === "XX000" && /max clients/i.test(message)) return true;
+  return /tenant\/user .* not found|getaddrinfo|Connection terminated|could not connect|ECONNRESET|max clients reached/i.test(
     message,
   );
 }

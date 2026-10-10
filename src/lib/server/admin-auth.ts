@@ -147,11 +147,19 @@ export const getSettings = createServerFn({ method: "GET" }).handler(async () =>
   const sql = await getSql();
   const rows = await sql<{ key: string; value: string }>`select key, value from app_settings`;
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return { affiliatePercent: Number(map.affiliate_percent ?? 10) };
+  return {
+    affiliatePercent: Number(map.affiliate_percent ?? 10),
+    anonymousFee: Number(map.anonymous_fee ?? 9.9),
+  };
 });
 
 export const saveSettings = createServerFn({ method: "POST" })
-  .validator(z.object({ affiliatePercent: z.number().min(0).max(80) }))
+  .validator(
+    z.object({
+      affiliatePercent: z.number().min(0).max(80),
+      anonymousFee: z.number().min(0).max(999).optional(),
+    }),
+  )
   .handler(async ({ data }) => {
     await requireAdminSession();
     const sql = await getSql();
@@ -159,5 +167,11 @@ export const saveSettings = createServerFn({ method: "POST" })
       insert into app_settings (key, value) values ('affiliate_percent', ${String(data.affiliatePercent)})
       on conflict (key) do update set value = excluded.value
     `;
+    if (data.anonymousFee != null) {
+      await sql`
+        insert into app_settings (key, value) values ('anonymous_fee', ${String(data.anonymousFee)})
+        on conflict (key) do update set value = excluded.value
+      `;
+    }
     return { ok: true };
   });

@@ -9,6 +9,7 @@ import { downloadLetterPng } from "@/lib/download-letter";
 import { getLetter, letterFromRecord, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { getCity, getMessenger } from "@/lib/messengers";
 import { addressLine } from "@/lib/address";
+import { LetterReply } from "@/components/letters/LetterReply";
 import { openSharedLetter } from "@/lib/server/shop";
 
 export const Route = createFileRoute("/acompanhar/$letterId")({
@@ -20,10 +21,11 @@ function TrackPage() {
   const { user, isPending } = useCurrentUserState();
   const [letter, setLetter] = useState<Letter | null | undefined>(undefined);
   const [opened, setOpened] = useState(false);
+  const [role, setRole] = useState<"sender" | "recipient" | "viewer">("viewer");
 
   useEffect(() => {
     if (letterId === "demo") {
-      setLetter(seedDemoLetter());
+      setLetter((current) => (current?.id === "demo" ? current : seedDemoLetter()));
       return;
     }
     const local = getLetter(letterId);
@@ -34,6 +36,7 @@ function TrackPage() {
     }
     void openSharedLetter({ data: letterId })
       .then((r) => {
+        if (r.role === "sender" || r.role === "recipient" || r.role === "viewer") setRole(r.role);
         if (r.letter) {
           const mapped = letterFromRecord(r.letter);
           rememberLetter(mapped);
@@ -81,16 +84,18 @@ function TrackPage() {
     );
   }
 
-  return <TrackView letter={letter} opened={opened} onArrived={() => setOpened(true)} />;
+  return <TrackView letter={letter} opened={opened} role={role} onArrived={() => setOpened(true)} />;
 }
 
 function TrackView({
   letter,
   opened,
+  role,
   onArrived,
 }: {
   letter: Letter;
   opened: boolean;
+  role: "sender" | "recipient" | "viewer";
   onArrived: () => void;
 }) {
   const m = getMessenger(letter.messengerId);
@@ -184,12 +189,15 @@ function TrackView({
           <button
             type="button"
             className="mt-4 min-h-11 rounded-full border border-gold px-5 text-sm"
-            onClick={() =>
+            onClick={() => {
+              const now = Date.now();
               setLiveLetter({
                 ...liveLetter,
-                startedAt: Date.now() - liveLetter.demoDurationMs,
-              })
-            }
+                startedAt: now - liveLetter.demoDurationMs,
+                departAt: now - 2000,
+                arriveAt: now - 400,
+              });
+            }}
           >
             Pular para a chegada
           </button>
@@ -221,6 +229,13 @@ function TrackView({
             </div>
           )}
         </div>
+
+        {letter.id !== "demo" && role === "recipient" && !showLetter ? (
+          <p className="reply-wait">O comentário abre quando você ler a carta.</p>
+        ) : null}
+        {letter.id !== "demo" ? (
+          <LetterReply letterId={letter.id} canWrite={role === "recipient" && showLetter} />
+        ) : null}
       </main>
     </div>
   );
