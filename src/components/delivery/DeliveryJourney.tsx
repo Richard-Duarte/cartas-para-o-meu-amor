@@ -48,6 +48,8 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
     geoKey(ends.from.lng),
     geoKey(ends.to.lat),
     geoKey(ends.to.lng),
+    ends.from.label,
+    ends.to.label,
   ].join("|");
 
   useImperativeHandle(ref, () => ({

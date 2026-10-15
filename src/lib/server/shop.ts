@@ -94,18 +94,38 @@ export const geocodeAddress = createServerFn({ method: "POST" })
       number: z.string(),
       city: z.string(),
       state: z.string(),
+      neighborhood: z.string().optional(),
+      cep: z.string().optional(),
     }),
   )
   .handler(async ({ data }) => {
-    const q = `${data.street} ${data.number} ${data.city} ${data.state} Brasil`;
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "carta-para-o-meu-amor/1.0" },
-    });
-    if (!res.ok) return { lat: -23.55, lng: -46.63 };
-    const json = (await res.json()) as { lat: string; lon: string }[];
-    if (!json[0]) return { lat: -23.55, lng: -46.63 };
-    return { lat: Number(json[0].lat), lng: Number(json[0].lon) };
+    const queries = [
+      [data.street, data.number, data.neighborhood, data.cep, data.city, data.state, "Brasil"],
+      [data.street, data.number, data.city, data.state, "Brasil"],
+      [data.street, data.city, data.state, "Brasil"],
+      [data.cep, data.city, data.state, "Brasil"],
+      [data.city, data.state, "Brasil"],
+    ]
+      .map((parts) => parts.map((p) => String(p || "").trim()).filter(Boolean).join(", "))
+      .filter((q, i, all) => q.length > 3 && all.indexOf(q) === i);
+
+    for (const q of queries) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=br&q=${encodeURIComponent(q)}`;
+      try {
+        const res = await fetch(url, {
+          headers: { "User-Agent": "carta-para-o-meu-amor/1.0" },
+        });
+        if (!res.ok) continue;
+        const json = (await res.json()) as { lat: string; lon: string }[];
+        if (!json[0]) continue;
+        const lat = Number(json[0].lat);
+        const lng = Number(json[0].lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+      } catch {
+        /* tenta a próxima consulta */
+      }
+    }
+    return { lat: -23.55, lng: -46.63 };
   });
 
 export const applyCoupon = createServerFn({ method: "POST" })

@@ -200,6 +200,8 @@ function WritePage() {
                 number: fromAddress.number,
                 city: fromAddress.city,
                 state: fromAddress.state,
+                neighborhood: fromAddress.neighborhood,
+                cep: fromAddress.cep,
               },
             }),
             geocodeAddress({
@@ -208,6 +210,8 @@ function WritePage() {
                 number: toAddress.number,
                 city: toAddress.city,
                 state: toAddress.state,
+                neighborhood: toAddress.neighborhood,
+                cep: toAddress.cep,
               },
             }),
           ]);
@@ -245,6 +249,8 @@ function WritePage() {
             number: fromAddress.number,
             city: fromAddress.city,
             state: fromAddress.state,
+            neighborhood: fromAddress.neighborhood,
+            cep: fromAddress.cep,
           },
         });
         setFromGeo(g);
@@ -257,6 +263,8 @@ function WritePage() {
             number: toAddress.number,
             city: toAddress.city,
             state: toAddress.state,
+            neighborhood: toAddress.neighborhood,
+            cep: toAddress.cep,
           },
         });
         setToGeo(g);

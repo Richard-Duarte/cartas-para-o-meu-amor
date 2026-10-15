@@ -18,9 +18,11 @@ export function letterEndpoints(letter: Letter): {
   const toCity = getCity(letter.toCityId);
   const from = letter.fromGeo ?? fromCity.geo;
   const to = letter.toGeo ?? toCity.geo;
+  const fromName = shownFromName(letter, "public").trim() || letter.fromName?.trim() || "Origem";
+  const toName = letter.toName?.trim().replace(/,$/, "") || "Destino";
   return {
-    from: { ...from, label: letter.fromAddress?.city || fromCity.name },
-    to: { ...to, label: letter.toAddress?.city || toCity.name },
+    from: { ...from, label: fromName },
+    to: { ...to, label: toName },
   };
 }
 

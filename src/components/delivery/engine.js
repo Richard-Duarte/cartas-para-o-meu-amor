@@ -122,20 +122,35 @@ function endpoint(geo, fallback) {
   const lat = Number(geo && geo.lat), lng = Number(geo && geo.lng);
   return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : fallback;
 }
-let fromLL = endpoint(options.from, [-23.5505, -46.6333]);
-let toLL = endpoint(options.to, [-22.9068, -43.1729]);
-if (Math.hypot(fromLL[0] - toLL[0], fromLL[1] - toLL[1]) < 0.01) toLL = [toLL[0] + 0.02, toLL[1] + 0.02];
-const span = Math.hypot(toLL[0] - fromLL[0], toLL[1] - fromLL[1]) || 1;
+const fromLL = endpoint(options.from, [-23.5505, -46.6333]);
+const toLL = endpoint(options.to, [-22.9068, -43.1729]);
+// Pins stay on the exact address; only the drawn route is nudged if the points coincide.
+let routeFrom = fromLL;
+let routeTo = toLL;
+if (Math.hypot(routeFrom[0] - routeTo[0], routeFrom[1] - routeTo[1]) < 0.01) {
+  routeTo = [routeTo[0] + 0.02, routeTo[1] + 0.02];
+}
+const span = Math.hypot(routeTo[0] - routeFrom[0], routeTo[1] - routeFrom[1]) || 1;
 const bow = Math.max(span * 0.18, 0.08);
-const CTRL = [(fromLL[0] + toLL[0]) / 2 + (-(toLL[1] - fromLL[1]) / span) * bow, (fromLL[1] + toLL[1]) / 2 + ((toLL[0] - fromLL[0]) / span) * bow];
-const bez = (t) => [0, 1].map((k) => (1 - t) ** 2 * fromLL[k] + 2 * (1 - t) * t * CTRL[k] + t * t * toLL[k]);
+const CTRL = [(routeFrom[0] + routeTo[0]) / 2 + (-(routeTo[1] - routeFrom[1]) / span) * bow, (routeFrom[1] + routeTo[1]) / 2 + ((routeTo[0] - routeFrom[0]) / span) * bow];
+const bez = (t) => [0, 1].map((k) => (1 - t) ** 2 * routeFrom[k] + 2 * (1 - t) * t * CTRL[k] + t * t * routeTo[k]);
 const route = Array.from({ length: 80 }, (_, i) => bez(i / 79));
 const map = L.map($('map'), { zoomControl: false, attributionControl: true, scrollWheelZoom: false });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap', maxZoom: 16 }).addTo(map);
 L.polyline(route, { color: '#e85a7a', weight: 3, dashArray: '6 9', opacity: 0.8 }).addTo(map);
-const pin = (ll, t) => L.circleMarker(ll, { radius: 7, color: '#c4a35a', fillColor: '#fbf6f0', fillOpacity: 1, weight: 3 }).addTo(map).bindTooltip(t, { permanent: true, direction: 'top', className: 'tt' });
-pin(fromLL, options.from.label || 'Origem'); pin(toLL, options.to.label || 'Destino');
-map.fitBounds(L.latLngBounds(route), { padding: [70, 70] });
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pin = (ll, t) => {
+  const icon = L.divIcon({
+    className: 'delivery-pin-wrap',
+    html: `<span class="delivery-pin"><span class="delivery-pin-name">${esc(t)}</span><span class="delivery-pin-dot" aria-hidden="true"></span></span>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+  return L.marker(ll, { icon, interactive: false, keyboard: false }).addTo(map);
+};
+pin(fromLL, options.from.label || 'Origem');
+pin(toLL, options.to.label || 'Destino');
+map.fitBounds(L.latLngBounds([fromLL, toLL, ...route]), { padding: [72, 72], maxZoom: 14 });
 
 const mapCanvas = $('mapfx'), mapEl = root.querySelector('.map-card');
 const mr = makeRenderer(mapCanvas), ms = new THREE.Scene(); lights(ms);
