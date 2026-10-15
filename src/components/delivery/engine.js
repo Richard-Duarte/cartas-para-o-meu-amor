@@ -83,7 +83,7 @@ function instance() {
   const root = skClone(gltf.scene); root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; } });
   const mixer = new THREE.AnimationMixer(root);
   const act = (n, once) => { const a = mixer.clipAction(clips[n]); if (once) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } return a; };
-  return { root, mixer, act, branch: root.getObjectByName('Branch'), envelope: root.getObjectByName('Envelope') };
+  return { root, mixer, act, branch: root.getObjectByName('Branch'), envelope: root.getObjectByName('Envelope'), bundleMesh: root.getObjectByName('Bundle') };
 }
 
 // ---------- sound ----------
@@ -176,6 +176,7 @@ if (SET.sink) perch.root.position.y = SET.sink;
 const ENV_HIDDEN = { turtle: 1, plane: 1 }[AID]; // pony/donkey: the letter peeks out of the satchel during the carry
 if ((ENV_HIDDEN || AID === 'stork') && perch.envelope) perch.envelope.visible = false;
 let bundleCarried = AID === 'stork';
+const MB = AID === 'stork' && !!perch.bundleMesh; /* r7s: the carried bundle is a clay mesh skinned to the head bone inside the glb */
 // soft contact shadow (cblob) that follows the animal's root bone
 const boneBy = (re) => { let b = null; perch.root.traverse((o) => { if (!b && o.isBone && re.test(o.name)) b = o; }); return b; };
 const rootBone = boneBy(/^(tripo)?:*Root$|Root/), headBone = boneBy(/Head_1$/) || boneBy(/Head_0$/);
@@ -472,13 +473,15 @@ const penv = miniEnvelope(); penv.visible = false; ss.add(penv);
 // parachute for the plane drop
 const chute = new THREE.Group(); { const cm = new THREE.MeshStandardMaterial({ color: 0xf28aa5, roughness: 0.6, side: THREE.DoubleSide }); const c = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.2), cm); c.position.y = 0.3; chute.add(c); const lm = new THREE.LineBasicMaterial({ color: 0x9a7a6a }); for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; chute.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(Math.cos(a) * 0.15, 0.3, Math.sin(a) * 0.15), new THREE.Vector3(0, 0.04, 0)]), lm)); } chute.visible = false; ss.add(chute); }
 // cloth bundle for the stork
-const bundle = new THREE.Group(); { const cm = new THREE.MeshStandardMaterial({ color: 0xeac6cf, roughness: 0.85, side: THREE.DoubleSide }); const dots = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+const bundle = new THREE.Group(); { const cm = new THREE.MeshStandardMaterial({ color: 0xd9c6a2, roughness: 0.88, side: THREE.DoubleSide }); const dots = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
   const pouch = new THREE.Mesh(new THREE.SphereGeometry(0.075, 20, 14), cm); pouch.position.y = 0.065; pouch.scale.y = 0.85; pouch.castShadow = true; bundle.add(pouch); bundle.userData.pouch = pouch;
+  { const rm = new THREE.MeshStandardMaterial({ color: 0xb59c74, roughness: 0.9 }); for (const a of [0.66, -0.66]) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.0755, 0.0085, 8, 40), rm); t.rotation.set(a, Math.PI / 2, 0); pouch.add(t); } }
   const flaps = []; for (let i = 0; i < 4; i++) { const pv = new THREE.Group(); pv.rotation.y = i * Math.PI / 2 + Math.PI / 4; const sh = new THREE.Shape(); sh.moveTo(0, -0.05); sh.quadraticCurveTo(0.09, -0.04, 0.13, 0); sh.quadraticCurveTo(0.09, 0.04, 0, 0.05); sh.lineTo(0, -0.05);
     const m = new THREE.Mesh(new THREE.ShapeGeometry(sh, 8), cm); m.rotation.x = -Math.PI / 2; m.castShadow = true; const hinge = new THREE.Group(); hinge.position.x = 0.02; hinge.add(m); pv.add(hinge); hinge.rotation.z = 1.35; pv.position.y = 0.01; bundle.add(pv); flaps.push(hinge);
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 6, 4), dots); dot.position.set(0.07, 0, 0.0); m.add(dot); }
   bundle.userData.flaps = flaps; const knot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), cm); knot.position.y = 0.15; bundle.add(knot); bundle.userData.knot = knot; bundle.visible = false; bundle.scale.setScalar(HGT / 0.62); ss.add(bundle); }
-const mapBundle = AID === 'stork' ? bundle.clone(true) : null;
+const mapBundle = AID === 'stork' && !MB ? bundle.clone(true) : null;
+if (MB && flyer.envelope) flyer.envelope.visible = false;
 if (mapBundle) { mapBundle.visible = true; mapBundle.scale.setScalar((HGT / 0.62) * FLY_SCALE); ms.add(mapBundle); if (flyer.envelope) flyer.envelope.visible = false; }
 
 // envelope carry position (works for skinned or bone-parented envelope)
@@ -493,7 +496,7 @@ function carryPos(out) {
   return new THREE.Box3().setFromObject(e).getCenter(out);
 }
 // beak tip: the most forward rest vertex skinned mostly to the head bone, evaluated with skinning each frame
-const BEAKBONE = { pigeon: /Head_1$/, stork: /Head_2$/, swan: /Head_2$/ }[AID];
+const BEAKBONE = { pigeon: /Head_1$/, stork: /Head_0$/, swan: /Head_2$/ }[AID];
 const beakCache = new Map();
 function beakTip(out, inst = perch) {
   let beakInfo = beakCache.get(inst);
@@ -568,7 +571,7 @@ function deliverEnvelope(D) {
     at(0.87 * D, () => { const s = penv.position.clone(); land.set(0.02, 0.3, 0.4); let t = 0; fol.push((dt) => { t += dt; const u = Math.min(1, t / 1.4); const e = 1 - Math.pow(1 - u, 3); penv.position.lerpVectors(s, land, e); penv.position.y += Math.sin(u * Math.PI) * 0.08 + Math.sin(t * 4) * 0.01; penv.rotation.set(-0.3 * e, Math.sin(t * 3) * 0.3, Math.sin(t * 5) * 0.12); if (u >= 1 && !penv.userData.done) { penv.userData.done = 1; emit('heart', land, 6, { speed: 0.25, up: 0.8, life: 1.2, size: 0.05 }); } return u < 1; }); settle(2000); });
   } else if (AID === 'stork') {
     const gy = SET.groundY; camMove(new THREE.Vector3(1.7, 0.15, 3.1), new THREE.Vector3(0.1, -0.15, 0.2), 1500);
-    at(rel, () => { bundleCarried = false; bundle.visible = true; penv.visible = false; bundle.rotation.set(0, bundle.rotation.y, 0);
+    at(rel, () => { if (MB) { let bm = null; perch.bundleMesh.traverse((o) => { if (o.isSkinnedMesh && (!bm || o.geometry.attributes.position.count > bm.geometry.attributes.position.count)) bm = o; }); perch.root.updateMatrixWorld(true); const c = new THREE.Vector3(), q = new THREE.Vector3(); const n = bm.geometry.attributes.position.count; let m = 0; for (let i = 0; i < n; i += 17) { bm.getVertexPosition(i, q); c.add(q.applyMatrix4(bm.matrixWorld)); m++; } c.multiplyScalar(1 / m); const k = HGT / 0.62; bundle.position.set(c.x, c.y - 0.065 * k * 0.85 * 0.95, c.z); bundle.scale.setScalar(k); } bundleCarried = false; if (MB) perch.bundleMesh.visible = false; bundle.visible = true; penv.visible = false; bundle.rotation.set(0, bundle.rotation.y, 0);
       const vel = new THREE.Vector3(0.0, -0.05, 0.08); const g = 9.8 * 0.55; let t = 0, bounces = 0, rest = false, spin = 2.2;
       fol.push((dt) => { t += dt; if (!rest) { vel.y -= g * dt; bundle.position.addScaledVector(vel, dt); bundle.rotation.y += spin * dt; bundle.rotation.z = Math.sin(t * 6) * 0.15 * (1 - bounces / 3);
         const floor = gy + 0.0; if (bundle.position.y <= floor && vel.y < 0) { bundle.position.y = floor; bounces++; play('pet'); emit('dust', bundle.position.clone().add(new THREE.Vector3(0, 0.02, 0)), 6 - bounces * 2, { spread: 0.15, speed: 0.3, up: 0.4, life: 0.8, size: 0.06, op: 0.6 });
@@ -646,7 +649,8 @@ let idleFx = 0;
 function stageTick(dt, t) {
   updFidget(dt); perch.mixer.update(dt); updBlink(dt); SET.tick(t, dt);
   perch.root.updateMatrixWorld(true);
-  if (bundleCarried && stageState !== 'idle') { const k = HGT / 0.62; beakTip(bundle.position); bundle.position.y -= 0.17 * k * 0.8; bundle.scale.setScalar(k * 0.8); bundle.rotation.set(0, 0.6 + Math.sin(t * 1.3) * 0.08, Math.sin(t * 2.1) * 0.05); bundle.visible = !(mapBundle && mapBundle.visible && yawG.visible); } // R7: never two bundles at once
+  if (MB) { perch.bundleMesh.visible = bundleCarried; if (bundleCarried) bundle.visible = false; }
+  else if (bundleCarried && stageState !== 'idle') { const k = HGT / 0.62; beakTip(bundle.position); bundle.position.y -= 0.17 * k * 0.8; bundle.scale.setScalar(k * 0.8); bundle.rotation.set(0, 0.6 + Math.sin(t * 1.3) * 0.08, Math.sin(t * 2.1) * 0.05); bundle.visible = !(mapBundle && mapBundle.visible && yawG.visible); } // R7: never two bundles at once
   for (let i = fol.length - 1; i >= 0; i--) if (fol[i](dt) === false) fol.splice(i, 1);
   updParts(dt); updRipples(dt);
   if (rootBone && SET.groundY !== null) { const p = rootBone.getWorldPosition(_v); cblob.position.set(p.x, SET.groundY + 0.006, p.z); const s = HGT * (AID === 'turtle' ? 1.8 : 1.1); cblob.scale.set(s, s * 0.8, 1); cblob.material.opacity = 0.32 * THREE.MathUtils.clamp(1 - (p.y - SET.groundY) / (HGT * 2.5), 0, 1); }
@@ -878,7 +882,7 @@ window.__demo = {
     perch.root.updateMatrixWorld(true); const out = []; const v = new THREE.Vector3();
     perch.root.traverse((o) => { if (o.isBone || (o.isMesh && o.visible && o.name === 'Envelope')) { o.getWorldPosition(v); out.push(+v.x.toFixed(4), +v.y.toFixed(4), +v.z.toFixed(4)); } });
     const ws = new THREE.Vector3(); perch.root.getWorldScale(ws);
-    return { p: out, s: +ws.x.toFixed(4), st: stageState, bundle: AID === 'stork' ? [bundle.visible, mapBundle ? mapBundle.visible && yawG.visible : false, perch.envelope ? perch.envelope.visible : null] : null, penv: penv.visible }; },
+    return { p: out, s: +ws.x.toFixed(4), st: stageState, bundle: AID === 'stork' ? [bundle.visible, mapBundle ? mapBundle.visible && yawG.visible : false, perch.envelope ? perch.envelope.visible : null, MB ? perch.bundleMesh.visible : null, MB ? flyer.bundleMesh.visible && yawG.visible : null] : null, penv: penv.visible }; },
   snapNames: () => { const n = []; perch.root.traverse((o) => { if (o.isBone) n.push(o.name); }); return n; },
   envShow: () => { if (envState === 'none') showEnvelope(); }, envOpen: () => { if (envState === 'closed') openEnv(); }, envClose: () => closeEnv(), read: () => openRead(), envCam: (x, y, z) => { ecam.position.set(x, y, z); ecam.lookAt(0, 0.3, 0); },
   envCheck: () => { // R7: letter vs flap/back/pocket/inner interpenetration (points of each part inside the letter box and vice versa)
@@ -894,7 +898,7 @@ window.__demo = {
   footGap: () => { // R7: skinned sole verts -> raycast down onto scene props; also their screen position
     perch.root.updateMatrixWorld(true); let body = null; perch.root.traverse((o) => { if (o.isSkinnedMesh && (!body || o.geometry.attributes.position.count > body.geometry.attributes.position.count)) body = o; });
     if (!body) return null;
-    const LEGR = { pigeon: ['0_Left_Limb_0', 'bone_20'], stork: ['bone_27', 'bone_34'], swan: ['bone_15', 'bone_18'] }[AID] || [];
+    const LEGR = { pigeon: ['0_Left_Limb_0', 'bone_20'], stork: ['bone_12', 'bone_22'], swan: ['bone_15', 'bone_18'] }[AID] || [];
     const sk = body.skeleton, legB = new Set(); sk.bones.forEach((bn, i) => { let q = bn; while (q && q.isBone) { if (LEGR.some((r) => q.name.replace(/[^A-Za-z0-9_]/g, '').endsWith(r))) { legB.add(i); break; } q = q.parent; } });
     const si = body.geometry.attributes.skinIndex, sw = body.geometry.attributes.skinWeight;
     const v = new THREE.Vector3(), P = []; const n = body.geometry.attributes.position.count;
