@@ -76,7 +76,7 @@ function lights(scene) {
   const d = new THREE.DirectionalLight(0xffffff, 1.6); d.position.set(2, 4, 3); scene.add(d);
 }
 function fit(renderer, camera, el) {
-  if (!el) return;
+  if (!el || !camera || !renderer || typeof renderer.setSize !== 'function') return;
   const w = el.clientWidth, h = el.clientHeight; if (w < 2 || h < 2) return; renderer.setSize(w, h, false);
   if (camera.isPerspectiveCamera) camera.aspect = w / h; else { camera.left = -w / 2; camera.right = w / 2; camera.top = h / 2; camera.bottom = -h / 2; }
   camera.updateProjectionMatrix();
@@ -116,7 +116,28 @@ const clips = Object.fromEntries(gltf.animations.map((a) => [a.name, a]));
 function instance() {
   const root = skClone(gltf.scene); root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; } });
   const mixer = new THREE.AnimationMixer(root);
-  const act = (n, once) => { const a = mixer.clipAction(clips[n]); if (once) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } return a; };
+  const noopAct = () => ({
+    play() { return this; },
+    reset() { return this; },
+    stop() { return this; },
+    fadeIn() { return this; },
+    fadeOut() { return this; },
+    crossFadeTo() { return this; },
+    setLoop() { return this; },
+    setEffectiveWeight() { return this; },
+    setEffectiveTimeScale() { return this; },
+    getEffectiveWeight() { return 0; },
+    enabled: false,
+    time: 0,
+    clampWhenFinished: false,
+  });
+  const act = (n, once) => {
+    const clip = clips[n];
+    if (!clip) return noopAct();
+    const a = mixer.clipAction(clip);
+    if (once) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; }
+    return a;
+  };
   return { root, mixer, act, branch: root.getObjectByName('Branch'), envelope: root.getObjectByName('Envelope'), bundleMesh: root.getObjectByName('Bundle') };
 }
 
@@ -166,18 +187,36 @@ pin(toLL, options.to.label || 'Destino');
 map.fitBounds(L.latLngBounds([fromLL, toLL, ...route]), { padding: [72, 72], maxZoom: 14 });
 
 const mapCanvas = $('mapfx'), mapEl = root.querySelector('.map-card');
-const mr = makeRenderer(mapCanvas), ms = new THREE.Scene(); lights(ms);
-const mc = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 5000);
-const tilt = THREE.MathUtils.degToRad(40); mc.position.set(0, 1500 * Math.cos(tilt), 1500 * Math.sin(tilt)); mc.lookAt(0, 0, 0);
-fit(mr, mc, mapEl);
-const flyer = instance(); if (flyer.branch) flyer.branch.visible = false;
-const yawG = new THREE.Group(), bankG = new THREE.Group(); yawG.add(bankG); bankG.add(flyer.root); ms.add(yawG);
-flyer.root.scale.setScalar(window.innerWidth < 700 ? 95 : 130); /* see FLY_SCALE */ flyer.root.position.y = -20;
-const aTravel = flyer.act('Travel'), aGlide = clips.Glide ? flyer.act('Glide') : null;
-aTravel.play(); if (aGlide) { aGlide.play(); aGlide.setEffectiveWeight(0); }
+let map3dOk = true;
+let mr, ms, mc, flyer, yawG, bankG, aTravel, aGlide;
+try {
+  mr = makeRenderer(mapCanvas);
+  ms = new THREE.Scene(); lights(ms);
+  mc = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 5000);
+  const tilt = THREE.MathUtils.degToRad(40); mc.position.set(0, 1500 * Math.cos(tilt), 1500 * Math.sin(tilt)); mc.lookAt(0, 0, 0);
+  fit(mr, mc, mapEl);
+  flyer = instance(); if (flyer.branch) flyer.branch.visible = false;
+  yawG = new THREE.Group(); bankG = new THREE.Group(); yawG.add(bankG); bankG.add(flyer.root); ms.add(yawG);
+  flyer.root.scale.setScalar(window.innerWidth < 700 ? 95 : 130); /* see FLY_SCALE */ flyer.root.position.y = -20;
+  aTravel = flyer.act('Travel') || flyer.act('Idle');
+  aGlide = clips.Glide ? flyer.act('Glide') : null;
+  if (aTravel) aTravel.play();
+  if (aGlide) { aGlide.play(); aGlide.setEffectiveWeight(0); }
+} catch (err) {
+  console.error('[delivery-map3d]', err);
+  map3dOk = false;
+  loseAllRenderers();
+  mr = { render() {}, setSize() {}, dispose() {}, forceContextLoss() {}, info: { render: { calls: 0 } } };
+  ms = null; mc = null;
+  flyer = { mixer: { update() {} }, root: { scale: { setScalar() {} } }, act: () => null, branch: null, envelope: null, bundleMesh: null };
+  yawG = { visible: true, position: { copy() {}, x: 0, y: 0, z: 0 }, rotation: { y: 0 }, updateMatrixWorld() {}, add() {} };
+  bankG = { rotation: { z: 0 }, position: { y: 0 }, add() {} };
+  aTravel = null; aGlide = null;
+  if (mapCanvas) mapCanvas.style.display = 'none';
+}
 let gliding = false, phaseT = 0, phaseLim = 3;
 function updateFlightMode(dt) {
-  if (!aGlide) return;
+  if (!map3dOk || !aGlide || !aTravel) return;
   phaseT += dt; const edge = progress < 0.1 || progress > 0.88;   // always flap at take-off and before landing
   if (((phaseT > phaseLim && !edge) || (gliding && edge)) && !reduced) { phaseT = 0; gliding = !gliding; phaseLim = gliding ? 1.4 + Math.random() * 1.2 : 2.4 + Math.random() * 1.8; const from = gliding ? aTravel : aGlide, to = gliding ? aGlide : aTravel; to.enabled = true; to.setEffectiveTimeScale(1); to.setEffectiveWeight(1); to.time = 0; from.crossFadeTo(to, 0.5, false); }
 }
@@ -553,9 +592,9 @@ const bundle = new THREE.Group(); { const cm = new THREE.MeshStandardMaterial({ 
     const m = new THREE.Mesh(new THREE.ShapeGeometry(sh, 8), cm); m.rotation.x = -Math.PI / 2; m.castShadow = true; const hinge = new THREE.Group(); hinge.position.x = 0.02; hinge.add(m); pv.add(hinge); hinge.rotation.z = 1.35; pv.position.y = 0.01; bundle.add(pv); flaps.push(hinge);
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 6, 4), dots); dot.position.set(0.07, 0, 0.0); m.add(dot); }
   bundle.userData.flaps = flaps; const knot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), cm); knot.position.y = 0.15; bundle.add(knot); bundle.userData.knot = knot; bundle.visible = false; bundle.scale.setScalar(HGT / 0.62); ss.add(bundle); }
-const mapBundle = AID === 'stork' && !MB ? bundle.clone(true) : null;
+const mapBundle = map3dOk && AID === 'stork' && !MB ? bundle.clone(true) : null;
 if (MB && flyer.envelope) flyer.envelope.visible = false;
-if (mapBundle) { mapBundle.visible = true; mapBundle.scale.setScalar((HGT / 0.62) * FLY_SCALE); ms.add(mapBundle); if (flyer.envelope) flyer.envelope.visible = false; }
+if (mapBundle && ms) { mapBundle.visible = true; mapBundle.scale.setScalar((HGT / 0.62) * FLY_SCALE); ms.add(mapBundle); if (flyer.envelope) flyer.envelope.visible = false; }
 
 // envelope carry position (works for skinned or bone-parented envelope)
 const _v = new THREE.Vector3(), _m = new THREE.Matrix4();
@@ -950,32 +989,40 @@ function advance(dt) {
       progress = synced ? Math.max(progress, target) : target;
       synced = true;
     }
-    const f = arcFrac(progress), tc = arcT(f), d = 0.004;
-    const a = pt(tc), b = pt(Math.min(1, tc + d)), c = pt(Math.max(0, tc - d));
-    const wa = screenToWorld(a.x, a.y), wb = screenToWorld(b.x, b.y), wc = screenToWorld(c.x, c.y);
-    yawG.position.copy(wa);
-    const dir = wb.clone().sub(wc); const yaw = Math.atan2(dir.x, dir.z);
-    if (yawS === null || reduced) yawS = yaw;
-    else { let dy = Math.atan2(Math.sin(yaw - yawS), Math.cos(yaw - yawS)); const step = dy * (1 - Math.exp(-dt * 5)); yawS += step; yawRate += (step / Math.max(dt, 1e-3) - yawRate) * (1 - Math.exp(-dt * 4)); }
-    const tgtBank = AN.fly ? THREE.MathUtils.clamp(-yawRate * 0.9, -0.5, 0.5) : THREE.MathUtils.clamp(-yawRate * 0.15, -0.08, 0.08);
-    bank += (tgtBank - bank) * (1 - Math.exp(-dt * 3));
-    yawG.rotation.y = yawS; bankG.rotation.z = bank;
-    const edgeK = Math.min(1, progress / 0.1, (1 - progress) / 0.12);
-    let bob = 0;
-    if (AN.fly && !reduced) { const tw = aTravel.getEffectiveWeight(), ph = (aTravel.time / clips.Travel.duration) * Math.PI * 2; bob = -Math.sin(ph) * 3.5 * tw; bankG.position.y = (Math.sin(t * 0.55) * 8 + Math.sin(t * 0.23 + 1) * 5 + (gliding ? -3 : 3)) * edgeK + bob; bankG.rotation.x = (gliding ? 0.06 : -0.03) * edgeK; }
-    else bankG.position.y = 0;
-    // walkers: walk-cycle rate follows the real ground speed (no foot sliding)
-    if (!AN.fly) { if (havePrev && dt > 0) { const v = wa.distanceTo(prevPos) / dt; const natural = (GAIT ? GAIT.speed : 0.3) * FLY_SCALE; const matched = THREE.MathUtils.clamp(v / Math.max(1, natural), 0.05, 2.5); const want = v < 12 ? 0.9 : matched; tScale += (want - tScale) * (1 - Math.exp(-dt * 6)); aTravel.setEffectiveTimeScale(tScale); } prevPos.copy(wa); havePrev = true; }
-    updateFlightMode(dt);
     $('prog').style.width = (progress * 100).toFixed(1) + '%';
     if (progress >= 1) $('eta').textContent = `Chegou em ${options.to.label || 'o destino'}`;
     else if (skipping) $('eta').textContent = `${AN.fly ? "Em voo" : "A caminho"} · ${Math.round(progress * 100)}% do caminho`;
     else $('eta').textContent = (options.getJourney && options.getJourney().label) || '';
-    if (progress >= 1) { arrived = true; $('skip').hidden = true; tween(500, (k) => flyer.root.scale.setScalar(FLY_SCALE * (1 - 0.08 * k)), () => { yawG.visible = false; if (mapBundle) mapBundle.visible = false; }); startArrival(); tellDelivered(); }
-    flyer.mixer.update(dt);
-    if (mapBundle) { yawG.updateMatrixWorld(true); beakTip(mapBundle.position, flyer); mapBundle.position.y -= 0.17 * (HGT / 0.62) * FLY_SCALE; mapBundle.rotation.set(0, yawS + Math.sin(t * 1.7) * 0.15, bank * 0.5 + Math.sin(t * 2.3) * 0.06); mapBundle.visible = yawG.visible; }
+    if (map3dOk && mc && aTravel) {
+      const f = arcFrac(progress), tc = arcT(f), d = 0.004;
+      const a = pt(tc), b = pt(Math.min(1, tc + d)), c = pt(Math.max(0, tc - d));
+      const wa = screenToWorld(a.x, a.y), wb = screenToWorld(b.x, b.y), wc = screenToWorld(c.x, c.y);
+      yawG.position.copy(wa);
+      const dir = wb.clone().sub(wc); const yaw = Math.atan2(dir.x, dir.z);
+      if (yawS === null || reduced) yawS = yaw;
+      else { let dy = Math.atan2(Math.sin(yaw - yawS), Math.cos(yaw - yawS)); const step = dy * (1 - Math.exp(-dt * 5)); yawS += step; yawRate += (step / Math.max(dt, 1e-3) - yawRate) * (1 - Math.exp(-dt * 4)); }
+      const tgtBank = AN.fly ? THREE.MathUtils.clamp(-yawRate * 0.9, -0.5, 0.5) : THREE.MathUtils.clamp(-yawRate * 0.15, -0.08, 0.08);
+      bank += (tgtBank - bank) * (1 - Math.exp(-dt * 3));
+      yawG.rotation.y = yawS; bankG.rotation.z = bank;
+      const edgeK = Math.min(1, progress / 0.1, (1 - progress) / 0.12);
+      let bob = 0;
+      if (AN.fly && !reduced && clips.Travel) { const tw = aTravel.getEffectiveWeight(), ph = (aTravel.time / clips.Travel.duration) * Math.PI * 2; bob = -Math.sin(ph) * 3.5 * tw; bankG.position.y = (Math.sin(t * 0.55) * 8 + Math.sin(t * 0.23 + 1) * 5 + (gliding ? -3 : 3)) * edgeK + bob; bankG.rotation.x = (gliding ? 0.06 : -0.03) * edgeK; }
+      else bankG.position.y = 0;
+      // walkers: walk-cycle rate follows the real ground speed (no foot sliding)
+      if (!AN.fly) { if (havePrev && dt > 0) { const v = wa.distanceTo(prevPos) / dt; const natural = (GAIT ? GAIT.speed : 0.3) * FLY_SCALE; const matched = THREE.MathUtils.clamp(v / Math.max(1, natural), 0.05, 2.5); const want = v < 12 ? 0.9 : matched; tScale += (want - tScale) * (1 - Math.exp(-dt * 6)); aTravel.setEffectiveTimeScale(tScale); } prevPos.copy(wa); havePrev = true; }
+      updateFlightMode(dt);
+      flyer.mixer.update(dt);
+      if (mapBundle) { yawG.updateMatrixWorld(true); beakTip(mapBundle.position, flyer); mapBundle.position.y -= 0.17 * (HGT / 0.62) * FLY_SCALE; mapBundle.rotation.set(0, yawS + Math.sin(t * 1.7) * 0.15, bank * 0.5 + Math.sin(t * 2.3) * 0.06); mapBundle.visible = yawG.visible; }
+    }
+    if (progress >= 1) {
+      arrived = true;
+      $('skip').hidden = true;
+      if (map3dOk) tween(500, (k) => flyer.root.scale.setScalar(FLY_SCALE * (1 - 0.08 * k)), () => { yawG.visible = false; if (mapBundle) mapBundle.visible = false; });
+      startArrival();
+      tellDelivered();
+    }
   }
-  if (!arrived || mapFrames-- > 0) mr.render(ms, mc);
+  if (map3dOk && ms && mc && (!arrived || mapFrames-- > 0)) mr.render(ms, mc);
   if (!$('arrival').classList.contains('hidden')) {
     if (stageReady) stageTick(dt, t);
     if (envReady) {

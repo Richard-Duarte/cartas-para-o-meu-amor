@@ -95,8 +95,16 @@ export function AddressFields({ label, value, onChange }: Props) {
       setStatus("Preencha o endereço antes de salvar");
       return;
     }
-    const fav = saveFavoriteAddress(value);
+    const suggested =
+      [value.street, value.number].filter(Boolean).join(", ") || value.city || "Favorito";
+    const label = window.prompt("Nome deste favorito", suggested)?.trim();
+    if (label === "") {
+      setStatus("Favorito cancelado");
+      return;
+    }
+    const fav = saveFavoriteAddress(value, label || undefined);
     refreshFavorites();
+    setPickerOpen(true);
     setStatus(fav ? `Salvo como favorito “${fav.label}”` : "Não deu para salvar");
   }
 
