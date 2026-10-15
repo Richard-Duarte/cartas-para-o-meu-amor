@@ -1,17 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { DeliveryJourney } from "@/components/delivery/DeliveryJourney";
+import { DeliveryJourney, type DeliveryJourneyHandle } from "@/components/delivery/DeliveryJourney";
 import { trackMeta } from "@/components/delivery/journey";
-import { LetterSheet } from "@/components/letters/LetterSheet";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { downloadLetterPng } from "@/lib/download-letter";
 import { getLetter, letterFromRecord, letterProgress, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { LetterReply } from "@/components/letters/LetterReply";
 import { openSharedLetter } from "@/lib/server/shop";
-import { cn } from "@/lib/utils";
-
 export const Route = createFileRoute("/acompanhar/$letterId")({
   component: TrackPage,
 });
@@ -103,13 +100,13 @@ function TrackView({
 }) {
   const meta = trackMeta(letter);
   const [now, setNow] = useState(() => Date.now());
-  const [forceOpen, setForceOpen] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
-  const sheetRef = useRef<HTMLDivElement>(null);
+  const journeyRef = useRef<DeliveryJourneyHandle>(null);
   const delivered = letterProgress(letter, now).arrived;
-  const showLetter = delivered || forceOpen;
+  const showLetter = delivered || opened;
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
 
@@ -129,8 +126,13 @@ function TrackView({
     }
   }
 
+  function openDemo() {
+    setOpened(true);
+    journeyRef.current?.openRead();
+  }
+
   async function download() {
-    const node = sheetRef.current;
+    const node = document.querySelector<HTMLElement>(".delivery-preview .letter-pack");
     if (!node || !delivered) return;
     setDownloadError("");
     setDownloading(true);
@@ -141,6 +143,11 @@ function TrackView({
     } finally {
       setDownloading(false);
     }
+  }
+
+  function printLetter() {
+    if (!delivered) return;
+    window.print();
   }
 
   return (
@@ -177,40 +184,37 @@ function TrackView({
               {downloading ? "Preparando…" : "Baixar carta"}
             </button>
           ) : null}
+          {delivered ? (
+            <button type="button" onClick={printLetter}>
+              Imprimir
+            </button>
+          ) : null}
         </div>
         {downloadError ? <p className="mt-2 text-sm text-rose">{downloadError}</p> : null}
         {!delivered ? (
           <p className="mt-2 text-sm text-muted">O download destrava quando a carta chegar.</p>
         ) : null}
 
-        <DeliveryJourney letter={letter} onDelivered={() => setNow(Date.now())} />
+        <DeliveryJourney
+          ref={journeyRef}
+          letter={letter}
+          allowDownload={delivered}
+          onDelivered={() => setNow(Date.now())}
+          onOpened={() => setOpened(true)}
+        />
 
-        <div className={cn("mt-8", showLetter && "letter-arrive")}>
-          {showLetter ? (
-            <LetterSheet
-              ref={sheetRef}
-              designId={letter.designId ?? "classico"}
-              fromName={shownFromName(letter, "public")}
-              toName={letter.toName}
-              body={letter.body}
-              pages={letter.pages}
-              kind={letter.kind}
-              drawingDataUrl={letter.drawingDataUrl}
-              className="mx-auto max-w-md"
-            />
-          ) : (
-            <div className="rounded-xl border border-line bg-paper p-6">
-              <p className="text-muted">A carta destrava quando o mensageiro chega.</p>
-              <button
-                type="button"
-                className="mt-4 min-h-11 rounded-full border border-ink px-5 text-sm"
-                onClick={() => setForceOpen(true)}
-              >
-                Abrir agora (demo)
-              </button>
-            </div>
-          )}
-        </div>
+        {!delivered ? (
+          <div className="mt-8 rounded-xl border border-line bg-paper p-6">
+            <p className="text-muted">A carta abre no envelope quando o mensageiro chega.</p>
+            <button
+              type="button"
+              className="mt-4 min-h-11 rounded-full border border-ink px-5 text-sm"
+              onClick={openDemo}
+            >
+              {opened ? "Ler de novo (demo)" : "Abrir agora (demo)"}
+            </button>
+          </div>
+        ) : null}
 
         {letter.id !== "demo" && role === "recipient" && !showLetter ? (
           <p className="reply-wait">O comentário abre quando você ler a carta.</p>

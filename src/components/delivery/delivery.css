@@ -445,6 +445,100 @@
   }
 }
 
+.delivery-preview .letter:has(.letter-read) {
+  padding: 0;
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+  max-width: min(440px, 100%);
+}
+
+.delivery-preview .letter:has(.letter-read) .letter-sheet-date {
+  padding-right: 46px;
+}
+
+.delivery-preview .letter:has(.letter-read) .close {
+  position: sticky;
+  top: 8px;
+  z-index: 3;
+  display: block;
+  float: none;
+  margin: 8px 8px -48px auto;
+}
+
+.delivery-preview .letter .letter-sheet,
+.delivery-preview .letter .letter-sheet-inner {
+  min-height: 16rem;
+}
+
+.delivery-preview .letter .letter-sheet-sticker,
+.delivery-preview .letter .letter-sheet-abs {
+  margin-top: 0;
+  border-radius: 0;
+}
+
+.delivery-preview .letter .letter-sheet-sticker {
+  max-width: none;
+}
+
+.delivery-preview .letter .letter-sheet-draw {
+  margin-top: 0;
+}
+
+.delivery-preview .letter-overlay.is-capture .letter {
+  transform: none !important;
+  transition: none !important;
+}
+
+.envelope-slot .delivery-preview .stage {
+  height: min(52vh, 420px);
+  min-height: 220px;
+}
+
+.envelope-slot .delivery-preview .envelope-only {
+  padding: 16px 16px 12px;
+}
+
+@media (max-width: 480px) {
+  .delivery-preview .letter:has(.letter-read) .letter-sheet,
+  .delivery-preview .letter:has(.letter-read) .letter-sheet-inner {
+    min-height: 12rem;
+  }
+  .delivery-preview .letter:has(.letter-read) .letter-sheet-inner {
+    padding: 1rem 0.9rem 0.9rem;
+  }
+  .delivery-preview .letter:has(.letter-read) .letter-sheet-body {
+    font-size: 1.05rem;
+  }
+  .envelope-slot .delivery-preview .stage {
+    height: min(42vh, 320px);
+    min-height: 200px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .delivery-preview .letter:has(.letter-read) .letter-sheet,
+  .delivery-preview .letter:has(.letter-read) .letter-sheet-inner {
+    min-height: 0;
+  }
+  .delivery-preview .letter:has(.letter-read) .letter-sheet-inner {
+    gap: 0.4rem;
+    padding: 0.65rem 0.8rem 0.55rem;
+  }
+  .delivery-preview .letter:has(.letter-read) .letter-sheet-body {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+  .delivery-preview .letter:has(.letter-read) .letter-sheet-stage {
+    min-height: 8rem;
+    aspect-ratio: auto;
+  }
+  .envelope-slot .delivery-preview .stage {
+    height: min(70vh, 240px);
+    min-height: 160px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .delivery-preview .hint,
   .delivery-preview .heart,

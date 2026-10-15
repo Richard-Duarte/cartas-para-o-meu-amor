@@ -22,6 +22,9 @@ function saveDataUrl(dataUrl: string, name: string) {
 }
 
 export async function downloadLetterPng(root: HTMLElement, toName: string) {
+  const overlay = root.closest(".letter-overlay");
+  overlay?.classList.add("is-capture");
+  try {
   await document.fonts.ready;
   await Promise.all(
     [...root.querySelectorAll("img")].map((img) =>
@@ -72,4 +75,7 @@ export async function downloadLetterPng(root: HTMLElement, toName: string) {
     y += img.height + gap;
   }
   saveDataUrl(canvas.toDataURL("image/png"), `${filename}.png`);
+  } finally {
+    overlay?.classList.remove("is-capture");
+  }
 }

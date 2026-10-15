@@ -24,9 +24,7 @@ const SHELL = `
 </section>
 <div id="flyer" class="flyer"></div>
 <div id="letter" class="letter-overlay" aria-hidden="true"><article class="letter"><button id="close" class="close" type="button" aria-label="Fechar">×</button>
-<p class="date" id="letterDate"></p><h3 id="letterGreeting"></h3>
-<div id="letterBody"></div>
-<p class="sign" id="letterSign"></p></article></div>`;
+<div id="letterPages"></div></article></div>`;
 
 export async function mountDeliveryPreview(root, options) {
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -690,20 +688,7 @@ const heartMat = new THREE.MeshStandardMaterial({ color: 0xd9506f, roughness: 0.
 const heart = new THREE.Mesh(new THREE.ExtrudeGeometry(hs, { depth: 0.006, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01, bevelSegments: 4, curveSegments: 24 }), heartMat); heart.scale.set(0.72, 0.72, 1); heart.position.set(0, 0.012, 0.046); seal.add(heart);
 const hit = new THREE.Mesh(new THREE.SphereGeometry(0.32), new THREE.MeshBasicMaterial({ visible: false })); seal.add(hit);
 function paintLetter() {
-  const data = options.getLetter ? options.getLetter() : null;
-  if (!data) return;
-  $('letterDate').textContent = data.date || '';
-  $('letterGreeting').textContent = data.greeting || '';
-  const sign = $('letterSign');
-  sign.replaceChildren('Com todo o carinho,');
-  sign.append(document.createElement('br'));
-  const em = document.createElement('em');
-  em.textContent = data.sign || '';
-  sign.append(em);
-  const body = $('letterBody');
-  body.replaceChildren();
-  for (const text of data.paragraphs || []) { const p = document.createElement('p'); p.textContent = text; body.appendChild(p); }
-  if (data.drawing) { const img = document.createElement('img'); img.src = data.drawing; img.alt = ''; body.appendChild(img); }
+  /* A folha (tema, texto, páginas, desenho) é o LetterDocument em #letterPages. */
 }
 const letterTex = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 340; const g = c.getContext('2d'); g.fillStyle = '#fbf6f0'; g.fillRect(0, 0, 512, 340); g.strokeStyle = 'rgba(196,163,90,.4)'; for (let y = 70; y < 330; y += 30) { g.beginPath(); g.moveTo(40, y); g.lineTo(472, y); g.stroke(); } g.fillStyle = '#e85a7a'; g.font = 'italic 34px serif'; const greet = ((options.getLetter && options.getLetter().greeting) || 'Meu amor,').slice(0, 24); g.fillText(greet, 40, 52); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
 const letter = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.95, 0.008), new THREE.MeshStandardMaterial({ map: letterTex, roughness: 0.9 })); letter.position.set(0, -0.02, D / 2 + 0.03); env.add(letter);
@@ -765,7 +750,7 @@ function openLetter(fromEnv) {
     const r = $('envc').getBoundingClientRect(); const x = r.left + (p.x * 0.5 + 0.5) * r.width, y = r.top + (-p.y * 0.5 + 0.5) * r.height;
     o.style.setProperty('--tx', (x - innerWidth / 2) + 'px'); o.style.setProperty('--ty', (y - innerHeight / 2) + 'px');
   }
-  requestAnimationFrame(() => { o.classList.add('open'); o.setAttribute('aria-hidden', 'false'); });
+  requestAnimationFrame(() => { o.classList.add('open'); o.setAttribute('aria-hidden', 'false'); if (options.onOpened) options.onOpened(); });
   $('envHint').textContent = 'Toque na carta para ler de novo';
 }
 // R7d: closing plays the opening in reverse: overlay shrinks onto the 3D letter, letter tilts back and slides down into the
@@ -794,6 +779,14 @@ function closeLetter() {
   o.classList.remove('open'); o.setAttribute('aria-hidden', 'true');
   tween(reduced ? 1 : 620, () => {}, () => closeEnv());
 }
+function openRead() {
+  const o = $('letter');
+  if (!o) return;
+  o.classList.add('open');
+  o.setAttribute('aria-hidden', 'false');
+  if (options.onOpened) options.onOpened();
+}
+root.__openRead = openRead;
 $('close').onclick = () => closeLetter();
 $('letter').addEventListener('click', (e) => { if (e.target.id === 'letter') $('close').onclick(); });
 
@@ -887,7 +880,7 @@ window.__demo = {
     const ws = new THREE.Vector3(); perch.root.getWorldScale(ws);
     return { p: out, s: +ws.x.toFixed(4), st: stageState, bundle: AID === 'stork' ? [bundle.visible, mapBundle ? mapBundle.visible && yawG.visible : false, perch.envelope ? perch.envelope.visible : null] : null, penv: penv.visible }; },
   snapNames: () => { const n = []; perch.root.traverse((o) => { if (o.isBone) n.push(o.name); }); return n; },
-  envShow: () => { if (envState === 'none') showEnvelope(); }, envOpen: () => { if (envState === 'closed') openEnv(); }, envClose: () => closeEnv(), envCam: (x, y, z) => { ecam.position.set(x, y, z); ecam.lookAt(0, 0.3, 0); },
+  envShow: () => { if (envState === 'none') showEnvelope(); }, envOpen: () => { if (envState === 'closed') openEnv(); }, envClose: () => closeEnv(), read: () => openRead(), envCam: (x, y, z) => { ecam.position.set(x, y, z); ecam.lookAt(0, 0.3, 0); },
   envCheck: () => { // R7: letter vs flap/back/pocket/inner interpenetration (points of each part inside the letter box and vice versa)
     env.updateMatrixWorld(true); const res = {}; const inv = new THREE.Matrix4().copy(letter.matrixWorld).invert(); const v = new THREE.Vector3();
     const hx = 1.42 / 2 - 0.001, hy = 0.95 / 2 - 0.001, hz = 0.004 + 0.001;
