@@ -240,28 +240,22 @@ if (EYES && !TLIDS.length) {
       e.skin = e.skin.map((x, i) => Math.min(0.9, (lum > 0.4 ? x * 0.55 + face[i] * 0.45 : face[i]))); }
     else e.skin = face;
   }
-  if (AID === 'plane') for (const e of EYES.eyes) {
-    // R7o: navy spherical-cap lids; equal radii so both eyes match
-    e.skin = [0.12, 0.16, 0.32];
-    const r = Math.max(e.rw, e.rh) * 1.08; e.rw = r; e.rh = r;
-    e.n = [Math.sign(e.c[0] || 1) * 0.06, 0.03, 1];
-  }
   for (const e of EYES.eyes) {
+    if (AID === 'plane') continue; // r7p: no lids
     const c = new THREE.Vector3(...e.c); let n = new THREE.Vector3(...e.n).normalize(); if (n.z < 0.2) n.z = 0.2; n.normalize();
     const up0 = new THREE.Vector3(0, 1, 0).addScaledVector(n, -n.y).normalize(), rt0 = new THREE.Vector3().crossVectors(up0, n).normalize();
-    if (AID === 'donkey' || AID === 'plane') {
-      /* R7o4: shader spherical-cap lid — full sphere mesh, fragment clips top-down with smooth arched rim.
-         Parent to head bone (no skinning) so the shell stays spherical. */
+    if (AID === 'donkey') {
+      /* R7o4/r7p: shader spherical-cap lid — donkey only (plane: no blink). */
       const re = Math.max(e.rw, e.rh);
-      const R = re * (AID === 'donkey' ? 1.22 : 1.25);
-      const skCol = e.skin || (AID === 'plane' ? [0.12, 0.16, 0.32] : [0.78, 0.72, 0.64]);
+      const R = re * 1.22;
+      const skCol = e.skin || [0.78, 0.72, 0.64];
       const skC = new THREE.Color().setRGB(...skCol, THREE.SRGBColorSpace);
-      const geo = new THREE.SphereGeometry(R, AID === 'plane' ? 96 : 64, AID === 'plane' ? 72 : 48);
+      const geo = new THREE.SphereGeometry(R, 64, 48);
       const mat = new THREE.MeshStandardMaterial({
-        color: skC, roughness: AID === 'donkey' ? 0.58 : 0.45, metalness: AID === 'plane' ? 0.12 : 0.03,
+        color: skC, roughness: 0.58, metalness: 0.03,
         side: THREE.FrontSide, transparent: true, depthWrite: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
       });
-      const uClose = { value: 0 }, uArch = { value: AID === 'plane' ? 0.38 : 0.16 }, uCrease = { value: AID === 'donkey' ? 0.82 : 0.55 };
+      const uClose = { value: 0 }, uArch = { value: 0.16 }, uCrease = { value: 0.82 };
       mat.userData.uClose = uClose; // shared object — setLids mutates .value
       mat.onBeforeCompile = (shader) => {
         shader.uniforms.uClose = uClose;
@@ -383,17 +377,9 @@ function setLids(k) {
     l.visible = true;
     l.geometry = l.userData.steps[Math.min(7, Math.max(0, Math.round(k * 8) - 1))];
   }
-  // R7o: plane eyes are Tripo Sphere_4 (near-black pupil globes), not materials named Eye*
-  if (AID === 'plane') perch.root.traverse((o) => {
-    if (!o.isMesh) return;
-    const nm = o.name || '';
-    const mat = o.material; const mats = Array.isArray(mat) ? mat : (mat ? [mat] : []);
-    const col = mats[0] && mats[0].color; const dark = col && (col.r + col.g + col.b) < 0.08;
-    if (/^Sphere_4$/.test(nm) || (dark && /Sphere/.test(nm) && o.geometry && o.geometry.attributes.position && o.geometry.attributes.position.count < 5000))
-      o.visible = k < 0.18;
-  });
 }
 function updBlink(dt) {
+  if (AID === 'plane') { setLids(0); return; } // r7p: plane never blinks — keep original eyes
   const petting = petA && petA.isRunning() && petA.getEffectiveWeight() > 0.3;
   if (forceLid !== null) { setLids(forceLid); return; }
   if (petting) { blinkK = Math.min(1, blinkK + dt * 8); setLids(blinkK); return; }
