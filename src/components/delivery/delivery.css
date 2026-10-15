@@ -516,8 +516,10 @@
   background: transparent;
   background-image: none;
   box-shadow: none;
-  width: min(100%, 52rem);
+  width: min(100%, calc((100dvh - 3rem) * 0.72), 44rem);
   max-width: 100%;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem);
+  overflow: auto;
 }
 
 .delivery-preview .letter .letter-pack {
@@ -527,11 +529,22 @@
 
 .delivery-preview .letter .letter-sheet {
   width: 100%;
-  min-height: min(78dvh, 48rem);
+  min-height: 0;
+  max-height: calc(100dvh - 5rem);
+  aspect-ratio: 3 / 4;
   background-color: var(--paper);
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
+}
+
+.delivery-preview.map-only-fallback .map-only-host,
+.delivery-preview.map-only-fallback #map {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  filter: sepia(0.25) saturate(0.8);
 }
 
 .delivery-preview .letter:has(.letter-read) .letter-sheet-date {

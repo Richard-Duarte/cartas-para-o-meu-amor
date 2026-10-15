@@ -5,6 +5,7 @@ import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { getDesign } from "@/lib/designs";
 import { messengerModelId } from "@/lib/messengers";
 import { journeySnapshot, letterEndpoints, letterOverlay } from "./journey";
+import { MapOnlyFallback } from "./MapOnlyFallback";
 import "./delivery.css";
 
 function loseHostWebgl(host: HTMLElement) {
@@ -52,6 +53,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   openedRef.current = onOpened;
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
+  const [mapOnly, setMapOnly] = useState(false);
   const [pagesEl, setPagesEl] = useState<HTMLElement | null>(null);
   const ends = letterEndpoints(letter);
   const animalId = messengerModelId(letter.messengerId);
@@ -84,6 +86,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
     let dispose = () => {};
     setReady(false);
     setError("");
+    setMapOnly(false);
     setPagesEl(null);
 
     async function waitLayout() {
@@ -146,7 +149,10 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           if (!dead) await boot(attempt + 1);
           return;
         }
-        setError("Não deu para abrir o mensageiro neste aparelho.");
+        // Em vez da tela vermelha: mapa Leaflet com os pins do endereço.
+        setMapOnly(true);
+        setError("");
+        setReady(true);
       }
     }
 
@@ -162,6 +168,14 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   }, [mountKey]);
 
   const overlay = letterOverlay(letter);
+
+  if (mapOnly) {
+    return (
+      <div className="delivery-slot" aria-label="Viagem do mensageiro">
+        <MapOnlyFallback letter={letter} />
+      </div>
+    );
+  }
 
   return (
     <div ref={slotRef} className="delivery-slot" aria-label="Viagem do mensageiro">

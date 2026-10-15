@@ -375,7 +375,7 @@ function WritePage() {
       <main className="write-main mx-auto max-w-5xl px-5">
         {stepsNav}
 
-        <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className={step === 3 ? "mt-6" : "mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]"}>
           <div key={step} className="ios-stage grid gap-8">
 
             {step === 3 ? (

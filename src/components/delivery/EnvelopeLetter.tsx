@@ -78,7 +78,7 @@ export function EnvelopeLetter(props: Props) {
       host.remove();
       setPagesEl(null);
     };
-  }, [props.mode]);
+  }, [props.mode, props.designId]);
 
   const sheet = (
     <LetterDocument
