@@ -32,6 +32,7 @@ import {
   EDITOR_FONT_GROUPS,
   alignOnPage,
   bodyBlock,
+  canvasBackgroundClick,
   headingBlock,
   newPage,
   snapBlock,
@@ -266,6 +267,12 @@ export function CanvaEditor({
         return;
       }
       if (editing) return;
+      if (e.key === "Escape" && (active || editing)) {
+        setActive(null);
+        setEditing(false);
+        setGuides([]);
+        return;
+      }
       if ((e.key === "Backspace" || e.key === "Delete") && active && page) {
         e.preventDefault();
         patchPageAt(pageI, { ...page, blocks: page.blocks.filter((b) => b.id !== active) });
@@ -275,18 +282,6 @@ export function CanvaEditor({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
-
-  useEffect(() => {
-    const el = workspace.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) return;
-      e.preventDefault();
-      el.scrollBy({ top: e.deltaY * 0.9, left: e.deltaX * 0.9 });
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
 
   useEffect(() => {
     const el = workspace.current;
@@ -566,7 +561,13 @@ export function CanvaEditor({
         <div
           className="canva-workspace"
           ref={workspace}
-          onPointerDown={() => {
+          onPointerDown={(e) => {
+            // Só o fundo vazio desmarca. Clique no papel, no texto ou nas
+            // ferramentas mantém o bloco ativo (só sai do modo digitar).
+            if (!canvasBackgroundClick(e.target)) {
+              setEditing(false);
+              return;
+            }
             setActive(null);
             setEditing(false);
             setGuides([]);
@@ -594,6 +595,10 @@ export function CanvaEditor({
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   setPageI(i);
+                  // Clique no papel vazio: para de digitar, mas mantém o bloco
+                  // selecionado para continuar formatando / movendo.
+                  if ((e.target as HTMLElement).closest(".canva-box")) return;
+                  setEditing(false);
                 }}
               >
                 {p.blocks.map((b) => (
@@ -702,6 +707,8 @@ export function CanvaEditor({
                   onPointerDown={(e) => {
                     e.stopPropagation();
                     setPageI(i);
+                    if ((e.target as HTMLElement).closest(".canva-box")) return;
+                    setEditing(false);
                   }}
                 >
                   {p.blocks.map((b) => (
@@ -1417,7 +1424,14 @@ function CanvasItem({
         height: `${block.h}%`,
         transform: `rotate(${block.rotate || 0}deg) scaleX(${block.flipX ? -1 : 1})`,
       }}
-      onPointerDown={(e) => begin("move", e)}
+      onPointerDown={(e) => {
+        if (editing) {
+          // Em modo digitar, o clique no bloco não inicia arraste nem tira a seleção.
+          e.stopPropagation();
+          return;
+        }
+        begin("move", e);
+      }}
       onDoubleClick={(e) => {
         e.stopPropagation();
         onEdit();

@@ -145,81 +145,84 @@ export const EDITOR_FONTS = EDITOR_FONT_GROUPS.flatMap((g) => g.fonts);
 
 export type Guide = { axis: "v" | "h"; pos: number };
 
+/** Magnetic threshold in page % — near enough shows a guide and soft-snaps. */
+export const SNAP_THRESHOLD = 1.15;
+
+/**
+ * Keep at least a sliver of the block on the page so it stays selectable,
+ * but do not force a padded 0–92 box (that blocked free placement).
+ */
+export function clampBlockPosition(block: Pick<TextBlock, "w" | "h">, x: number, y: number) {
+  const minVisible = 2;
+  return {
+    x: Math.min(100 - minVisible, Math.max(minVisible - block.w, x)),
+    y: Math.min(100 - minVisible, Math.max(minVisible - block.h, y)),
+  };
+}
+
+/**
+ * Soft-snap while dragging: alignment guides appear near page center, margins
+ * and other blocks, but the block can sit anywhere on (or slightly past) the page.
+ */
 export function snapBlock(
   block: TextBlock,
   others: TextBlock[],
   x: number,
   y: number,
+  threshold = SNAP_THRESHOLD,
 ): { x: number; y: number; guides: Guide[] } {
-  const SNAP = 1.15;
   const guides: Guide[] = [];
   let nx = x;
   let ny = y;
-  const midX = nx + block.w / 2;
-  const midY = ny + block.h / 2;
-  const right = nx + block.w;
-  const bottom = ny + block.h;
 
-  function v(pos: number, apply: () => void) {
-    if (Math.abs(midX - pos) < SNAP || Math.abs(nx - pos) < SNAP || Math.abs(right - pos) < SNAP) {
-      apply();
-      guides.push({ axis: "v", pos });
+  function tryV(pos: number, snappedX: number) {
+    const midX = nx + block.w / 2;
+    const right = nx + block.w;
+    if (Math.abs(midX - pos) < threshold || Math.abs(nx - pos) < threshold || Math.abs(right - pos) < threshold) {
+      nx = snappedX;
+      if (!guides.some((g) => g.axis === "v" && g.pos === pos)) guides.push({ axis: "v", pos });
     }
   }
-  function h(pos: number, apply: () => void) {
-    if (Math.abs(midY - pos) < SNAP || Math.abs(ny - pos) < SNAP || Math.abs(bottom - pos) < SNAP) {
-      apply();
-      guides.push({ axis: "h", pos });
+  function tryH(pos: number, snappedY: number) {
+    const midY = ny + block.h / 2;
+    const bottom = ny + block.h;
+    if (Math.abs(midY - pos) < threshold || Math.abs(ny - pos) < threshold || Math.abs(bottom - pos) < threshold) {
+      ny = snappedY;
+      if (!guides.some((g) => g.axis === "h" && g.pos === pos)) guides.push({ axis: "h", pos });
     }
   }
 
-  v(50, () => {
-    nx = 50 - block.w / 2;
-  });
-  h(50, () => {
-    ny = 50 - block.h / 2;
-  });
-  v(4, () => {
-    nx = 4;
-  });
-  v(96, () => {
-    nx = 96 - block.w;
-  });
-  h(4, () => {
-    ny = 4;
-  });
-  h(96, () => {
-    ny = 96 - block.h;
-  });
+  tryV(50, 50 - block.w / 2);
+  tryH(50, 50 - block.h / 2);
+  tryV(4, 4);
+  tryV(96, 96 - block.w);
+  tryH(4, 4);
+  tryH(96, 96 - block.h);
 
   for (const o of others) {
     const oc = o.x + o.w / 2;
     const om = o.y + o.h / 2;
-    v(o.x, () => {
-      nx = o.x;
-    });
-    v(o.x + o.w, () => {
-      nx = o.x + o.w - block.w;
-    });
-    v(oc, () => {
-      nx = oc - block.w / 2;
-    });
-    h(o.y, () => {
-      ny = o.y;
-    });
-    h(o.y + o.h, () => {
-      ny = o.y + o.h - block.h;
-    });
-    h(om, () => {
-      ny = om - block.h / 2;
-    });
+    tryV(o.x, o.x);
+    tryV(o.x + o.w, o.x + o.w - block.w);
+    tryV(oc, oc - block.w / 2);
+    tryH(o.y, o.y);
+    tryH(o.y + o.h, o.y + o.h - block.h);
+    tryH(om, om - block.h / 2);
   }
 
-  return {
-    x: Math.min(92, Math.max(0, nx)),
-    y: Math.min(92, Math.max(0, ny)),
-    guides,
-  };
+  const clamped = clampBlockPosition(block, nx, ny);
+  return { x: clamped.x, y: clamped.y, guides };
+}
+
+const CANVAS_KEEP_SELECTION =
+  ".canva-box, .canva-page, .canva-add-page, .canva-handle, .canva-sheet-num, button, a, input, select, textarea, label, [contenteditable='true']";
+
+/** Empty-canvas clicks clear selection; chrome / blocks / fields keep it. */
+export function canvasBackgroundClick(
+  target: EventTarget | { closest: (selector: string) => unknown } | null,
+): boolean {
+  if (!target || typeof (target as { closest?: unknown }).closest !== "function") return false;
+  return !(target as { closest: (selector: string) => unknown }).closest(CANVAS_KEEP_SELECTION);
 }
 
 export function alignOnPage(

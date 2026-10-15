@@ -2956,7 +2956,31 @@ body.env-locked {
 }
 
 
+/* Com o editor aberto, o shell fica na altura da tela para o workspace rolar
+   por dentro — sem isso o canva crescia com as páginas e o scroll sumia. */
+.write-shell:has(.canva) {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.write-shell:has(.canva) .paper-arrive {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.write-shell:has(.canva) .paper-arrive > .canva {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
 .canva-steps-wrap {
+  flex: 0 0 auto;
   padding: 0.65rem 1rem 0;
   background: #f3eee8;
   border-bottom: 1px solid var(--color-line);
@@ -2968,8 +2992,9 @@ body.env-locked {
 
 .canva {
   display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: calc(100dvh - 7.5rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: calc(100dvh - 7.5rem);
+  min-height: 0;
   background: #ece7e1;
 }
 
@@ -3301,7 +3326,10 @@ body.env-locked {
 .canva-add-type.is-b { font-size: 0.92rem; color: var(--color-muted); }
 
 .canva-workspace {
+  min-height: 0;
+  height: 100%;
   overflow: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3310,6 +3338,7 @@ body.env-locked {
   scroll-behavior: smooth;
   scroll-padding: 2.4rem;
   touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .canva-sheet {
@@ -3607,10 +3636,13 @@ body.env-locked {
   .canva-body {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
-    grid-template-rows: auto !important;
+    /* 1fr no meio para o workspace rolar; auto !important quebrava o scroll. */
+    grid-template-rows: auto minmax(0, 1fr) auto auto !important;
+    min-height: 0;
+    flex: 1;
   }
   .canva-rail { order: 1; }
-  .canva-workspace { order: 3; }
+  .canva-workspace { order: 3; min-height: 0; }
   .canva-bottom { order: 4; position: relative; bottom: auto; z-index: 2; }
   .canva-panel { display: none; }
   .canva.is-float-tools .canva-panel {
@@ -3654,7 +3686,13 @@ body.env-locked {
   }
   .canva-thumbs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .canva-stickers { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .canva { min-height: 0; min-width: 0; max-width: 100%; }
+  .canva {
+    min-height: 0;
+    min-width: 0;
+    max-width: 100%;
+    height: calc(100dvh - 7.5rem);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
   .canva-bottom {
     position: relative;
     bottom: auto;
