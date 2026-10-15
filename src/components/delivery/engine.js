@@ -41,8 +41,22 @@ function runTweens(now) {
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; const u = Math.min(1, (now - tw.t0) / tw.dur); tw.fn(ease(u), u); if (u >= 1) { tweens.splice(i, 1); tw.done && tw.done(); } }
 }
 function makeRenderer(canvas) {
-  const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  r.setPixelRatio(Math.min(devicePixelRatio, TIER.dpr)); r.outputColorSpace = THREE.SRGBColorSpace; return r;
+  const opts = [
+    { antialias: true, alpha: true, powerPreference: 'default', failIfMajorPerformanceCaveat: false },
+    { antialias: false, alpha: true, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false },
+  ];
+  let last = null;
+  for (const o of opts) {
+    try {
+      const r = new THREE.WebGLRenderer({ canvas, ...o });
+      r.setPixelRatio(Math.min(devicePixelRatio, TIER.dpr));
+      r.outputColorSpace = THREE.SRGBColorSpace;
+      return r;
+    } catch (err) {
+      last = err;
+    }
+  }
+  throw last || new Error('webgl-unavailable');
 }
 function lights(scene) {
   scene.add(new THREE.HemisphereLight(0xfffaf2, 0xd9c7b0, 1.6));
@@ -67,10 +81,17 @@ const ANIMALS = {
   donkey: { n: 'O burrinho', v: 'caminha', land: 'O burrinho chegou', fly: false, sp: 0.75 },
   turtle: { n: 'A tartaruga', v: 'caminha devagar', land: 'A tartaruga chegou', fly: false, sp: 0.5 },
 };
-const AID = ANIMALS[options.animalId] ? options.animalId : 'pigeon';
+const rawId = String(options.animalId || '').toLowerCase().trim();
+const AID = ANIMALS[rawId] ? rawId : (ANIMALS[options.animalId] ? options.animalId : 'pigeon');
 const AN = ANIMALS[AID];
 $('landed').textContent = AN.land;
-const gltf = await loader.loadAsync(`/models/${AID}.glb`);
+let gltf;
+try {
+  gltf = await loader.loadAsync(`/models/${AID}.glb`);
+} catch (err) {
+  draco.dispose();
+  throw new Error(`model-load-failed:${AID}:${err && err.message ? err.message : err}`);
+}
 if (!alive || !root.isConnected) { draco.dispose(); return () => {}; }
 // R7: the glTF exporter writes a stale first sample on every baked track (pose left over from the previous NLA strip),
 // which popped at every clip start and loop wrap. Replace sample 0 by linear extrapolation of samples 1-2.

@@ -412,8 +412,18 @@ function WritePage() {
                   </p>
                 </div>
                 <div className="grid gap-5 lg:grid-cols-2">
-                  <AddressFields label="Origem" value={fromAddress} onChange={setFromAddress} />
-                  <AddressFields label="Destino" value={toAddress} onChange={setToAddress} />
+                  <AddressFields
+                    label="Origem"
+                    value={fromAddress}
+                    onChange={setFromAddress}
+                    favoriteSlot="home"
+                  />
+                  <AddressFields
+                    label="Destino"
+                    value={toAddress}
+                    onChange={setToAddress}
+                    favoriteSlot="work"
+                  />
                 </div>
                 <MessengerLivePreview id={messengerId} />
                 <DeliveryChoices {...deliveryProps} />

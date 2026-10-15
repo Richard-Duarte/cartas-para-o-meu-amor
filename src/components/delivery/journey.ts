@@ -1,7 +1,7 @@
 import { addressLine } from "@/lib/address";
 import { formatArrival } from "@/lib/delivery";
 import { letterProgress, shownFromName, type Letter } from "@/lib/letters";
-import { FLIES, getCity, getMessenger, type Geo } from "@/lib/messengers";
+import { FLIES, getCity, getMessenger, messengerModelId, type Geo } from "@/lib/messengers";
 
 export type JourneySnapshot = {
   progress: number;
@@ -41,7 +41,7 @@ export function trackMeta(letter: Letter) {
 export function journeySnapshot(letter: Letter, now = Date.now()): JourneySnapshot {
   const stats = letterProgress(letter, now);
   const { to } = letterEndpoints(letter);
-  const flying = Boolean(FLIES[letter.messengerId]);
+  const flying = Boolean(FLIES[messengerModelId(letter.messengerId)]);
   const pct = Math.round(stats.progress * 100);
   let label: string;
   if (stats.arrived) label = `Chegou em ${to.label}`;

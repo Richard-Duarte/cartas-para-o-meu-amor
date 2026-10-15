@@ -37,7 +37,7 @@
 
 .delivery-preview .map-card {
   position: relative;
-  height: min(62vh, 560px);
+  height: min(64vh, 580px);
   margin: 0 auto;
   max-width: min(1200px, 100%);
   min-width: 0;
@@ -229,7 +229,9 @@
     max(12px, env(safe-area-inset-right))
     max(12px, env(safe-area-inset-bottom))
     max(12px, env(safe-area-inset-left));
-  background: rgb(26 20 16 / 0.55);
+  background: rgb(246 237 228 / 0.72);
+  backdrop-filter: blur(28px) saturate(1.05);
+  -webkit-backdrop-filter: blur(28px) saturate(1.05);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.6s;
@@ -450,7 +452,7 @@
   background: transparent;
   background-image: none;
   box-shadow: none;
-  max-width: min(440px, 100%);
+  max-width: min(720px, 96vw);
 }
 
 .delivery-preview .letter:has(.letter-read) .letter-sheet-date {

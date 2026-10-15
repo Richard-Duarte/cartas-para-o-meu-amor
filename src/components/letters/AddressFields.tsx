@@ -2,19 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatCep, lookupCep, lookupStreet, type Address } from "@/lib/address";
+import {
+  addressLooksFilled,
+  readFavoriteAddress,
+  saveFavoriteAddress,
+  type FavoriteSlot,
+} from "@/lib/favorite-address";
 
 type Props = {
   label: string;
   value: Address;
   onChange: (next: Address) => void;
+  /** Slot de favorito — origem usa "casa", destino usa "trabalho" por padrão. */
+  favoriteSlot?: FavoriteSlot;
 };
 
-export function AddressFields({ label, value, onChange }: Props) {
+export function AddressFields({ label, value, onChange, favoriteSlot = "home" }: Props) {
   const [status, setStatus] = useState("");
   const [hits, setHits] = useState<Partial<Address>[]>([]);
   const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState<Address | null>(() => readFavoriteAddress(favoriteSlot));
   const streetRef = useRef(value.street);
   streetRef.current = value.street;
+  const slotLabel = favoriteSlot === "home" ? "casa" : "trabalho";
 
   async function onCep(raw: string) {
     const cep = formatCep(raw);
@@ -62,9 +72,40 @@ export function AddressFields({ label, value, onChange }: Props) {
     setStatus(hit.cep ? "Endereço e CEP preenchidos" : "Endereço preenchido");
   }
 
+  function useFavorite() {
+    const next = readFavoriteAddress(favoriteSlot);
+    if (!next) return;
+    onChange({ ...next });
+    setSaved(next);
+    setStatus(`Endereço da ${slotLabel} aplicado`);
+  }
+
+  function rememberFavorite() {
+    if (!addressLooksFilled(value)) {
+      setStatus("Preencha o endereço antes de salvar");
+      return;
+    }
+    saveFavoriteAddress(favoriteSlot, value);
+    setSaved({ ...value });
+    setStatus(`Salvo como ${slotLabel}`);
+  }
+
   return (
     <fieldset className="addr-card">
       <legend>{label}</legend>
+      <div className="addr-fav">
+        <button
+          type="button"
+          className="addr-fav-btn"
+          disabled={!saved}
+          onClick={useFavorite}
+        >
+          {saved ? `Usar ${slotLabel}` : `Sem ${slotLabel} salva`}
+        </button>
+        <button type="button" className="addr-fav-btn is-save" onClick={rememberFavorite}>
+          Salvar como {slotLabel}
+        </button>
+      </div>
       <label>
         CEP
         <input
