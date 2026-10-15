@@ -1,18 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { JourneyMap } from "@/components/map/JourneyMap";
-import { LetterSheet } from "@/components/letters/LetterSheet";
+import { DeliveryJourney, type DeliveryJourneyHandle } from "@/components/delivery/DeliveryJourney";
+import { trackMeta } from "@/components/delivery/journey";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { downloadLetterPng } from "@/lib/download-letter";
-import { getLetter, letterFromRecord, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
-import { getCity, getMessenger } from "@/lib/messengers";
-import { addressLine } from "@/lib/address";
+import { getLetter, letterFromRecord, letterProgress, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { LetterReply } from "@/components/letters/LetterReply";
 import { openSharedLetter } from "@/lib/server/shop";
-import { cn } from "@/lib/utils";
-
 export const Route = createFileRoute("/acompanhar/$letterId")({
   component: TrackPage,
 });
@@ -21,12 +17,19 @@ function TrackPage() {
   const { letterId } = Route.useParams();
   const { user, isPending } = useCurrentUserState();
   const [letter, setLetter] = useState<Letter | null | undefined>(undefined);
-  const [opened, setOpened] = useState(false);
   const [role, setRole] = useState<"sender" | "recipient" | "viewer">("viewer");
 
   useEffect(() => {
     if (letterId === "demo") {
-      setLetter((current) => (current?.id === "demo" ? current : seedDemoLetter()));
+      const params = new URLSearchParams(window.location.search);
+      const delivered = params.get("chegou") === "1";
+      const messengerId = params.get("mensageiro") || undefined;
+      setLetter((current) => {
+        if (!delivered && current?.id === "demo" && (!messengerId || current.messengerId === messengerId)) {
+          return current;
+        }
+        return seedDemoLetter({ delivered, messengerId });
+      });
       return;
     }
     const local = getLetter(letterId);
@@ -85,36 +88,32 @@ function TrackPage() {
     );
   }
 
-  return <TrackView letter={letter} opened={opened} role={role} onArrived={() => setOpened(true)} />;
+  return <TrackView letter={letter} role={role} />;
 }
 
 function TrackView({
   letter,
-  opened,
   role,
-  onArrived,
 }: {
   letter: Letter;
-  opened: boolean;
   role: "sender" | "recipient" | "viewer";
-  onArrived: () => void;
 }) {
-  const m = getMessenger(letter.messengerId);
-  const from = getCity(letter.fromCityId);
-  const to = getCity(letter.toCityId);
-  const [forceOpen, setForceOpen] = useState(false);
-  const [liveLetter, setLiveLetter] = useState(letter);
+  const meta = trackMeta(letter);
+  const [now, setNow] = useState(() => Date.now());
+  const [opened, setOpened] = useState(false);
   const [copied, setCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const showLetter = opened || forceOpen;
-  const delivered = opened;
+  const journeyRef = useRef<DeliveryJourneyHandle>(null);
+  const delivered = letterProgress(letter, now).arrived;
+  const showLetter = delivered || opened;
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
 
   useEffect(() => {
-    setLiveLetter(letter);
+    if (letterProgress(letter).arrived) return;
+    const id = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(id);
   }, [letter]);
 
   async function copyLink() {
@@ -127,8 +126,13 @@ function TrackView({
     }
   }
 
+  function openDemo() {
+    setOpened(true);
+    journeyRef.current?.openRead();
+  }
+
   async function download() {
-    const node = sheetRef.current;
+    const node = document.querySelector<HTMLElement>(".delivery-preview .letter-pack");
     if (!node || !delivered) return;
     setDownloadError("");
     setDownloading(true);
@@ -141,23 +145,26 @@ function TrackView({
     }
   }
 
+  function printLetter() {
+    if (!delivered) return;
+    window.print();
+  }
+
   return (
-    <div className="min-h-dvh">
+    <div className="track-screen min-h-dvh">
       <SiteHeader />
-      <main className="mx-auto max-w-5xl px-5 py-10">
-        <p className="text-xs uppercase tracking-widest text-rose">Acompanhar</p>
-        <h1 className="mt-2 break-words font-display text-3xl sm:text-4xl">
-          {shownFromName(letter, "public")} → {letter.toName}
+      <main className="mx-auto max-w-[72rem] px-5 py-8 sm:py-10">
+        <p className="track-kicker">Acompanhar</p>
+        <h1 className="track-title break-words">
+          {shownFromName(letter, role === "sender" ? "sender" : "public")} → {letter.toName}
         </h1>
-        <p className="mt-2 break-words text-muted">
-          {letter.fromAddress?.street ? addressLine(letter.fromAddress) : from.name}
+        <p className="track-meta">
+          {meta.from}
           {" → "}
-          {letter.toAddress?.street ? addressLine(letter.toAddress) : to.name}
+          {meta.to}
           {" · "}
-          {m.name}
-          {letter.paidBrl != null
-            ? ` · lacre de ${letter.paidBrl.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
-            : ""}
+          {meta.animal}
+          {meta.price ? ` · ${meta.price}` : ""}
         </p>
 
         <div className="share-bar">
@@ -167,69 +174,47 @@ function TrackView({
           <a href={wa} target="_blank" rel="noreferrer">
             WhatsApp
           </a>
-          <button
-            type="button"
-            className="letter-download"
-            disabled={!delivered || downloading}
-            title={delivered ? "Baixar a carta em imagem" : "Disponível quando o mensageiro entregar"}
-            onClick={() => void download()}
-          >
-            {downloading ? "Preparando…" : "Baixar carta"}
-          </button>
+          {delivered ? (
+            <button
+              type="button"
+              className="letter-download"
+              disabled={downloading}
+              onClick={() => void download()}
+            >
+              {downloading ? "Preparando…" : "Baixar carta"}
+            </button>
+          ) : null}
+          {delivered ? (
+            <button type="button" onClick={printLetter}>
+              Imprimir
+            </button>
+          ) : null}
         </div>
         {downloadError ? <p className="mt-2 text-sm text-rose">{downloadError}</p> : null}
         {!delivered ? (
           <p className="mt-2 text-sm text-muted">O download destrava quando a carta chegar.</p>
         ) : null}
 
-        <div className="mt-8">
-          <JourneyMap letter={liveLetter} onArrived={onArrived} />
-        </div>
+        <DeliveryJourney
+          ref={journeyRef}
+          letter={letter}
+          allowDownload={delivered}
+          onDelivered={() => setNow(Date.now())}
+          onOpened={() => setOpened(true)}
+        />
 
-        {!opened && (
-          <button
-            type="button"
-            className="mt-4 min-h-11 rounded-full border border-gold px-5 text-sm"
-            onClick={() => {
-              const now = Date.now();
-              setLiveLetter({
-                ...liveLetter,
-                startedAt: now - liveLetter.demoDurationMs,
-                departAt: now - 2000,
-                arriveAt: now - 400,
-              });
-            }}
-          >
-            Pular para a chegada
-          </button>
-        )}
-
-        <div className={cn("mt-8", showLetter && "letter-arrive")}>
-          {showLetter ? (
-            <LetterSheet
-              ref={sheetRef}
-              designId={liveLetter.designId ?? "classico"}
-              fromName={shownFromName(liveLetter, "public")}
-              toName={liveLetter.toName}
-              body={liveLetter.body}
-              pages={liveLetter.pages}
-              kind={liveLetter.kind}
-              drawingDataUrl={liveLetter.drawingDataUrl}
-              className="mx-auto max-w-md"
-            />
-          ) : (
-            <div className="rounded-xl border border-line bg-paper p-6">
-              <p className="text-muted">A carta destrava quando o mensageiro chega.</p>
-              <button
-                type="button"
-                className="mt-4 min-h-11 rounded-full border border-ink px-5 text-sm"
-                onClick={() => setForceOpen(true)}
-              >
-                Abrir agora (demo)
-              </button>
-            </div>
-          )}
-        </div>
+        {!delivered ? (
+          <div className="mt-8 rounded-xl border border-line bg-paper p-6">
+            <p className="text-muted">A carta abre no envelope quando o mensageiro chega.</p>
+            <button
+              type="button"
+              className="mt-4 min-h-11 rounded-full border border-ink px-5 text-sm"
+              onClick={openDemo}
+            >
+              {opened ? "Ler de novo (demo)" : "Abrir agora (demo)"}
+            </button>
+          </div>
+        ) : null}
 
         {letter.id !== "demo" && role === "recipient" && !showLetter ? (
           <p className="reply-wait">O comentário abre quando você ler a carta.</p>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CartSummary } from "@/components/cart/CartSummary";
 import { CheckoutForm } from "@/components/cart/CheckoutForm";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { LetterSheet } from "@/components/letters/LetterSheet";
+import { EnvelopeLetter } from "@/components/delivery/EnvelopeLetter";
 import { SendCeremony } from "@/components/letters/SendCeremony";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -216,12 +216,15 @@ function PayPage() {
               : "Quando estiver perto, o aviso sai por e-mail e WhatsApp, para você e para quem recebe."}
           </p>
           <div className="mt-8">
-            <LetterSheet
+            <EnvelopeLetter
+              mode="read"
               designId={draft.designId}
               fromName={shownFromName({ fromName: draft.fromName, anonymous: draft.anonymous }, "public")}
               toName={draft.toName}
               body={pagesPlainText(draft.pages)}
               pages={draft.pages}
+              date={`${draft.toAddress?.city?.trim() || "Hoje"}, ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}`}
+              allowDownload
             />
           </div>
           <Link to="/escrever" className="mt-4 inline-block text-sm text-muted underline-offset-4 hover:underline">
