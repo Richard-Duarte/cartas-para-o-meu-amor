@@ -172,28 +172,50 @@ export function mountEnvelope(root, options = {}) {
   seal.add(heart);
   seal.add(new THREE.Mesh(new THREE.SphereGeometry(0.32), new THREE.MeshBasicMaterial({ visible: false })));
 
-  const greet = (options.getGreeting ? options.getGreeting() : "Meu amor,").slice(0, 24);
-  const letterTex = (() => {
-    const c = document.createElement("canvas");
-    c.width = 512;
-    c.height = 340;
-    const g = c.getContext("2d");
-    g.fillStyle = "#fbf6f0";
-    g.fillRect(0, 0, 512, 340);
-    g.strokeStyle = "rgba(196,163,90,.4)";
-    for (let y = 70; y < 330; y += 30) {
-      g.beginPath();
-      g.moveTo(40, y);
-      g.lineTo(472, y);
-      g.stroke();
+  const greet = (options.getGreeting ? options.getGreeting() : "Meu amor,").slice(0, 28);
+  const letterCanvas = document.createElement("canvas");
+  letterCanvas.width = 768;
+  letterCanvas.height = 1024;
+  const letterTex = new THREE.CanvasTexture(letterCanvas);
+  letterTex.colorSpace = THREE.SRGBColorSpace;
+  const paintLetter = () => {
+    const g = letterCanvas.getContext("2d");
+    if (!g) return;
+    const drawFallback = () => {
+      g.fillStyle = "#fbf6f0";
+      g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
+      g.strokeStyle = "rgba(196,163,90,.35)";
+      for (let y = 120; y < letterCanvas.height - 40; y += 36) {
+        g.beginPath();
+        g.moveTo(48, y);
+        g.lineTo(letterCanvas.width - 48, y);
+        g.stroke();
+      }
+      g.fillStyle = "#e85a7a";
+      g.font = "italic 42px serif";
+      g.fillText(greet, 48, 84);
+      letterTex.needsUpdate = true;
+    };
+    if (!options.designSrc) {
+      drawFallback();
+      return;
     }
-    g.fillStyle = "#e85a7a";
-    g.font = "italic 34px serif";
-    g.fillText(greet, 40, 52);
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  })();
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (!alive) return;
+      g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
+      g.fillStyle = "rgba(251,246,240,0.18)";
+      g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
+      g.fillStyle = "#e85a7a";
+      g.font = "italic 42px serif";
+      g.fillText(greet, 48, 84);
+      letterTex.needsUpdate = true;
+    };
+    img.onerror = () => drawFallback();
+    img.src = options.designSrc;
+  };
+  paintLetter();
   const letter = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.95, 0.008), new THREE.MeshStandardMaterial({ map: letterTex, roughness: 0.9 }));
   letter.position.set(0, -0.02, D / 2 + 0.03);
   env.add(letter);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LetterDocument } from "@/components/letters/LetterDocument";
-import type { DesignId } from "@/lib/designs";
+import { getDesign, type DesignId } from "@/lib/designs";
 import type { LetterPage } from "@/lib/pages";
 import "./delivery.css";
 
@@ -44,10 +44,12 @@ export function EnvelopeLetter(props: Props) {
     void import("./mountEnvelope.js")
       .then(({ mountEnvelope }) => {
         if (dead) return;
+        const design = getDesign(propsRef.current.designId);
         const api = mountEnvelope(host, {
           intro: propsRef.current.mode === "close" ? "open-then-close" : "closed",
           title: propsRef.current.mode === "close" ? "O envelope fecha" : "A carta",
           hint: propsRef.current.mode === "close" ? "Toque no selo para ler de novo" : "Toque no selo para abrir",
+          designSrc: design.src,
           getGreeting: () => {
             const name = propsRef.current.toName?.trim().replace(/,$/, "") || "Meu amor";
             return `${name},`;

@@ -3,8 +3,8 @@ import { beforeEach, describe, it } from "node:test";
 import { emptyAddress } from "./address.ts";
 import {
   addressLooksFilled,
-  clearFavoriteAddress,
-  readFavoriteAddress,
+  listFavoriteAddresses,
+  removeFavoriteAddress,
   saveFavoriteAddress,
 } from "./favorite-address.ts";
 
@@ -35,12 +35,10 @@ function installStorage() {
 describe("favorite-address", () => {
   beforeEach(() => {
     installStorage();
-    clearFavoriteAddress("home");
-    clearFavoriteAddress("work");
   });
 
-  it("guarda e lê o endereço da casa", () => {
-    const home = {
+  it("guarda vários favoritos e lista do mais recente", () => {
+    const a = {
       ...emptyAddress(),
       street: "Av. Paulista",
       number: "1000",
@@ -48,27 +46,33 @@ describe("favorite-address", () => {
       state: "SP",
       cep: "01310-100",
     };
-    saveFavoriteAddress("home", home);
-    assert.deepEqual(readFavoriteAddress("home"), home);
-    assert.equal(addressLooksFilled(home), true);
+    const b = {
+      ...emptyAddress(),
+      street: "Av. Atlântica",
+      number: "1702",
+      city: "Rio de Janeiro",
+      state: "RJ",
+      cep: "22021-001",
+    };
+    assert.equal(addressLooksFilled(a), true);
+    saveFavoriteAddress(a, "Casa SP");
+    saveFavoriteAddress(b, "Praia");
+    const list = listFavoriteAddresses();
+    assert.equal(list.length, 2);
+    assert.equal(list[0].label, "Praia");
+    assert.equal(list[1].label, "Casa SP");
   });
 
-  it("separa casa e trabalho", () => {
-    saveFavoriteAddress("home", {
+  it("remove um favorito pelo id", () => {
+    const fav = saveFavoriteAddress({
       ...emptyAddress(),
       street: "Rua A",
+      number: "1",
       city: "SP",
       state: "SP",
-      number: "1",
     });
-    saveFavoriteAddress("work", {
-      ...emptyAddress(),
-      street: "Rua B",
-      city: "RJ",
-      state: "RJ",
-      number: "2",
-    });
-    assert.equal(readFavoriteAddress("home")?.street, "Rua A");
-    assert.equal(readFavoriteAddress("work")?.street, "Rua B");
+    assert.ok(fav);
+    removeFavoriteAddress(fav.id);
+    assert.equal(listFavoriteAddresses().length, 0);
   });
 });

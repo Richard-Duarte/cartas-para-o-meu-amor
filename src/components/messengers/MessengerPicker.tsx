@@ -51,7 +51,7 @@ function PreviewClip({ id, name }: { id: MessengerId; name: string }) {
 export function MessengerLivePreview({ id }: { id: MessengerId }) {
   const selected = MESSENGERS.find((m) => m.id === id) ?? MESSENGERS[0];
   return (
-    <div className="mx-auto w-full max-w-sm overflow-hidden rounded-xl border border-line bg-[#f6eee6]">
+    <div className="messenger-live mx-auto w-full max-w-sm overflow-hidden rounded-xl border border-line bg-[#f6eee6]">
       <div className="relative aspect-square">
         <AnimatePresence mode="wait">
           <motion.div
@@ -76,8 +76,8 @@ export function MessengerPicker({ value, onChange, disabledIds, scheduled }: Pro
   const fee = SCHEDULE_FEE_BRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="messenger-picker">
+      <div className="messenger-picker-grid">
         {MESSENGERS.map((m) => {
           const active = m.id === value;
           const blocked = disabledIds?.has(m.id) ?? false;
@@ -92,22 +92,16 @@ export function MessengerPicker({ value, onChange, disabledIds, scheduled }: Pro
               disabled={blocked}
               onClick={() => onChange(m.id)}
               className={cn(
-                "flex min-h-11 items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
+                "messenger-picker-card",
                 blocked && "messenger-disabled",
-                active
-                  ? "border-rose bg-paper shadow-md"
-                  : "border-line bg-paper/50 hover:border-ink/25",
+                active && "is-on",
               )}
             >
-              <img
-                src={messengerPhoto(m.id)}
-                alt=""
-                className="size-14 shrink-0 rounded-lg object-cover"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">{m.name}</span>
-                <span className="mt-0.5 block text-sm text-muted">{m.tagline}</span>
-                <span className="mt-2 block text-xs uppercase tracking-widest text-gold">
+              <img src={messengerPhoto(m.id)} alt="" className="messenger-picker-photo" />
+              <span className="messenger-picker-copy">
+                <span className="messenger-picker-name">{m.name}</span>
+                <span className="messenger-picker-tag">{m.tagline}</span>
+                <span className="messenger-picker-meta">
                   {price}
                   {scheduled ? ` + ${fee}` : ""}
                   {` · ${m.speedKmh} km/h`}
@@ -117,7 +111,7 @@ export function MessengerPicker({ value, onChange, disabledIds, scheduled }: Pro
           );
         })}
       </div>
-      <div className="mx-auto w-full max-w-xs overflow-hidden rounded-xl border border-line bg-[#f6eee6] sm:max-w-none">
+      <div className="messenger-picker-preview">
         <div className="relative aspect-square">
           <AnimatePresence mode="wait">
             <motion.div

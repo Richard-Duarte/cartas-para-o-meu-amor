@@ -4,27 +4,31 @@ import { useEffect, useRef, useState } from "react";
 import { formatCep, lookupCep, lookupStreet, type Address } from "@/lib/address";
 import {
   addressLooksFilled,
-  readFavoriteAddress,
+  favoriteSummary,
+  listFavoriteAddresses,
+  removeFavoriteAddress,
   saveFavoriteAddress,
-  type FavoriteSlot,
+  type FavoriteAddress,
 } from "@/lib/favorite-address";
 
 type Props = {
   label: string;
   value: Address;
   onChange: (next: Address) => void;
-  /** Slot de favorito — origem usa "casa", destino usa "trabalho" por padrão. */
-  favoriteSlot?: FavoriteSlot;
 };
 
-export function AddressFields({ label, value, onChange, favoriteSlot = "home" }: Props) {
+export function AddressFields({ label, value, onChange }: Props) {
   const [status, setStatus] = useState("");
   const [hits, setHits] = useState<Partial<Address>[]>([]);
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState<Address | null>(() => readFavoriteAddress(favoriteSlot));
+  const [favorites, setFavorites] = useState<FavoriteAddress[]>(() => listFavoriteAddresses());
+  const [pickerOpen, setPickerOpen] = useState(false);
   const streetRef = useRef(value.street);
   streetRef.current = value.street;
-  const slotLabel = favoriteSlot === "home" ? "casa" : "trabalho";
+
+  function refreshFavorites() {
+    setFavorites(listFavoriteAddresses());
+  }
 
   async function onCep(raw: string) {
     const cep = formatCep(raw);
@@ -72,12 +76,18 @@ export function AddressFields({ label, value, onChange, favoriteSlot = "home" }:
     setStatus(hit.cep ? "Endereço e CEP preenchidos" : "Endereço preenchido");
   }
 
-  function useFavorite() {
-    const next = readFavoriteAddress(favoriteSlot);
-    if (!next) return;
-    onChange({ ...next });
-    setSaved(next);
-    setStatus(`Endereço da ${slotLabel} aplicado`);
+  function applyFavorite(fav: FavoriteAddress) {
+    onChange({
+      cep: fav.cep,
+      street: fav.street,
+      number: fav.number,
+      complement: fav.complement,
+      neighborhood: fav.neighborhood,
+      city: fav.city,
+      state: fav.state,
+    });
+    setPickerOpen(false);
+    setStatus(`Favorito “${fav.label}” aplicado`);
   }
 
   function rememberFavorite() {
@@ -85,9 +95,15 @@ export function AddressFields({ label, value, onChange, favoriteSlot = "home" }:
       setStatus("Preencha o endereço antes de salvar");
       return;
     }
-    saveFavoriteAddress(favoriteSlot, value);
-    setSaved({ ...value });
-    setStatus(`Salvo como ${slotLabel}`);
+    const fav = saveFavoriteAddress(value);
+    refreshFavorites();
+    setStatus(fav ? `Salvo como favorito “${fav.label}”` : "Não deu para salvar");
+  }
+
+  function forgetFavorite(id: string) {
+    removeFavoriteAddress(id);
+    refreshFavorites();
+    setStatus("Favorito removido");
   }
 
   return (
@@ -97,15 +113,35 @@ export function AddressFields({ label, value, onChange, favoriteSlot = "home" }:
         <button
           type="button"
           className="addr-fav-btn"
-          disabled={!saved}
-          onClick={useFavorite}
+          disabled={favorites.length === 0}
+          onClick={() => setPickerOpen((v) => !v)}
         >
-          {saved ? `Usar ${slotLabel}` : `Sem ${slotLabel} salva`}
+          {favorites.length ? `Favoritos (${favorites.length})` : "Sem favoritos"}
         </button>
         <button type="button" className="addr-fav-btn is-save" onClick={rememberFavorite}>
-          Salvar como {slotLabel}
+          Salvar como favorito
         </button>
       </div>
+      {pickerOpen && favorites.length ? (
+        <ul className="addr-fav-list" role="listbox" aria-label="Endereços favoritos">
+          {favorites.map((fav) => (
+            <li key={fav.id}>
+              <button type="button" className="addr-fav-pick" onClick={() => applyFavorite(fav)}>
+                <strong>{fav.label}</strong>
+                <span>{favoriteSummary(fav)}</span>
+              </button>
+              <button
+                type="button"
+                className="addr-fav-remove"
+                aria-label={`Remover ${fav.label}`}
+                onClick={() => forgetFavorite(fav.id)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <label>
         CEP
         <input
