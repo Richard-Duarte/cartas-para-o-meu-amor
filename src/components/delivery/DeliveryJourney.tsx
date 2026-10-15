@@ -2,9 +2,23 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import { LetterDocument } from "@/components/letters/LetterDocument";
 import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
+import { getDesign } from "@/lib/designs";
 import { messengerModelId } from "@/lib/messengers";
 import { journeySnapshot, letterEndpoints, letterOverlay } from "./journey";
 import "./delivery.css";
+
+function loseHostWebgl(host: HTMLElement) {
+  host.querySelectorAll("canvas").forEach((canvas) => {
+    for (const type of ["webgl2", "webgl", "experimental-webgl"] as const) {
+      try {
+        const gl = canvas.getContext(type) as WebGLRenderingContext | null;
+        gl?.getExtension("WEBGL_lose_context")?.loseContext();
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+}
 
 type Props = {
   letter: Letter;
@@ -91,10 +105,12 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
         const { mountDeliveryPreview } = await import("./engine.js");
         if (dead) return;
         const place = letterEndpoints(letterRef.current);
+        const design = getDesign(letterRef.current.designId);
         const cleanup = await mountDeliveryPreview(host, {
           animalId: messengerModelId(letterRef.current.messengerId),
           from: place.from,
           to: place.to,
+          designSrc: design.src,
           getJourney: () => journeySnapshot(letterRef.current),
           getLetter: () => letterOverlay(letterRef.current),
           onDelivered: () => deliveredRef.current?.(),
@@ -123,9 +139,10 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           /* ignore */
         }
         dispose = () => {};
+        loseHostWebgl(host);
         host.replaceChildren();
-        if (attempt < 1) {
-          await new Promise((r) => window.setTimeout(r, 200));
+        if (attempt < 2) {
+          await new Promise((r) => window.setTimeout(r, 280 + attempt * 220));
           if (!dead) await boot(attempt + 1);
           return;
         }

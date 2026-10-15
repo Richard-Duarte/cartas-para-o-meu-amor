@@ -221,15 +221,15 @@
   inset: 0;
   z-index: 1000;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   box-sizing: border-box;
   padding:
-    max(12px, env(safe-area-inset-top))
-    max(12px, env(safe-area-inset-right))
-    max(12px, env(safe-area-inset-bottom))
-    max(12px, env(safe-area-inset-left));
-  background: rgb(246 237 228 / 0.72);
+    max(8px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+  background: rgb(246 237 228 / 0.78);
   backdrop-filter: blur(28px) saturate(1.05);
   -webkit-backdrop-filter: blur(28px) saturate(1.05);
   opacity: 0;
@@ -245,12 +245,14 @@
 .delivery-preview .letter {
   position: relative;
   box-sizing: border-box;
-  width: 100%;
-  max-width: min(680px, 100%);
-  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  width: min(100%, 52rem);
+  max-width: 100%;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+  margin: auto;
   padding: clamp(28px, 6vw, 64px);
   overflow: auto;
   overflow-wrap: anywhere;
+  -webkit-overflow-scrolling: touch;
   border-radius: 6px;
   background-color: var(--paper);
   background-image: repeating-linear-gradient(transparent 0 33px, rgb(196 163 90 / 0.18) 33px 34px);
@@ -510,11 +512,26 @@
 }
 
 .delivery-preview .letter:has(.letter-read) {
-  padding: 0;
+  padding: 0.55rem 0.55rem 1rem;
   background: transparent;
   background-image: none;
   box-shadow: none;
-  max-width: min(720px, 96vw);
+  width: min(100%, 52rem);
+  max-width: 100%;
+}
+
+.delivery-preview .letter .letter-pack {
+  width: 100%;
+  gap: 1rem;
+}
+
+.delivery-preview .letter .letter-sheet {
+  width: 100%;
+  min-height: min(78dvh, 48rem);
+  background-color: var(--paper);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 .delivery-preview .letter:has(.letter-read) .letter-sheet-date {

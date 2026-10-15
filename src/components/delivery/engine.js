@@ -40,6 +40,19 @@ function tween(dur, fn, done) { tweens.push({ t0: simMs, dur: reduced ? Math.min
 function runTweens(now) {
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; const u = Math.min(1, (now - tw.t0) / tw.dur); tw.fn(ease(u), u); if (u >= 1) { tweens.splice(i, 1); tw.done && tw.done(); } }
 }
+const renderers = [];
+function trackRenderer(r) {
+  renderers.push(r);
+  return r;
+}
+function loseRenderer(r) {
+  if (!r) return;
+  try { r.dispose(); } catch (e) {}
+  try { r.forceContextLoss(); } catch (e) {}
+}
+function loseAllRenderers() {
+  while (renderers.length) loseRenderer(renderers.pop());
+}
 function makeRenderer(canvas) {
   const opts = [
     { antialias: true, alpha: true, powerPreference: 'default', failIfMajorPerformanceCaveat: false },
@@ -51,7 +64,7 @@ function makeRenderer(canvas) {
       const r = new THREE.WebGLRenderer({ canvas, ...o });
       r.setPixelRatio(Math.min(devicePixelRatio, TIER.dpr));
       r.outputColorSpace = THREE.SRGBColorSpace;
-      return r;
+      return trackRenderer(r);
     } catch (err) {
       last = err;
     }
@@ -190,21 +203,45 @@ const prevPos = new THREE.Vector3(); let havePrev = false;
 $('skip').onclick = () => { if (arrived || skipping) return; skipping = true; skipFrom = progress; skipElapsed = 0; };
 
 // ---------- 2. arrival stage (real 3D set per animal) ----------
-const stageEl = $('stage').parentElement, sr = makeRenderer($('stage')), ss = new THREE.Scene();
-sr.shadowMap.enabled = true; sr.shadowMap.type = TIER.softShadow ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; sr.toneMapping = THREE.ACESFilmicToneMapping; sr.toneMappingExposure = 0.95;
+const stageEl = $('stage').parentElement;
+let stageReady = true;
+let sr;
+try {
+  sr = makeRenderer($('stage'));
+} catch (err) {
+  console.error('[delivery-stage-gl]', err);
+  stageReady = false;
+  // Continua só com o mapa — evita a tela vermelha quando o aparelho limita WebGL.
+  sr = {
+    dispose() {},
+    forceContextLoss() {},
+    setSize() {},
+    render() {},
+    shadowMap: { enabled: false, type: 0 },
+    toneMapping: 0,
+    toneMappingExposure: 1,
+    info: { render: { calls: 0, triangles: 0 }, memory: { geometries: 0, textures: 0 } },
+  };
+}
+const ss = new THREE.Scene();
+if (stageReady) {
+  sr.shadowMap.enabled = true; sr.shadowMap.type = TIER.softShadow ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap; sr.toneMapping = THREE.ACESFilmicToneMapping; sr.toneMappingExposure = 0.95;
+}
 const HGT = { plane: 0.5, pigeon: 0.62, stork: 0.8, swan: 0.62, horse: 0.62, donkey: 0.62, turtle: 0.4 }[AID];
 const kit = null;
 const SET = buildScene(AID, kit, HGT); ss.add(SET.root);
 if (SET.fog) ss.fog = new THREE.Fog(...SET.fog);
-if (TIER.name === 'low') { // no 1.4 MB HDR on phones: tiny procedural sky/ground gradient environment
-  const es_ = new THREE.Scene(); const g = new THREE.SphereGeometry(10, 24, 12); const c = []; const top = new THREE.Color(SET.sky[0]), hor = new THREE.Color(SET.sky[1]), gr = new THREE.Color(0x9c8a6a);
-  for (let i = 0; i < g.attributes.position.count; i++) { const y = g.attributes.position.getY(i) / 10; const col = y > 0 ? hor.clone().lerp(top, Math.min(1, y * 1.6)) : hor.clone().lerp(gr, Math.min(1, -y * 3)); c.push(col.r, col.g, col.b); }
-  g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3)); es_.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
-  const pm = new THREE.PMREMGenerator(sr); ss.environment = pm.fromScene(es_, 0.04).texture; ss.environmentIntensity = AID === 'plane' ? 0.75 : 0.45; pm.dispose();
-} else new RGBELoader().load('/env/sky_1k.hdr', (t) => { if (!alive) { t.dispose(); return; } t.mapping = THREE.EquirectangularReflectionMapping; const pm = new THREE.PMREMGenerator(sr); ss.environment = pm.fromEquirectangular(t).texture; ss.environmentIntensity = AID === 'plane' ? 0.75 : 0.45; t.dispose(); pm.dispose(); });
+if (stageReady) {
+  if (TIER.name === 'low') { // no 1.4 MB HDR on phones: tiny procedural sky/ground gradient environment
+    const es_ = new THREE.Scene(); const g = new THREE.SphereGeometry(10, 24, 12); const c = []; const top = new THREE.Color(SET.sky[0]), hor = new THREE.Color(SET.sky[1]), gr = new THREE.Color(0x9c8a6a);
+    for (let i = 0; i < g.attributes.position.count; i++) { const y = g.attributes.position.getY(i) / 10; const col = y > 0 ? hor.clone().lerp(top, Math.min(1, y * 1.6)) : hor.clone().lerp(gr, Math.min(1, -y * 3)); c.push(col.r, col.g, col.b); }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3)); es_.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+    const pm = new THREE.PMREMGenerator(sr); ss.environment = pm.fromScene(es_, 0.04).texture; ss.environmentIntensity = AID === 'plane' ? 0.75 : 0.45; pm.dispose();
+  } else new RGBELoader().load('/env/sky_1k.hdr', (t) => { if (!alive || !stageReady) { t.dispose(); return; } t.mapping = THREE.EquirectangularReflectionMapping; const pm = new THREE.PMREMGenerator(sr); ss.environment = pm.fromEquirectangular(t).texture; ss.environmentIntensity = AID === 'plane' ? 0.75 : 0.45; t.dispose(); pm.dispose(); });
+}
 ss.add(new THREE.HemisphereLight(0xfff1dc, 0xb3a487, 0.85));
-const sun = new THREE.DirectionalLight(0xffdfb8, 2.0); sun.position.set(2.5, 4.5, 2.2); sun.castShadow = true; sun.shadow.mapSize.set(TIER.shadow, TIER.shadow);
-Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 16 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3; ss.add(sun); ss.add(sun.target);
+const sun = new THREE.DirectionalLight(0xffdfb8, 2.0); sun.position.set(2.5, 4.5, 2.2); sun.castShadow = stageReady; if (stageReady) sun.shadow.mapSize.set(TIER.shadow, TIER.shadow);
+if (stageReady) Object.assign(sun.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 16 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3; ss.add(sun); ss.add(sun.target);
 const perch = instance(); ss.add(perch.root);
 if (perch.branch) perch.branch.visible = false;
 perch.root.traverse((o) => { if (o.isMesh) { o.receiveShadow = true; } });
@@ -560,8 +597,16 @@ function runEvents() { for (let i = events.length - 1; i >= 0; i--) if (events[i
 const fol = []; // per-frame followers (functions returning false when done)
 
 function startArrival(opts) {
-  $('arrival').classList.remove('hidden'); fit(sr, scam, stageEl); fit(er, ecam, envEl);
+  $('arrival').classList.remove('hidden');
+  if (stageReady) fit(sr, scam, stageEl);
+  if (envReady) fit(er, ecam, envEl);
   if (!(opts && opts.quiet)) $('arrival').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+  if (!stageReady) {
+    stageState = 'waiting';
+    if (envReady) showEnvelope();
+    else openRead();
+    return;
+  }
   idleA = perch.act('Idle_Wait');
   if (reduced || (opts && opts.quiet)) { idleA.play(); stageState = 'waiting'; return; }
   const a = perch.act('Arrive', true); a.play(); stageState = 'arriving'; curClip = a;
@@ -683,6 +728,7 @@ function keepCamClear() {
 }
 let idleFx = 0;
 function stageTick(dt, t) {
+  if (!stageReady) return;
   updFidget(dt); perch.mixer.update(dt); updBlink(dt); SET.tick(t, dt);
   perch.root.updateMatrixWorld(true);
   if (MB) { perch.bundleMesh.visible = bundleCarried; if (bundleCarried) bundle.visible = false; }
@@ -697,7 +743,23 @@ function stageTick(dt, t) {
 }
 
 // ---------- 3. envelope panel ----------
-const envEl = $('envc').parentElement, er = makeRenderer($('envc')), es = new THREE.Scene(); lights(es);
+const envEl = $('envc').parentElement;
+let envReady = true;
+let er;
+try {
+  er = makeRenderer($('envc'));
+} catch (err) {
+  console.error('[delivery-env-gl]', err);
+  envReady = false;
+  er = {
+    dispose() {},
+    forceContextLoss() {},
+    setSize() {},
+    render() {},
+    info: { render: { calls: 0, triangles: 0 }, memory: { geometries: 0, textures: 0 } },
+  };
+}
+const es = new THREE.Scene(); lights(es);
 const rim = new THREE.DirectionalLight(0xffe2ea, 0.8); rim.position.set(-3, 2, -2); es.add(rim);
 const ecam = new THREE.PerspectiveCamera(35, 1, 0.1, 50); ecam.position.set(0, 0.1, 3.4); ecam.lookAt(0, 0, 0);
 const env = new THREE.Group(); env.visible = false; es.add(env);
@@ -727,10 +789,51 @@ const heartMat = new THREE.MeshStandardMaterial({ color: 0xd9506f, roughness: 0.
 // embossed heart: low relief INSIDE the circle (max radius ~0.11 < disc 0.2), sitting on the disc face (z 0.05)
 const heart = new THREE.Mesh(new THREE.ExtrudeGeometry(hs, { depth: 0.006, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01, bevelSegments: 4, curveSegments: 24 }), heartMat); heart.scale.set(0.72, 0.72, 1); heart.position.set(0, 0.012, 0.046); seal.add(heart);
 const hit = new THREE.Mesh(new THREE.SphereGeometry(0.32), new THREE.MeshBasicMaterial({ visible: false })); seal.add(hit);
+const letterCanvas = document.createElement('canvas');
+letterCanvas.width = 768;
+letterCanvas.height = 1024;
+const letterTex = new THREE.CanvasTexture(letterCanvas);
+letterTex.colorSpace = THREE.SRGBColorSpace;
 function paintLetter() {
-  /* A folha (tema, texto, páginas, desenho) é o LetterDocument em #letterPages. */
+  const g = letterCanvas.getContext('2d');
+  if (!g) return;
+  const greet = ((options.getLetter && options.getLetter().greeting) || 'Meu amor,').slice(0, 28);
+  const drawFallback = () => {
+    g.fillStyle = '#fbf6f0';
+    g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
+    g.strokeStyle = 'rgba(196,163,90,.35)';
+    for (let y = 120; y < letterCanvas.height - 40; y += 36) {
+      g.beginPath();
+      g.moveTo(48, y);
+      g.lineTo(letterCanvas.width - 48, y);
+      g.stroke();
+    }
+    g.fillStyle = '#e85a7a';
+    g.font = 'italic 42px serif';
+    g.fillText(greet, 48, 84);
+    letterTex.needsUpdate = true;
+  };
+  const src = options.designSrc;
+  if (!src) {
+    drawFallback();
+    return;
+  }
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    if (!alive) return;
+    g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
+    g.fillStyle = 'rgba(251,246,240,0.18)';
+    g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
+    g.fillStyle = '#e85a7a';
+    g.font = 'italic 42px serif';
+    g.fillText(greet, 48, 84);
+    letterTex.needsUpdate = true;
+  };
+  img.onerror = () => drawFallback();
+  img.src = src;
 }
-const letterTex = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 340; const g = c.getContext('2d'); g.fillStyle = '#fbf6f0'; g.fillRect(0, 0, 512, 340); g.strokeStyle = 'rgba(196,163,90,.4)'; for (let y = 70; y < 330; y += 30) { g.beginPath(); g.moveTo(40, y); g.lineTo(472, y); g.stroke(); } g.fillStyle = '#e85a7a'; g.font = 'italic 34px serif'; const greet = ((options.getLetter && options.getLetter().greeting) || 'Meu amor,').slice(0, 24); g.fillText(greet, 40, 52); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+paintLetter();
 const letter = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.95, 0.008), new THREE.MeshStandardMaterial({ map: letterTex, roughness: 0.9 })); letter.position.set(0, -0.02, D / 2 + 0.03); env.add(letter);
 const easeOutBack = (u) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2); };
 const easeOutCubic = (u) => 1 - Math.pow(1 - u, 3);
@@ -874,9 +977,11 @@ function advance(dt) {
   }
   if (!arrived || mapFrames-- > 0) mr.render(ms, mc);
   if (!$('arrival').classList.contains('hidden')) {
-    stageTick(dt, t);
-    if (env.visible && !reduced && (envState === 'closed' || envState === 'opening')) { const f = floatAmt; env.position.y = Math.sin(t * 1.3) * 0.05 * f; env.rotation.y = Math.sin(t * 0.8) * 0.16 * f; env.rotation.x = Math.sin(t * 1.1) * 0.05 * f; env.rotation.z = Math.sin(t * 0.7) * 0.025 * f; }
-    er.render(es, ecam);
+    if (stageReady) stageTick(dt, t);
+    if (envReady) {
+      if (env.visible && !reduced && (envState === 'closed' || envState === 'opening')) { const f = floatAmt; env.position.y = Math.sin(t * 1.3) * 0.05 * f; env.rotation.y = Math.sin(t * 0.8) * 0.16 * f; env.rotation.x = Math.sin(t * 1.1) * 0.05 * f; env.rotation.z = Math.sin(t * 0.7) * 0.025 * f; }
+      er.render(es, ecam);
+    }
   }
 }
 let told = false;
@@ -885,7 +990,6 @@ function tellDelivered() {
   const now = options.getJourney ? options.getJourney() : null;
   if (now && now.arrived) { told = true; options.onDelivered(); }
 }
-paintLetter();
 const boot = options.getJourney ? options.getJourney() : { progress: 0, arrived: false, label: '' };
 if (boot.arrived || boot.progress >= 1) {
   progress = 1; arrived = true; synced = true;
@@ -901,10 +1005,10 @@ function loop(now) {
   if (!paused && !document.hidden && alive) advance(dt);
   rafId = requestAnimationFrame(loop);
 }
-listen(window, 'resize', () => { ARC = null; fit(mr, mc, mapEl); fit(sr, scam, stageEl); fit(er, ecam, envEl); map.invalidateSize(); });
+listen(window, 'resize', () => { ARC = null; fit(mr, mc, mapEl); if (stageReady) fit(sr, scam, stageEl); if (envReady) fit(er, ecam, envEl); map.invalidateSize(); });
 listen(document, 'visibilitychange', () => { lastNow = null; });
 rafId = requestAnimationFrame(loop);
-requestAnimationFrame(() => { if (!alive) return; map.invalidateSize(); ARC = null; fit(mr, mc, mapEl); fit(sr, scam, stageEl); fit(er, ecam, envEl); });
+requestAnimationFrame(() => { if (!alive) return; map.invalidateSize(); ARC = null; fit(mr, mc, mapEl); if (stageReady) fit(sr, scam, stageEl); if (envReady) fit(er, ecam, envEl); });
 window.__demo = {
 
 
@@ -960,7 +1064,7 @@ return () => {
   off.forEach((fn) => fn());
   try { orbit.dispose(); } catch (e) {}
   try { map.remove(); } catch (e) {}
-  for (const r of [mr, sr, er]) { try { r.dispose(); r.forceContextLoss(); } catch (e) {} }
+  loseAllRenderers();
   try { draco.dispose(); } catch (e) {}
   Object.values(SND).forEach((a) => { try { a.pause(); a.removeAttribute('src'); a.load(); } catch (e) {} });
   if (window.__demo) delete window.__demo;
