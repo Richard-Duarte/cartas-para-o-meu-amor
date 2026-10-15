@@ -188,20 +188,49 @@ export function shownFromName(
   return viewer === "sender" ? "Você, sem nome" : "Alguém";
 }
 
-export function seedDemoLetter(): Letter {
-  const existing = readAll().find((l) => l.id === "demo");
-  if (existing && !letterProgress(existing).arrived) return existing;
+export function seedDemoLetter(opts?: { delivered?: boolean; messengerId?: string }): Letter {
+  const messengerId = getMessenger(opts?.messengerId || "pigeon").id;
+  if (!opts?.delivered) {
+    const existing = readAll().find((l) => l.id === "demo");
+    if (existing && !letterProgress(existing).arrived && existing.messengerId === messengerId) return existing;
+  }
+  const now = Date.now();
+  const delivered = Boolean(opts?.delivered);
+  const messenger = getMessenger(messengerId);
   const letter: Letter = {
     id: "demo",
     fromName: "Você",
     toName: "Meu amor",
-    body: "Escrevi isto pensando em você. A carta vem a caminho — escolha o mensageiro e acompanhe no mapa.",
+    body: "Escrevi isto pensando em você. A carta vem a caminho — o mensageiro que você escolheu atravessa o mapa até a porta.",
     designId: "rosa",
-    messengerId: "pigeon",
+    messengerId,
     fromCityId: "sp",
     toCityId: "rj",
-    startedAt: Date.now() - 6000,
-    demoDurationMs: demoDurationMs(70),
+    fromAddress: {
+      cep: "01310-100",
+      street: "Avenida Paulista",
+      number: "1578",
+      complement: "",
+      neighborhood: "Bela Vista",
+      city: "São Paulo",
+      state: "SP",
+    },
+    toAddress: {
+      cep: "22021-001",
+      street: "Avenida Atlântica",
+      number: "1702",
+      complement: "",
+      neighborhood: "Copacabana",
+      city: "Rio de Janeiro",
+      state: "RJ",
+    },
+    fromGeo: { lat: -23.5614, lng: -46.656 },
+    toGeo: { lat: -22.9711, lng: -43.1823 },
+    paidBrl: messenger.basePriceBrl,
+    startedAt: delivered ? now - 120_000 : now - 8000,
+    departAt: delivered ? now - 120_000 : undefined,
+    arriveAt: delivered ? now - 4000 : undefined,
+    demoDurationMs: demoDurationMs(messenger.speedKmh),
   };
   writeAll([letter, ...readAll().filter((l) => l.id !== "demo")]);
   return letter;

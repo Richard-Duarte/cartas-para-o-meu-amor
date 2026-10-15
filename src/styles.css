@@ -2131,11 +2131,114 @@ body.env-locked {
   color: var(--color-paper);
 }
 
+.track-kicker {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-rose);
+}
+
+.track-screen {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.track-screen main {
+  min-width: 0;
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+  padding-bottom: max(2rem, calc(1.5rem + env(safe-area-inset-bottom)));
+}
+
+.track-title {
+  margin: 0.4rem 0 0;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2.15rem, 4.8vw, 3.25rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+.track-meta {
+  margin: 0.7rem 0 0;
+  max-width: 68rem;
+  color: var(--color-muted);
+  font-size: 0.98rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.delivery-slot {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 1.75rem;
+}
+
+@media (max-width: 720px) {
+  .track-screen .share-bar button,
+  .track-screen .share-bar a {
+    flex: 1 1 9.5rem;
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .track-screen .track-title {
+    font-size: clamp(1.65rem, 8.4vw, 2.15rem);
+  }
+  .track-screen .track-meta {
+    font-size: 0.92rem;
+  }
+  .track-screen .share-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .track-screen .share-bar button,
+  .track-screen .share-bar a {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .track-screen main {
+    padding-top: 0.85rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .track-screen .track-title {
+    font-size: clamp(1.45rem, 4.2vw, 2rem);
+  }
+}
+
+.delivery-loading,
+.delivery-error {
+  display: grid;
+  place-items: center;
+  min-height: min(52vh, 420px);
+  margin: 0;
+  padding: 1.5rem;
+  border: 1px solid rgb(196 163 90 / 0.25);
+  border-radius: 22px;
+  background: var(--color-paper);
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.delivery-error {
+  color: var(--color-rose);
+}
+
 .share-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1.2rem;
+  gap: 0.55rem;
+  margin-top: 1.15rem;
 }
 
 .share-bar button,
