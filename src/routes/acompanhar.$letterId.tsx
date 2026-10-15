@@ -109,6 +109,7 @@ function TrackView({
   const showLetter = delivered || opened;
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
+  const fromLabel = shownFromName(letter, role === "sender" ? "sender" : "public");
 
   useEffect(() => {
     if (letterProgress(letter).arrived) return;
@@ -153,47 +154,52 @@ function TrackView({
   return (
     <div className="track-screen min-h-dvh">
       <SiteHeader />
-      <main className="mx-auto max-w-[72rem] px-5 py-8 sm:py-10">
-        <p className="track-kicker">Acompanhar</p>
-        <h1 className="track-title break-words">
-          {shownFromName(letter, role === "sender" ? "sender" : "public")} → {letter.toName}
-        </h1>
-        <p className="track-meta">
-          {meta.from}
-          {" → "}
-          {meta.to}
-          {" · "}
-          {meta.animal}
-          {meta.price ? ` · ${meta.price}` : ""}
-        </p>
+      <main className="track-main">
+        <header className="track-hero">
+          <p className="track-kicker">Acompanhar</p>
+          <h1 className="track-title">Uma carta está a caminho</h1>
+          <p className="track-sub">
+            <span className="track-names">
+              {fromLabel} → {letter.toName}
+            </span>
+          </p>
+          <p className="track-meta">
+            {meta.from}
+            {" → "}
+            {meta.to}
+            {" · "}
+            {meta.animal}
+            {meta.price ? ` · ${meta.price}` : ""}
+          </p>
 
-        <div className="share-bar">
-          <button type="button" onClick={copyLink}>
-            {copied ? "Link copiado" : "Copiar link"}
-          </button>
-          <a href={wa} target="_blank" rel="noreferrer">
-            WhatsApp
-          </a>
-          {delivered ? (
-            <button
-              type="button"
-              className="letter-download"
-              disabled={downloading}
-              onClick={() => void download()}
-            >
-              {downloading ? "Preparando…" : "Baixar carta"}
+          <div className="share-bar track-share">
+            <button type="button" onClick={copyLink}>
+              {copied ? "Link copiado" : "Copiar link"}
             </button>
+            <a href={wa} target="_blank" rel="noreferrer">
+              WhatsApp
+            </a>
+            {delivered ? (
+              <button
+                type="button"
+                className="letter-download"
+                disabled={downloading}
+                onClick={() => void download()}
+              >
+                {downloading ? "Preparando…" : "Baixar carta"}
+              </button>
+            ) : null}
+            {delivered ? (
+              <button type="button" onClick={printLetter}>
+                Imprimir
+              </button>
+            ) : null}
+          </div>
+          {downloadError ? <p className="track-note track-note-error">{downloadError}</p> : null}
+          {!delivered ? (
+            <p className="track-note">O download destrava quando a carta chegar.</p>
           ) : null}
-          {delivered ? (
-            <button type="button" onClick={printLetter}>
-              Imprimir
-            </button>
-          ) : null}
-        </div>
-        {downloadError ? <p className="mt-2 text-sm text-rose">{downloadError}</p> : null}
-        {!delivered ? (
-          <p className="mt-2 text-sm text-muted">O download destrava quando a carta chegar.</p>
-        ) : null}
+        </header>
 
         <DeliveryJourney
           ref={journeyRef}
@@ -204,13 +210,9 @@ function TrackView({
         />
 
         {!delivered ? (
-          <div className="mt-8 rounded-xl border border-line bg-paper p-6">
-            <p className="text-muted">A carta abre no envelope quando o mensageiro chega.</p>
-            <button
-              type="button"
-              className="mt-4 min-h-11 rounded-full border border-ink px-5 text-sm"
-              onClick={openDemo}
-            >
+          <div className="track-demo">
+            <p>A carta abre no envelope quando o mensageiro chega.</p>
+            <button type="button" onClick={openDemo}>
               {opened ? "Ler de novo (demo)" : "Abrir agora (demo)"}
             </button>
           </div>

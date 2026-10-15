@@ -10,13 +10,15 @@ type Props = {
   total: number;
   busy: boolean;
   onPay: (method: Method) => void;
+  messengerName?: string;
 };
 
-export function CheckoutForm({ total, busy, onPay }: Props) {
+export function CheckoutForm({ total, busy, onPay, messengerName = "mensageiro" }: Props) {
   const [method, setMethod] = useState<Method>("pix");
   const [copied, setCopied] = useState(false);
   const [card, setCard] = useState({ name: "", number: "", expiry: "", cvv: "" });
   const pix = pixDemoCode(total);
+  const animal = messengerName.trim() || "mensageiro";
   const cardOk =
     card.name.trim().length > 3 &&
     card.number.replace(/\s/g, "").length >= 16 &&
@@ -36,7 +38,7 @@ export function CheckoutForm({ total, busy, onPay }: Props) {
   return (
     <section className="pay-card">
       <p className="cart-kicker">Pagamento</p>
-      <h2>Antes do pombo sair</h2>
+      <h2>Antes que {animal.toLowerCase()} saia</h2>
       <p className="pay-note">
         O link só nasce depois do lacre. Papel livre não entra na conta — só o
         mensageiro e o papel presente.

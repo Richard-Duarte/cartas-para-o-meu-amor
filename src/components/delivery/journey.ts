@@ -1,7 +1,7 @@
 import { addressLine } from "@/lib/address";
 import { formatArrival } from "@/lib/delivery";
 import { letterProgress, shownFromName, type Letter } from "@/lib/letters";
-import { FLIES, getCity, getMessenger, type Geo } from "@/lib/messengers";
+import { FLIES, getCity, getMessenger, messengerModelId, type Geo } from "@/lib/messengers";
 
 export type JourneySnapshot = {
   progress: number;
@@ -18,9 +18,11 @@ export function letterEndpoints(letter: Letter): {
   const toCity = getCity(letter.toCityId);
   const from = letter.fromGeo ?? fromCity.geo;
   const to = letter.toGeo ?? toCity.geo;
+  const fromName = shownFromName(letter, "public").trim() || letter.fromName?.trim() || "Origem";
+  const toName = letter.toName?.trim().replace(/,$/, "") || "Destino";
   return {
-    from: { ...from, label: letter.fromAddress?.city || fromCity.name },
-    to: { ...to, label: letter.toAddress?.city || toCity.name },
+    from: { ...from, label: fromName },
+    to: { ...to, label: toName },
   };
 }
 
@@ -41,7 +43,7 @@ export function trackMeta(letter: Letter) {
 export function journeySnapshot(letter: Letter, now = Date.now()): JourneySnapshot {
   const stats = letterProgress(letter, now);
   const { to } = letterEndpoints(letter);
-  const flying = Boolean(FLIES[letter.messengerId]);
+  const flying = Boolean(FLIES[messengerModelId(letter.messengerId)]);
   const pct = Math.round(stats.progress * 100);
   let label: string;
   if (stats.arrived) label = `Chegou em ${to.label}`;

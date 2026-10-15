@@ -5,6 +5,7 @@ import { CheckoutForm } from "@/components/cart/CheckoutForm";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { EnvelopeLetter } from "@/components/delivery/EnvelopeLetter";
 import { SendCeremony } from "@/components/letters/SendCeremony";
+import { MessengerPicker } from "@/components/messengers/MessengerPicker";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { addressLine } from "@/lib/address";
@@ -18,7 +19,7 @@ import {
 import { bootCatalog } from "@/lib/catalog";
 import { saveLetter, shownFromName, type Letter } from "@/lib/letters";
 import { formatArrival, planArrival } from "@/lib/delivery";
-import { getMessenger, demoDurationMs } from "@/lib/messengers";
+import { getMessenger, demoDurationMs, type MessengerId } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
 import { applyCoupon as checkCoupon, checkoutLetter, myProfile, spendCredit } from "@/lib/server/shop";
 
@@ -215,7 +216,7 @@ function PayPage() {
               ? "Viagem curta: sem aviso de chegada."
               : "Quando estiver perto, o aviso sai por e-mail e WhatsApp, para você e para quem recebe."}
           </p>
-          <div className="mt-8">
+          <div className="mt-8 checkout-letter">
             <EnvelopeLetter
               mode="read"
               designId={draft.designId}
@@ -224,7 +225,20 @@ function PayPage() {
               body={pagesPlainText(draft.pages)}
               pages={draft.pages}
               date={`${draft.toAddress?.city?.trim() || "Hoje"}, ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}`}
-              allowDownload
+              allowDownload={false}
+            />
+          </div>
+          <div className="checkout-messenger">
+            <p className="cart-kicker">Mensageiro</p>
+            <h2 className="checkout-messenger-title">Quem leva a carta</h2>
+            <MessengerPicker
+              value={draft.messengerId as MessengerId}
+              onChange={(id) => {
+                const next = { ...draft, messengerId: id };
+                writeDraft(next);
+                setDraft(next);
+              }}
+              scheduled={draft.scheduled}
             />
           </div>
           <Link to="/escrever" className="mt-4 inline-block text-sm text-muted underline-offset-4 hover:underline">
@@ -264,7 +278,12 @@ function PayPage() {
           </button>
           <p className="pay-fine">Teste: a carta segue sem PIX nem cartão.</p>
           {cart.total > 0 ? (
-            <CheckoutForm total={cart.total} busy={busy} onPay={(m) => void pay(m)} />
+            <CheckoutForm
+              total={cart.total}
+              busy={busy}
+              messengerName={getMessenger(draft.messengerId).name}
+              onPay={(m) => void pay(m)}
+            />
           ) : null}
           {error ? <p className="mt-3 text-sm text-rose">{error}</p> : null}
         </div>

@@ -200,6 +200,8 @@ function WritePage() {
                 number: fromAddress.number,
                 city: fromAddress.city,
                 state: fromAddress.state,
+                neighborhood: fromAddress.neighborhood,
+                cep: fromAddress.cep,
               },
             }),
             geocodeAddress({
@@ -208,6 +210,8 @@ function WritePage() {
                 number: toAddress.number,
                 city: toAddress.city,
                 state: toAddress.state,
+                neighborhood: toAddress.neighborhood,
+                cep: toAddress.cep,
               },
             }),
           ]);
@@ -245,6 +249,8 @@ function WritePage() {
             number: fromAddress.number,
             city: fromAddress.city,
             state: fromAddress.state,
+            neighborhood: fromAddress.neighborhood,
+            cep: fromAddress.cep,
           },
         });
         setFromGeo(g);
@@ -257,6 +263,8 @@ function WritePage() {
             number: toAddress.number,
             city: toAddress.city,
             state: toAddress.state,
+            neighborhood: toAddress.neighborhood,
+            cep: toAddress.cep,
           },
         });
         setToGeo(g);
@@ -412,8 +420,18 @@ function WritePage() {
                   </p>
                 </div>
                 <div className="grid gap-5 lg:grid-cols-2">
-                  <AddressFields label="Origem" value={fromAddress} onChange={setFromAddress} />
-                  <AddressFields label="Destino" value={toAddress} onChange={setToAddress} />
+                  <AddressFields
+                    label="Origem"
+                    value={fromAddress}
+                    onChange={setFromAddress}
+                    favoriteSlot="home"
+                  />
+                  <AddressFields
+                    label="Destino"
+                    value={toAddress}
+                    onChange={setToAddress}
+                    favoriteSlot="work"
+                  />
                 </div>
                 <MessengerLivePreview id={messengerId} />
                 <DeliveryChoices {...deliveryProps} />

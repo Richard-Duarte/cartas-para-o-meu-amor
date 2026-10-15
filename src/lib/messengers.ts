@@ -114,7 +114,18 @@ export const MESSENGERS: Messenger[] = [
 ];
 
 export function getMessenger(id: MessengerId) {
-  return MESSENGERS.find((m) => m.id === id) ?? MESSENGERS[0];
+  const key = String(id || "").trim();
+  return (
+    MESSENGERS.find((m) => m.id === key || m.token === key) ??
+    MESSENGERS.find((m) => m.id === "pigeon") ??
+    MESSENGERS[0]
+  );
+}
+
+/** GLB / som / gait do mensageiro (token do catálogo, não o id). */
+export function messengerModelId(id: MessengerId) {
+  const m = getMessenger(id);
+  return m.token || m.id;
 }
 
 export function replaceMessengers(rows: Messenger[]) {

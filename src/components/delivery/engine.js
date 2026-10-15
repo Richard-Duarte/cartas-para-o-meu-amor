@@ -41,8 +41,22 @@ function runTweens(now) {
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; const u = Math.min(1, (now - tw.t0) / tw.dur); tw.fn(ease(u), u); if (u >= 1) { tweens.splice(i, 1); tw.done && tw.done(); } }
 }
 function makeRenderer(canvas) {
-  const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  r.setPixelRatio(Math.min(devicePixelRatio, TIER.dpr)); r.outputColorSpace = THREE.SRGBColorSpace; return r;
+  const opts = [
+    { antialias: true, alpha: true, powerPreference: 'default', failIfMajorPerformanceCaveat: false },
+    { antialias: false, alpha: true, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false },
+  ];
+  let last = null;
+  for (const o of opts) {
+    try {
+      const r = new THREE.WebGLRenderer({ canvas, ...o });
+      r.setPixelRatio(Math.min(devicePixelRatio, TIER.dpr));
+      r.outputColorSpace = THREE.SRGBColorSpace;
+      return r;
+    } catch (err) {
+      last = err;
+    }
+  }
+  throw last || new Error('webgl-unavailable');
 }
 function lights(scene) {
   scene.add(new THREE.HemisphereLight(0xfffaf2, 0xd9c7b0, 1.6));
@@ -67,10 +81,17 @@ const ANIMALS = {
   donkey: { n: 'O burrinho', v: 'caminha', land: 'O burrinho chegou', fly: false, sp: 0.75 },
   turtle: { n: 'A tartaruga', v: 'caminha devagar', land: 'A tartaruga chegou', fly: false, sp: 0.5 },
 };
-const AID = ANIMALS[options.animalId] ? options.animalId : 'pigeon';
+const rawId = String(options.animalId || '').toLowerCase().trim();
+const AID = ANIMALS[rawId] ? rawId : (ANIMALS[options.animalId] ? options.animalId : 'pigeon');
 const AN = ANIMALS[AID];
 $('landed').textContent = AN.land;
-const gltf = await loader.loadAsync(`/models/${AID}.glb`);
+let gltf;
+try {
+  gltf = await loader.loadAsync(`/models/${AID}.glb`);
+} catch (err) {
+  draco.dispose();
+  throw new Error(`model-load-failed:${AID}:${err && err.message ? err.message : err}`);
+}
 if (!alive || !root.isConnected) { draco.dispose(); return () => {}; }
 // R7: the glTF exporter writes a stale first sample on every baked track (pose left over from the previous NLA strip),
 // which popped at every clip start and loop wrap. Replace sample 0 by linear extrapolation of samples 1-2.
@@ -101,20 +122,35 @@ function endpoint(geo, fallback) {
   const lat = Number(geo && geo.lat), lng = Number(geo && geo.lng);
   return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : fallback;
 }
-let fromLL = endpoint(options.from, [-23.5505, -46.6333]);
-let toLL = endpoint(options.to, [-22.9068, -43.1729]);
-if (Math.hypot(fromLL[0] - toLL[0], fromLL[1] - toLL[1]) < 0.01) toLL = [toLL[0] + 0.02, toLL[1] + 0.02];
-const span = Math.hypot(toLL[0] - fromLL[0], toLL[1] - fromLL[1]) || 1;
+const fromLL = endpoint(options.from, [-23.5505, -46.6333]);
+const toLL = endpoint(options.to, [-22.9068, -43.1729]);
+// Pins stay on the exact address; only the drawn route is nudged if the points coincide.
+let routeFrom = fromLL;
+let routeTo = toLL;
+if (Math.hypot(routeFrom[0] - routeTo[0], routeFrom[1] - routeTo[1]) < 0.01) {
+  routeTo = [routeTo[0] + 0.02, routeTo[1] + 0.02];
+}
+const span = Math.hypot(routeTo[0] - routeFrom[0], routeTo[1] - routeFrom[1]) || 1;
 const bow = Math.max(span * 0.18, 0.08);
-const CTRL = [(fromLL[0] + toLL[0]) / 2 + (-(toLL[1] - fromLL[1]) / span) * bow, (fromLL[1] + toLL[1]) / 2 + ((toLL[0] - fromLL[0]) / span) * bow];
-const bez = (t) => [0, 1].map((k) => (1 - t) ** 2 * fromLL[k] + 2 * (1 - t) * t * CTRL[k] + t * t * toLL[k]);
+const CTRL = [(routeFrom[0] + routeTo[0]) / 2 + (-(routeTo[1] - routeFrom[1]) / span) * bow, (routeFrom[1] + routeTo[1]) / 2 + ((routeTo[0] - routeFrom[0]) / span) * bow];
+const bez = (t) => [0, 1].map((k) => (1 - t) ** 2 * routeFrom[k] + 2 * (1 - t) * t * CTRL[k] + t * t * routeTo[k]);
 const route = Array.from({ length: 80 }, (_, i) => bez(i / 79));
 const map = L.map($('map'), { zoomControl: false, attributionControl: true, scrollWheelZoom: false });
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap', maxZoom: 16 }).addTo(map);
 L.polyline(route, { color: '#e85a7a', weight: 3, dashArray: '6 9', opacity: 0.8 }).addTo(map);
-const pin = (ll, t) => L.circleMarker(ll, { radius: 7, color: '#c4a35a', fillColor: '#fbf6f0', fillOpacity: 1, weight: 3 }).addTo(map).bindTooltip(t, { permanent: true, direction: 'top', className: 'tt' });
-pin(fromLL, options.from.label || 'Origem'); pin(toLL, options.to.label || 'Destino');
-map.fitBounds(L.latLngBounds(route), { padding: [70, 70] });
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pin = (ll, t) => {
+  const icon = L.divIcon({
+    className: 'delivery-pin-wrap',
+    html: `<span class="delivery-pin"><span class="delivery-pin-name">${esc(t)}</span><span class="delivery-pin-dot" aria-hidden="true"></span></span>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+  return L.marker(ll, { icon, interactive: false, keyboard: false }).addTo(map);
+};
+pin(fromLL, options.from.label || 'Origem');
+pin(toLL, options.to.label || 'Destino');
+map.fitBounds(L.latLngBounds([fromLL, toLL, ...route]), { padding: [72, 72], maxZoom: 14 });
 
 const mapCanvas = $('mapfx'), mapEl = root.querySelector('.map-card');
 const mr = makeRenderer(mapCanvas), ms = new THREE.Scene(); lights(ms);

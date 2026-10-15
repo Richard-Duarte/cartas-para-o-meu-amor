@@ -2196,39 +2196,104 @@ body.env-locked {
 .track-screen {
   min-width: 0;
   max-width: 100%;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(244 184 197 / 0.22), transparent 55%),
+    var(--color-cream);
 }
 
-.track-screen main {
+.track-main {
   min-width: 0;
-  padding-left: max(1.25rem, env(safe-area-inset-left));
-  padding-right: max(1.25rem, env(safe-area-inset-right));
-  padding-bottom: max(2rem, calc(1.5rem + env(safe-area-inset-bottom)));
+  max-width: min(1200px, 100%);
+  margin: 0 auto;
+  padding:
+    1.35rem
+    max(clamp(12px, 4vw, 48px), env(safe-area-inset-left))
+    max(2.5rem, calc(1.5rem + env(safe-area-inset-bottom)))
+    max(clamp(12px, 4vw, 48px), env(safe-area-inset-right));
+}
+
+.track-hero {
+  text-align: center;
+  max-width: 46rem;
+  margin: 0 auto 1.35rem;
 }
 
 .track-title {
-  margin: 0.4rem 0 0;
+  margin: 0.35rem 0 0;
   max-width: 100%;
   font-family: var(--font-display);
-  font-weight: 500;
-  font-size: clamp(2.15rem, 4.8vw, 3.25rem);
+  font-weight: 600;
+  font-size: clamp(1.85rem, 5vw, 3.25rem);
   line-height: 1.08;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.track-sub {
+  margin: 0.55rem 0 0;
+  font-family: var(--font-logo), var(--font-display), serif;
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  line-height: 1.35;
+  color: var(--color-ink);
+}
+
+.track-names {
   overflow-wrap: anywhere;
 }
 
 .track-meta {
-  margin: 0.7rem 0 0;
-  max-width: 68rem;
+  margin: 0.55rem auto 0;
+  max-width: 40rem;
   color: var(--color-muted);
   font-size: 0.98rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
+.track-share {
+  justify-content: center;
+  margin-top: 0.95rem;
+}
+
+.track-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.88rem;
+  color: var(--color-muted);
+}
+
+.track-note-error {
+  color: var(--color-rose);
+}
+
+.track-demo {
+  margin: 1.5rem auto 0;
+  max-width: 36rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1.1rem;
+  background: var(--color-paper);
+  text-align: center;
+}
+
+.track-demo p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.track-demo button {
+  margin-top: 0.85rem;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 1px solid var(--color-ink);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.92rem;
+}
+
 .delivery-slot {
   min-width: 0;
   max-width: 100%;
-  margin-top: 1.75rem;
+  margin-top: 0.35rem;
 }
 
 @media (max-width: 720px) {
@@ -2250,11 +2315,17 @@ body.env-locked {
     width: 100%;
     justify-content: center;
   }
+  .track-hero {
+    margin-bottom: 1rem;
+  }
   .track-screen .track-title {
-    font-size: clamp(1.65rem, 8.4vw, 2.15rem);
+    font-size: clamp(1.55rem, 7.5vw, 2.05rem);
+  }
+  .track-screen .track-sub {
+    font-size: 1.02rem;
   }
   .track-screen .track-meta {
-    font-size: 0.92rem;
+    font-size: 0.9rem;
   }
   .track-screen .share-bar {
     display: grid;
@@ -2268,12 +2339,15 @@ body.env-locked {
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
-  .track-screen main {
-    padding-top: 0.85rem;
+  .track-main {
+    padding-top: 0.7rem;
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
+  .track-hero {
+    margin-bottom: 0.7rem;
+  }
   .track-screen .track-title {
-    font-size: clamp(1.45rem, 4.2vw, 2rem);
+    font-size: clamp(1.35rem, 4vw, 1.85rem);
   }
 }
 
@@ -2519,6 +2593,22 @@ body.env-locked {
   gap: 1rem;
 }
 
+.checkout-letter {
+  min-width: 0;
+}
+
+.checkout-messenger {
+  margin-top: 1.75rem;
+  min-width: 0;
+}
+
+.checkout-messenger-title {
+  margin: 0.35rem 0 1rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 3vw, 1.85rem);
+  font-weight: 500;
+}
+
 .pay-card {
   padding: 1.2rem 1.15rem 1.2rem;
   border: 1px solid var(--color-line);
@@ -2719,6 +2809,37 @@ body.env-locked {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-rose);
+}
+
+.addr-fav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.addr-fav-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.35rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.addr-fav-btn.is-save {
+  border-color: rgb(232 90 122 / 0.45);
+  color: var(--color-rose);
+}
+
+.addr-fav-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .addr-card label,

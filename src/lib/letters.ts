@@ -192,7 +192,31 @@ export function seedDemoLetter(opts?: { delivered?: boolean; messengerId?: strin
   const messengerId = getMessenger(opts?.messengerId || "pigeon").id;
   if (!opts?.delivered) {
     const existing = readAll().find((l) => l.id === "demo");
-    if (existing && !letterProgress(existing).arrived && existing.messengerId === messengerId) return existing;
+    if (existing && !letterProgress(existing).arrived && existing.messengerId === messengerId) {
+      // Mantém o progresso da demo, mas atualiza o pin para o endereço exato.
+      existing.fromGeo = { lat: -23.5614961, lng: -46.6559677 };
+      existing.toGeo = { lat: -22.9670132, lng: -43.1791849 };
+      existing.fromAddress = existing.fromAddress ?? {
+        cep: "01310-100",
+        street: "Avenida Paulista",
+        number: "1578",
+        complement: "",
+        neighborhood: "Bela Vista",
+        city: "São Paulo",
+        state: "SP",
+      };
+      existing.toAddress = existing.toAddress ?? {
+        cep: "22021-001",
+        street: "Avenida Atlântica",
+        number: "1702",
+        complement: "",
+        neighborhood: "Copacabana",
+        city: "Rio de Janeiro",
+        state: "RJ",
+      };
+      writeAll([existing, ...readAll().filter((l) => l.id !== "demo")]);
+      return existing;
+    }
   }
   const now = Date.now();
   const delivered = Boolean(opts?.delivered);
@@ -224,8 +248,8 @@ export function seedDemoLetter(opts?: { delivered?: boolean; messengerId?: strin
       city: "Rio de Janeiro",
       state: "RJ",
     },
-    fromGeo: { lat: -23.5614, lng: -46.656 },
-    toGeo: { lat: -22.9711, lng: -43.1823 },
+    fromGeo: { lat: -23.5614961, lng: -46.6559677 },
+    toGeo: { lat: -22.9670132, lng: -43.1791849 },
     paidBrl: messenger.basePriceBrl,
     startedAt: delivered ? now - 120_000 : now - 8000,
     departAt: delivered ? now - 120_000 : undefined,
