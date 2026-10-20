@@ -47,7 +47,8 @@
 .delivery-preview #map {
   position: absolute;
   inset: 0;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   filter: sepia(0.25) saturate(0.8);
 }
 
@@ -307,6 +308,8 @@
 }
 
 .delivery-preview .leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
   background: var(--cream);
   font-family: var(--font-sans), sans-serif;
 }
@@ -512,14 +515,16 @@
 }
 
 .delivery-preview .letter:has(.letter-read) {
-  padding: 0.55rem 0.55rem 1rem;
+  padding: 0.55rem 0.55rem 1.25rem;
   background: transparent;
   background-image: none;
   box-shadow: none;
-  width: min(100%, calc((100dvh - 3rem) * 0.72), 44rem);
+  width: min(100%, 44rem);
   max-width: 100%;
-  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem);
-  overflow: auto;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .delivery-preview .letter .letter-pack {
@@ -530,12 +535,26 @@
 .delivery-preview .letter .letter-sheet {
   width: 100%;
   min-height: 0;
-  max-height: calc(100dvh - 5rem);
-  aspect-ratio: 3 / 4;
+  max-height: none;
+  aspect-ratio: auto;
+  height: auto;
+  overflow: visible;
   background-color: var(--paper);
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
+}
+
+.delivery-preview .letter:has(.letter-read) .letter-sheet {
+  min-height: min(70dvh, 36rem);
+  overflow: visible;
+}
+
+.delivery-preview .letter:has(.letter-read) .letter-sheet-inner,
+.delivery-preview .letter:has(.letter-read) .letter-sheet-stage {
+  overflow: visible;
+  min-height: 0;
+  height: auto;
 }
 
 .delivery-preview.map-only-fallback .map-only-host,

@@ -181,6 +181,11 @@ export function mountEnvelope(root, options = {}) {
   const paintLetter = () => {
     const g = letterCanvas.getContext("2d");
     if (!g) return;
+    const drawGreeting = () => {
+      g.fillStyle = "#e85a7a";
+      g.font = "italic 42px serif";
+      g.fillText(greet, 48, 84);
+    };
     const drawFallback = () => {
       g.fillStyle = "#fbf6f0";
       g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
@@ -191,32 +196,41 @@ export function mountEnvelope(root, options = {}) {
         g.lineTo(letterCanvas.width - 48, y);
         g.stroke();
       }
-      g.fillStyle = "#e85a7a";
-      g.font = "italic 42px serif";
-      g.fillText(greet, 48, 84);
+      drawGreeting();
       letterTex.needsUpdate = true;
     };
-    if (!options.designSrc) {
-      drawFallback();
-      return;
-    }
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (!alive) return;
-      g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
-      g.fillStyle = "rgba(251,246,240,0.18)";
-      g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
-      g.fillStyle = "#e85a7a";
-      g.font = "italic 42px serif";
-      g.fillText(greet, 48, 84);
-      letterTex.needsUpdate = true;
+    drawFallback();
+    if (!options.designSrc) return;
+    const raster = String(options.designSrc)
+      .replace(/\/blank-([a-z0-9-]+)\.svg$/i, "/$1.jpg")
+      .replace(/\.svg$/i, ".jpg");
+    const urls = raster === options.designSrc ? [options.designSrc] : [raster, options.designSrc];
+    const loadUrl = (i) => {
+      if (i >= urls.length) return;
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => {
+        if (!alive) return;
+        try {
+          g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
+          g.fillStyle = "rgba(251,246,240,0.14)";
+          g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
+          drawGreeting();
+          letterTex.needsUpdate = true;
+        } catch {
+          loadUrl(i + 1);
+        }
+      };
+      img.onerror = () => loadUrl(i + 1);
+      img.src = urls[i];
     };
-    img.onerror = () => drawFallback();
-    img.src = options.designSrc;
+    loadUrl(0);
   };
   paintLetter();
-  const letter = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.95, 0.008), new THREE.MeshStandardMaterial({ map: letterTex, roughness: 0.9 }));
+  const letter = new THREE.Mesh(
+    new THREE.BoxGeometry(1.42, 0.95, 0.008),
+    new THREE.MeshBasicMaterial({ map: letterTex, toneMapped: false }),
+  );
   letter.position.set(0, -0.02, D / 2 + 0.03);
   env.add(letter);
 
