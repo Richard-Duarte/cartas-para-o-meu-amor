@@ -19,7 +19,7 @@ const SHELL = `
 <section class="card map-card"><div id="map"></div><canvas id="mapfx"></canvas>
   <div class="map-ui"><div class="eta"><span id="eta">Em voo…</span><div class="bar"><i id="prog"></i></div></div><button id="skip" class="btn" type="button">Simular chegada</button></div></section>
 <section id="arrival" class="arrival hidden">
-  <div class="card stage-card"><p class="eyebrow">chegou para você</p><h2 id="landed"></h2><div class="stage" id="stageWrap"><canvas id="stage"></canvas></div><p id="hint" class="hint">Toque na carta para receber · arraste para girar</p></div>
+  <div class="card stage-card"><p class="eyebrow">chegou para você</p><h2 id="landed"></h2><div class="stage" id="stageWrap"><canvas id="stage"></canvas></div><p id="hint" class="hint">Toque no animal para receber · arraste para girar</p></div>
   <div class="card env-card"><p class="eyebrow">sua carta</p><h2 id="envTitle">Aguardando…</h2><div class="stage"><canvas id="envc"></canvas></div><p id="envHint" class="hint dim">Receba a carta</p></div>
 </section>
 <div id="flyer" class="flyer"></div>
