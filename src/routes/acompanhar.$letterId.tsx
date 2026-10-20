@@ -127,11 +127,6 @@ function TrackView({
     }
   }
 
-  function openDemo() {
-    setOpened(true);
-    journeyRef.current?.openRead();
-  }
-
   async function download() {
     const node = document.querySelector<HTMLElement>(".delivery-preview .letter-pack");
     if (!node || !delivered) return;
@@ -208,15 +203,6 @@ function TrackView({
           onDelivered={() => setNow(Date.now())}
           onOpened={() => setOpened(true)}
         />
-
-        {!delivered ? (
-          <div className="track-demo">
-            <p>A carta abre no envelope quando o mensageiro chega.</p>
-            <button type="button" onClick={openDemo}>
-              {opened ? "Ler de novo (demo)" : "Abrir agora (demo)"}
-            </button>
-          </div>
-        ) : null}
 
         {letter.id !== "demo" && role === "recipient" && !showLetter ? (
           <p className="reply-wait">O comentário abre quando você ler a carta.</p>

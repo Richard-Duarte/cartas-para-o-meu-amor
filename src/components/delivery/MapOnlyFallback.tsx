@@ -68,8 +68,15 @@ export function MapOnlyFallback({ letter }: Props) {
       };
       pin(from, ends.from.label);
       pin(to, ends.to.label);
-      m.fitBounds(L.latLngBounds([from, to, ...route]), { padding: [72, 72], maxZoom: 14 });
-      requestAnimationFrame(() => m.invalidateSize());
+      const bounds = L.latLngBounds([from, to, ...route]);
+      const refresh = () => {
+        m.invalidateSize({ animate: false });
+        m.fitBounds(bounds, { padding: [72, 72], maxZoom: 14 });
+      };
+      m.fitBounds(bounds, { padding: [72, 72], maxZoom: 14 });
+      requestAnimationFrame(refresh);
+      window.setTimeout(refresh, 120);
+      window.setTimeout(refresh, 400);
     });
 
     return () => {

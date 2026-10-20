@@ -143,13 +143,57 @@ function instance() {
 
 // ---------- sound ----------
 let muted = localStorage.getItem('cartas-mute') === '1', audioOK = false;
-const SND = Object.fromEntries(['arrive', 'deliver', 'pet'].map((k) => { const a = new Audio(`/snd/${AID}_${k}.mp3`); a.preload = 'auto'; a.volume = 0.7; return [k, a]; }));
-function play(k, vol = 0.7) { if (muted || !audioOK) return; const a = SND[k]; try { a.volume = vol; a.currentTime = 0; a.play().catch(() => {}); } catch (e) {} }
-function unlock() { if (audioOK) return; audioOK = true; Object.values(SND).forEach((a) => { a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); }); }
+const SND = Object.fromEntries(['arrive', 'deliver', 'pet'].map((k) => {
+  const a = new Audio(`/snd/${AID}_${k}.mp3`);
+  a.preload = 'auto';
+  a.playsInline = true;
+  a.volume = 0.7;
+  return [k, a];
+}));
+function play(k, vol = 0.7) {
+  if (muted) return;
+  const a = SND[k];
+  if (!a) return;
+  try {
+    a.volume = vol;
+    a.currentTime = 0;
+    const p = a.play();
+    if (p && p.then) p.then(() => { audioOK = true; }).catch(() => {});
+  } catch (e) {}
+}
+function unlock() {
+  if (audioOK) return;
+  // Destrava com áudio real (não mudo) — Chrome só libera playback unmuted no gesto do usuário.
+  Object.values(SND).forEach((a) => {
+    try {
+      a.muted = false;
+      a.volume = 0.001;
+      const p = a.play();
+      if (p && p.then) {
+        p.then(() => {
+          a.pause();
+          a.currentTime = 0;
+          a.volume = 0.7;
+          audioOK = true;
+        }).catch(() => {
+          a.volume = 0.7;
+        });
+      }
+    } catch (e) {}
+  });
+}
 ['pointerdown', 'keydown', 'touchstart'].forEach((e) => listen(window, e, unlock, { once: true, capture: true }));
 const muteBtn = document.createElement('button'); muteBtn.id = 'mute'; muteBtn.type = 'button'; muteBtn.className = 'mute';
 const setMute = () => { muteBtn.textContent = muted ? '🔇' : '🔊'; muteBtn.setAttribute('aria-label', muted ? 'Ativar som' : 'Silenciar'); };
-muteBtn.onclick = () => { muted = !muted; localStorage.setItem('cartas-mute', muted ? '1' : '0'); setMute(); }; setMute(); root.appendChild(muteBtn);
+muteBtn.onclick = () => {
+  unlock();
+  muted = !muted;
+  localStorage.setItem('cartas-mute', muted ? '1' : '0');
+  setMute();
+  if (!muted) play('pet', 0.4);
+};
+setMute();
+root.appendChild(muteBtn);
 
 // ---------- 1. map ----------
 function endpoint(geo, fallback) {
@@ -184,7 +228,16 @@ const pin = (ll, t) => {
 };
 pin(fromLL, options.from.label || 'Origem');
 pin(toLL, options.to.label || 'Destino');
-map.fitBounds(L.latLngBounds([fromLL, toLL, ...route]), { padding: [72, 72], maxZoom: 14 });
+const routeBounds = L.latLngBounds([fromLL, toLL, ...route]);
+function refreshMapLayout() {
+  if (!alive) return;
+  try {
+    map.invalidateSize({ animate: false, pan: false });
+    map.fitBounds(routeBounds, { padding: [72, 72], maxZoom: 14 });
+  } catch (e) {}
+  ARC = null;
+}
+map.fitBounds(routeBounds, { padding: [72, 72], maxZoom: 14 });
 
 const mapCanvas = $('mapfx'), mapEl = root.querySelector('.map-card');
 let map3dOk = true;
@@ -239,7 +292,14 @@ let skipping = false, skipFrom = 0, skipElapsed = 0, synced = false;
 const FLY_SCALE = window.innerWidth < 700 ? 95 : 130;
 let GAIT = null; if (!AN.fly) fetch(`/models/${AID}_gait.json`).then((r) => r.ok ? r.json() : null).then((g) => { if (!alive || !g) return; GAIT = g; }).catch(() => {});
 const prevPos = new THREE.Vector3(); let havePrev = false;
-$('skip').onclick = () => { if (arrived || skipping) return; skipping = true; skipFrom = progress; skipElapsed = 0; };
+$('skip').onclick = () => {
+  unlock();
+  if (arrived || skipping) return;
+  skipping = true;
+  skipFrom = progress;
+  skipElapsed = 0;
+  play('pet', 0.25);
+};
 
 // ---------- 2. arrival stage (real 3D set per animal) ----------
 const stageEl = $('stage').parentElement;
@@ -648,8 +708,10 @@ function startArrival(opts) {
   }
   idleA = perch.act('Idle_Wait');
   if (reduced || (opts && opts.quiet)) { idleA.play(); stageState = 'waiting'; return; }
+  unlock();
   const a = perch.act('Arrive', true); a.play(); stageState = 'arriving'; curClip = a;
-  at(0.25, () => play('arrive'));
+  play('arrive', 0.75);
+  at(0.25, () => play('arrive', 0.55));
   const D = clipDur('Arrive');
   if (AID === 'plane') { SET.cloudBoost = 6; tween(D * 1000, (k) => (SET.cloudBoost = 6 - 5 * k)); }
   if (SET.dust) for (let k = 0.05; k < 0.55; k += 0.06) at(D * k, () => { const p = new THREE.Vector3(); rootBone.getWorldPosition(p); p.y = 0.02; emit('dust', p, 3, { spread: 0.3, speed: 0.25, up: 0.6, life: 1.1, size: 0.09, op: 0.7 }); });
@@ -721,7 +783,7 @@ function deliverEnvelope(D) {
 function stageTap(ev) {
   stopFidget(0.3);
   if (stageState === 'delivered') {
-    hearts(ev); play('pet'); const hp = headPos(new THREE.Vector3()); emit('heart', hp, 5, { spread: 0.15, speed: 0.25, up: 1, life: 1.3, size: 0.045 });
+    unlock(); hearts(ev); play('pet'); const hp = headPos(new THREE.Vector3()); emit('heart', hp, 5, { spread: 0.15, speed: 0.25, up: 1, life: 1.3, size: 0.045 });
     if (!clips.Pet) return;
     if (!petA) {
       petA = perch.act('Pet', true);
@@ -833,10 +895,16 @@ letterCanvas.width = 768;
 letterCanvas.height = 1024;
 const letterTex = new THREE.CanvasTexture(letterCanvas);
 letterTex.colorSpace = THREE.SRGBColorSpace;
+letterTex.anisotropy = 4;
 function paintLetter() {
   const g = letterCanvas.getContext('2d');
   if (!g) return;
   const greet = ((options.getLetter && options.getLetter().greeting) || 'Meu amor,').slice(0, 28);
+  const drawGreeting = () => {
+    g.fillStyle = '#e85a7a';
+    g.font = 'italic 42px serif';
+    g.fillText(greet, 48, 84);
+  };
   const drawFallback = () => {
     g.fillStyle = '#fbf6f0';
     g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
@@ -847,33 +915,44 @@ function paintLetter() {
       g.lineTo(letterCanvas.width - 48, y);
       g.stroke();
     }
-    g.fillStyle = '#e85a7a';
-    g.font = 'italic 42px serif';
-    g.fillText(greet, 48, 84);
+    drawGreeting();
     letterTex.needsUpdate = true;
   };
+  // Evita retângulo preto enquanto a textura carrega.
+  drawFallback();
   const src = options.designSrc;
-  if (!src) {
-    drawFallback();
-    return;
-  }
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    if (!alive) return;
-    g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
-    g.fillStyle = 'rgba(251,246,240,0.18)';
-    g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
-    g.fillStyle = '#e85a7a';
-    g.font = 'italic 42px serif';
-    g.fillText(greet, 48, 84);
-    letterTex.needsUpdate = true;
+  if (!src) return;
+  // SVG sem width/height falha no drawImage → usa JPG do design.
+  const raster = String(src)
+    .replace(/\/blank-([a-z0-9-]+)\.svg$/i, '/$1.jpg')
+    .replace(/\.svg$/i, '.jpg');
+  const urls = raster === src ? [src] : [raster, src];
+  const loadUrl = (i) => {
+    if (i >= urls.length) return;
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      if (!alive) return;
+      try {
+        g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
+        g.fillStyle = 'rgba(251,246,240,0.14)';
+        g.fillRect(0, 0, letterCanvas.width, letterCanvas.height);
+        drawGreeting();
+        letterTex.needsUpdate = true;
+      } catch (e) {
+        loadUrl(i + 1);
+      }
+    };
+    img.onerror = () => loadUrl(i + 1);
+    img.src = urls[i];
   };
-  img.onerror = () => drawFallback();
-  img.src = src;
+  loadUrl(0);
 }
 paintLetter();
-const letter = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.95, 0.008), new THREE.MeshStandardMaterial({ map: letterTex, roughness: 0.9 })); letter.position.set(0, -0.02, D / 2 + 0.03); env.add(letter);
+const letterMat = new THREE.MeshBasicMaterial({ map: letterTex, toneMapped: false });
+const letter = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.95, 0.008), letterMat);
+letter.position.set(0, -0.02, D / 2 + 0.03);
+env.add(letter);
 const easeOutBack = (u) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2); };
 const easeOutCubic = (u) => 1 - Math.pow(1 - u, 3);
 const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
@@ -1052,10 +1131,23 @@ function loop(now) {
   if (!paused && !document.hidden && alive) advance(dt);
   rafId = requestAnimationFrame(loop);
 }
-listen(window, 'resize', () => { ARC = null; fit(mr, mc, mapEl); if (stageReady) fit(sr, scam, stageEl); if (envReady) fit(er, ecam, envEl); map.invalidateSize(); });
-listen(document, 'visibilitychange', () => { lastNow = null; });
+function onMapResize() {
+  refreshMapLayout();
+  fit(mr, mc, mapEl);
+  if (stageReady) fit(sr, scam, stageEl);
+  if (envReady) fit(er, ecam, envEl);
+}
+listen(window, 'resize', onMapResize);
+listen(document, 'visibilitychange', () => { lastNow = null; if (!document.hidden) onMapResize(); });
+let mapRo = null;
+if (typeof ResizeObserver !== 'undefined' && mapEl) {
+  mapRo = new ResizeObserver(() => onMapResize());
+  mapRo.observe(mapEl);
+}
 rafId = requestAnimationFrame(loop);
-requestAnimationFrame(() => { if (!alive) return; map.invalidateSize(); ARC = null; fit(mr, mc, mapEl); if (stageReady) fit(sr, scam, stageEl); if (envReady) fit(er, ecam, envEl); });
+requestAnimationFrame(() => { if (!alive) return; onMapResize(); });
+setTimeout(() => { if (alive) onMapResize(); }, 120);
+setTimeout(() => { if (alive) onMapResize(); }, 450);
 window.__demo = {
 
 
@@ -1109,6 +1201,7 @@ return () => {
   alive = false;
   cancelAnimationFrame(rafId);
   off.forEach((fn) => fn());
+  try { if (mapRo) mapRo.disconnect(); } catch (e) {}
   try { orbit.dispose(); } catch (e) {}
   try { map.remove(); } catch (e) {}
   loseAllRenderers();
