@@ -26,6 +26,7 @@ export function TemplatePicker({ value, onSelect }: Props) {
               <span className={cn("paper-lock", d.paid ? "is-paid" : "is-free")}>
                 {d.paid ? formatBrl(d.priceBrl) : "Grátis"}
               </span>
+              {d.isNew ? <span className="paper-new">Novo</span> : null}
             </span>
             <span className="paper-card-name">{d.name}</span>
             <span className="paper-card-tag">{d.tagline}</span>

@@ -60,6 +60,22 @@ export function formatArrival(date: Date) {
   return `${day} às ${time}`;
 }
 
+/** Versão curta para listas: "sáb., 31/10 às 18:00". */
+export function formatArrivalShort(date: Date) {
+  const day = date.toLocaleDateString("pt-BR", {
+    timeZone: TZ,
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
+  const time = date.toLocaleTimeString("pt-BR", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${day} às ${time}`;
+}
+
 export function planArrival(opts: {
   messengerId: MessengerId;
   from: Geo;

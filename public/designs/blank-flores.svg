@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <g id="flor">
+      <ellipse cx="0" cy="-14" rx="10" ry="15"/>
+      <ellipse cx="0" cy="-14" rx="10" ry="15" transform="rotate(72)"/>
+      <ellipse cx="0" cy="-14" rx="10" ry="15" transform="rotate(144)"/>
+      <ellipse cx="0" cy="-14" rx="10" ry="15" transform="rotate(216)"/>
+      <ellipse cx="0" cy="-14" rx="10" ry="15" transform="rotate(288)"/>
+    </g>
+    <path id="folha" d="M0 0 C10 -14 30 -14 40 0 C30 14 10 14 0 0 Z"/>
+  </defs>
+  <rect width="600" height="800" fill="#fff8f1"/>
+  <rect x="22" y="22" width="556" height="756" rx="20" fill="none" stroke="#e9c9b8" stroke-width="1.5"/>
+  <g transform="translate(0 0)">
+    <path d="M10 170 C60 130 90 90 150 70 C190 56 230 40 260 14" fill="none" stroke="#8fb79a" stroke-width="3" stroke-linecap="round"/>
+    <use href="#folha" transform="translate(70 128) rotate(-40)" fill="#a9cdb2"/>
+    <use href="#folha" transform="translate(180 60) rotate(-150)" fill="#8fb79a"/>
+    <use href="#folha" transform="translate(220 40) rotate(-20) scale(0.8)" fill="#a9cdb2"/>
+    <use href="#flor" transform="translate(64 66) scale(1.5)" fill="#f6a6b9"/>
+    <circle cx="64" cy="66" r="9" fill="#ffd774"/>
+    <use href="#flor" transform="translate(140 104) rotate(20)" fill="#c9b3ee"/>
+    <circle cx="140" cy="104" r="6" fill="#fff3c4"/>
+    <use href="#flor" transform="translate(250 30) scale(0.8) rotate(10)" fill="#ffc8a6"/>
+    <circle cx="250" cy="30" r="5" fill="#ffd774"/>
+    <use href="#flor" transform="translate(28 200) scale(0.7)" fill="#f6a6b9"/>
+    <circle cx="28" cy="200" r="4.5" fill="#ffd774"/>
+  </g>
+  <g transform="translate(600 800) rotate(180)">
+    <path d="M10 170 C60 130 90 90 150 70 C190 56 230 40 260 14" fill="none" stroke="#8fb79a" stroke-width="3" stroke-linecap="round"/>
+    <use href="#folha" transform="translate(70 128) rotate(-40)" fill="#a9cdb2"/>
+    <use href="#folha" transform="translate(180 60) rotate(-150)" fill="#8fb79a"/>
+    <use href="#folha" transform="translate(220 40) rotate(-20) scale(0.8)" fill="#a9cdb2"/>
+    <use href="#flor" transform="translate(64 66) scale(1.5)" fill="#c9b3ee"/>
+    <circle cx="64" cy="66" r="9" fill="#fff3c4"/>
+    <use href="#flor" transform="translate(140 104) rotate(20)" fill="#f6a6b9"/>
+    <circle cx="140" cy="104" r="6" fill="#ffd774"/>
+    <use href="#flor" transform="translate(250 30) scale(0.8) rotate(10)" fill="#f6a6b9"/>
+    <circle cx="250" cy="30" r="5" fill="#fff3c4"/>
+    <use href="#flor" transform="translate(28 200) scale(0.7)" fill="#ffc8a6"/>
+    <circle cx="28" cy="200" r="4.5" fill="#ffd774"/>
+  </g>
+  <g fill="#f6a6b9" opacity="0.5">
+    <circle cx="540" cy="80" r="3"/>
+    <circle cx="560" cy="120" r="2"/>
+    <circle cx="50" cy="700" r="3"/>
+    <circle cx="80" cy="740" r="2"/>
+  </g>
+</svg>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a2150"/>
+      <stop offset="0.6" stop-color="#2a2d68"/>
+      <stop offset="1" stop-color="#3d3576"/>
+    </linearGradient>
+    <mask id="lua">
+      <rect width="600" height="800" fill="#000"/>
+      <circle cx="486" cy="112" r="48" fill="#fff"/>
+      <circle cx="508" cy="96" r="42" fill="#000"/>
+    </mask>
+    <path id="s" d="M0 -12 C1.5 -3 3 -1.5 12 0 C3 1.5 1.5 3 0 12 C-1.5 3 -3 1.5 -12 0 C-3 -1.5 -1.5 -3 0 -12 Z"/>
+  </defs>
+  <rect width="600" height="800" fill="url(#sky)"/>
+  <circle cx="486" cy="112" r="70" fill="#fff6d6" opacity="0.08"/>
+  <rect width="600" height="800" fill="#fff4c9" mask="url(#lua)"/>
+  <g fill="#ffe9a8">
+    <use href="#s" transform="translate(92 92) scale(1.3)"/>
+    <use href="#s" transform="translate(210 54) scale(0.7)"/>
+    <use href="#s" transform="translate(380 70) scale(0.55)"/>
+    <use href="#s" transform="translate(548 236) scale(0.8)"/>
+    <use href="#s" transform="translate(50 300) scale(0.6)"/>
+    <use href="#s" transform="translate(560 520) scale(0.6)"/>
+    <use href="#s" transform="translate(70 640) scale(0.9)"/>
+    <use href="#s" transform="translate(500 730) scale(1.2)"/>
+    <use href="#s" transform="translate(300 760) scale(0.6)"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="150" cy="150" r="1.6"/>
+    <circle cx="290" cy="110" r="1.2"/>
+    <circle cx="330" cy="36" r="1.4"/>
+    <circle cx="420" cy="180" r="1.1"/>
+    <circle cx="566" cy="380" r="1.3"/>
+    <circle cx="34" cy="420" r="1.4"/>
+    <circle cx="40" cy="520" r="1"/>
+    <circle cx="570" cy="640" r="1.5"/>
+    <circle cx="160" cy="740" r="1.3"/>
+    <circle cx="410" cy="770" r="1.1"/>
+    <circle cx="240" cy="700" r="1"/>
+    <circle cx="120" cy="40" r="1.2"/>
+  </g>
+  <path d="M30 760 C140 720 220 740 300 728 C380 716 470 690 570 700" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-dasharray="1 9" stroke-linecap="round" opacity="0.6"/>
+</svg>

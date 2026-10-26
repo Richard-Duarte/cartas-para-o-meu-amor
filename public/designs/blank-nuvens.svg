@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="ceu" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d8eefe"/>
+      <stop offset="0.55" stop-color="#eef7ff"/>
+      <stop offset="1" stop-color="#fff2f7"/>
+    </linearGradient>
+    <g id="nuvem">
+      <circle cx="0" cy="0" r="30"/>
+      <circle cx="34" cy="-14" r="38"/>
+      <circle cx="74" cy="0" r="30"/>
+      <rect x="0" y="0" width="74" height="30"/>
+    </g>
+    <path id="h" d="M0 -5 C-5 -15 -21 -12 -18 1 C-16 9 -6 14 0 20 C6 14 16 9 18 1 C21 -12 5 -15 0 -5 Z"/>
+  </defs>
+  <rect width="600" height="800" fill="url(#ceu)"/>
+  <g fill="none" stroke-width="13" stroke-linecap="round" transform="translate(110 170)">
+    <path d="M-80 0 A80 80 0 0 1 80 0" stroke="#f7a8b8"/>
+    <path d="M-67 0 A67 67 0 0 1 67 0" stroke="#ffd29c"/>
+    <path d="M-54 0 A54 54 0 0 1 54 0" stroke="#fff0a0"/>
+    <path d="M-41 0 A41 41 0 0 1 41 0" stroke="#b8e6c1"/>
+    <path d="M-28 0 A28 28 0 0 1 28 0" stroke="#b9d4f7"/>
+  </g>
+  <g fill="#ffffff">
+    <use href="#nuvem" transform="translate(4 168) scale(0.9)"/>
+    <use href="#nuvem" transform="translate(150 172) scale(0.8)"/>
+    <use href="#nuvem" transform="translate(420 90) scale(1.1)"/>
+    <use href="#nuvem" transform="translate(470 650) scale(1.2)"/>
+    <use href="#nuvem" transform="translate(30 720) scale(1)"/>
+  </g>
+  <g fill="#f7a8b8" opacity="0.85">
+    <use href="#h" transform="translate(330 60) rotate(-12) scale(0.7)"/>
+    <use href="#h" transform="translate(560 300) rotate(14) scale(0.5)"/>
+    <use href="#h" transform="translate(380 740) rotate(8) scale(0.6)"/>
+  </g>
+  <g fill="#ffffff" opacity="0.9">
+    <circle cx="260" cy="40" r="3"/>
+    <circle cx="560" cy="420" r="2.5"/>
+    <circle cx="40" cy="480" r="2.5"/>
+  </g>
+</svg>

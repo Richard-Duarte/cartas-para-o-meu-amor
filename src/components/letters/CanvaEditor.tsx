@@ -14,14 +14,20 @@ import {
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
   Bold,
+  BringToFront,
+  Copy,
   ImagePlus,
   Italic,
   LayoutTemplate,
+  Magnet,
   Maximize2,
   Minimize2,
+  PanelBottomClose,
+  PanelBottomOpen,
   Plus,
+  RotateCcw,
+  SendToBack,
   Sticker,
-  X,
   Trash2,
   Type,
   Underline,
@@ -31,21 +37,72 @@ import { formatBrl } from "@/lib/cart";
 import {
   EDITOR_FONT_GROUPS,
   alignOnPage,
+  blockFontSize,
   bodyBlock,
   canvasBackgroundClick,
+  clampBlockPosition,
+  duplicateBlock,
   headingBlock,
   newPage,
+  reorderBlock,
+  resizeBox,
+  rotationFromPointer,
   snapBlock,
   stickerBlock,
   subheadingBlock,
+  type BlockBox,
   type Guide,
   type LetterPage,
+  type ResizeHandle,
   type TextBlock,
 } from "@/lib/pages";
 import { STICKER_GROUPS, STICKERS } from "@/lib/stickers";
 import { cn } from "@/lib/utils";
 
 type Panel = "design" | "text" | "stickers" | "font" | "size";
+
+type FsDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => void;
+};
+type FsElement = HTMLElement & { webkitRequestFullscreen?: () => void };
+
+function fullscreenElement() {
+  const doc = document as FsDocument;
+  return doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+}
+
+/** Tela cheia de verdade quando o navegador deixa; no iPhone fica o overlay em CSS. */
+function requestNativeFullscreen() {
+  const root = document.documentElement as FsElement;
+  try {
+    if (typeof root.requestFullscreen === "function") {
+      void root.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    } else if (typeof root.webkitRequestFullscreen === "function") {
+      root.webkitRequestFullscreen();
+    }
+  } catch {
+    /* sem API (ou bloqueado no iframe): o overlay em CSS continua valendo */
+  }
+}
+
+function exitNativeFullscreen() {
+  const doc = document as FsDocument;
+  try {
+    if (doc.fullscreenElement && typeof doc.exitFullscreen === "function") {
+      void doc.exitFullscreen().catch(() => {});
+    } else if (doc.webkitFullscreenElement && typeof doc.webkitExitFullscreen === "function") {
+      doc.webkitExitFullscreen();
+    }
+  } catch {
+    /* já saiu */
+  }
+}
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+}
 
 function usePresence(open: boolean, ms = 340) {
   const [mounted, setMounted] = useState(open);
@@ -97,6 +154,12 @@ export function CanvaEditor({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [stickerPop, setStickerPop] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [dockOpen, setDockOpen] = useState(true);
+  const [fullW, setFullW] = useState<number | null>(null);
+  const [snapOn, setSnapOn] = useState(false);
+  const nativeFs = useRef(false);
+  const fullScroll = useRef<HTMLDivElement>(null);
+  const fullSheetRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const designSheet = usePresence(pickerOpen);
   const stickerSheet = usePresence(stickerPop);
   const fullSheet = usePresence(previewOpen);
@@ -118,39 +181,166 @@ export function CanvaEditor({
   const selected = page?.blocks.find((b) => b.id === active);
   const floatTools = panel === "text" || panel === "font" || panel === "size";
 
+  // Tela cheia: trava o scroll da página por trás (inclusive no iOS, que ignora
+  // overflow no body) e devolve tudo como estava ao sair.
   useEffect(() => {
-    document.body.classList.toggle("canva-full-open", previewOpen);
-    document.documentElement.classList.toggle("canva-full-open", previewOpen);
-    if (!previewOpen) {
-      document.body.style.overflow = "";
-      document.documentElement.style.overflow = "";
-    }
+    if (!previewOpen) return;
+    const body = document.body;
+    const html = document.documentElement;
+    const scrollY = window.scrollY;
+    const prev = {
+      bodyOverflow: body.style.overflow,
+      htmlOverflow: html.style.overflow,
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+    };
+    body.classList.add("canva-full-open");
+    html.classList.add("canva-full-open");
+    body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
     return () => {
-      document.body.classList.remove("canva-full-open");
-      document.documentElement.classList.remove("canva-full-open");
-      document.body.style.overflow = "";
-      document.documentElement.style.overflow = "";
+      body.classList.remove("canva-full-open");
+      html.classList.remove("canva-full-open");
+      body.style.overflow = prev.bodyOverflow;
+      html.style.overflow = prev.htmlOverflow;
+      body.style.position = prev.position;
+      body.style.top = prev.top;
+      body.style.width = prev.width;
+      window.scrollTo(0, scrollY);
     };
   }, [previewOpen]);
+
+  // Sincroniza com a tela cheia do navegador: ESC (ou o gesto do sistema)
+  // sai do modo nativo e fecha o overlay junto, sem deixar estado preso.
+  useEffect(() => {
+    const onChange = () => {
+      if (fullscreenElement()) {
+        nativeFs.current = true;
+        return;
+      }
+      if (!nativeFs.current) return;
+      nativeFs.current = false;
+      setPreviewOpen(false);
+      setEditing(false);
+      setGuides([]);
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+      if (nativeFs.current && fullscreenElement()) exitNativeFullscreen();
+      nativeFs.current = false;
+    };
+  }, []);
+
+  // A folha da tela cheia ocupa o maior tamanho que cabe (largura e altura), em 3:4.
+  useEffect(() => {
+    if (!fullSheet.mounted) return;
+    const el = fullScroll.current;
+    if (!el) return;
+    const measure = () => {
+      const styles = window.getComputedStyle(el);
+      const padX = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+      const padY = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+      const availW = el.clientWidth - padX;
+      const availH = el.clientHeight - padY;
+      const next = Math.floor(Math.max(180, Math.min(availW, availH * 0.75, 860)));
+      setFullW((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [fullSheet.mounted, dockOpen]);
+
+  // Ao abrir a tela cheia, começa na página que estava aberta no editor.
+  useEffect(() => {
+    if (!fullSheet.mounted) return;
+    const id = pages[pageI]?.id;
+    const frame = window.requestAnimationFrame(() => {
+      if (id) fullSheetRefs.current[id]?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+    // Só na abertura: trocar de página dentro da tela cheia não deve rolar de volta.
+  }, [fullSheet.mounted]);
+
   const light = design.ink === "light";
   const ink = light ? "#f6ede4" : "#1a1410";
 
-  function commit(nextPages: LetterPage[]) {
-    history.current = [...history.current.slice(-29), pages];
+  function openFull() {
+    setEditing(false);
+    setGuides([]);
+    setPreviewOpen(true);
+    // Precisa ser dentro do clique (gesto do usuário) para o navegador aceitar.
+    if (!fullscreenElement()) requestNativeFullscreen();
+  }
+
+  function closeFull() {
+    setPreviewOpen(false);
+    setEditing(false);
+    setGuides([]);
+    if (nativeFs.current || fullscreenElement()) {
+      nativeFs.current = false;
+      exitNativeFullscreen();
+    }
+    const id = pages[pageI]?.id;
+    window.setTimeout(() => {
+      if (id) sheetRefs.current[id]?.scrollIntoView({ block: "center" });
+    }, 60);
+  }
+
+  function commit(nextPages: LetterPage[], record = true) {
+    if (record) history.current = [...history.current.slice(-29), pages];
     onChange(nextPages);
   }
 
-  function patchPageAt(index: number, next: LetterPage) {
-    commit(pages.map((p, i) => (i === index ? next : p)));
+  function patchPageAt(index: number, next: LetterPage, record = true) {
+    commit(
+      pages.map((p, i) => (i === index ? next : p)),
+      record,
+    );
   }
 
-  function patchBlock(id: string, partial: Partial<TextBlock>, index = pageI) {
+  function patchBlock(id: string, partial: Partial<TextBlock>, index = pageI, record = true) {
     const target = pages[index];
     if (!target) return;
-    patchPageAt(index, {
-      ...target,
-      blocks: target.blocks.map((b) => (b.id === id ? { ...b, ...partial } : b)),
-    });
+    patchPageAt(
+      index,
+      {
+        ...target,
+        blocks: target.blocks.map((b) => (b.id === id ? { ...b, ...partial } : b)),
+      },
+      record,
+    );
+  }
+
+  function removeSelected() {
+    if (!page || !active) return;
+    patchPageAt(pageI, { ...page, blocks: page.blocks.filter((b) => b.id !== active) });
+    setActive(null);
+    setEditing(false);
+  }
+
+  function duplicateSelected() {
+    if (!page || !selected) return;
+    const copy = duplicateBlock(selected);
+    patchPageAt(pageI, { ...page, blocks: [...page.blocks, copy] });
+    setActive(copy.id);
+    setEditing(false);
+  }
+
+  function layerSelected(where: "front" | "back") {
+    if (!page || !selected) return;
+    patchPageAt(pageI, { ...page, blocks: reorderBlock(page.blocks, selected.id, where) });
   }
 
   function applyType(partial: Partial<TextBlock>) {
@@ -261,22 +451,48 @@ export function CanvaEditor({
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (editing) {
+          // Sai do modo digitar, mas o bloco segue selecionado.
+          setEditing(false);
+          return;
+        }
+        if (active) {
+          setActive(null);
+          setGuides([]);
+          return;
+        }
+        if (previewOpen) closeFull();
+        return;
+      }
+      // Digitando (no texto da carta ou num campo): o navegador cuida do desfazer e das teclas.
+      if (editing || isTypingTarget(e.target)) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         undo();
         return;
       }
-      if (editing) return;
-      if (e.key === "Escape" && (active || editing)) {
-        setActive(null);
-        setEditing(false);
-        setGuides([]);
+      if (!active || !page) return;
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        removeSelected();
         return;
       }
-      if ((e.key === "Backspace" || e.key === "Delete") && active && page) {
+      const step = e.shiftKey ? 2 : 0.5;
+      const delta =
+        e.key === "ArrowLeft"
+          ? { x: -step, y: 0 }
+          : e.key === "ArrowRight"
+            ? { x: step, y: 0 }
+            : e.key === "ArrowUp"
+              ? { x: 0, y: -step }
+              : e.key === "ArrowDown"
+                ? { x: 0, y: step }
+                : null;
+      const block = page.blocks.find((b) => b.id === active);
+      if (delta && block) {
         e.preventDefault();
-        patchPageAt(pageI, { ...page, blocks: page.blocks.filter((b) => b.id !== active) });
-        setActive(null);
+        patchBlock(block.id, clampBlockPosition(block, block.x + delta.x, block.y + delta.y));
       }
     }
     window.addEventListener("keydown", onKey);
@@ -305,12 +521,14 @@ export function CanvaEditor({
       const next = Math.round(Math.min(200, Math.max(50, startZoom * (dist(e.touches) / startDist))));
       setZoom(next);
     };
+    const onGesture = (e: Event) => e.preventDefault();
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: false });
-    el.addEventListener("gesturestart", (e) => e.preventDefault());
+    el.addEventListener("gesturestart", onGesture);
     return () => {
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("gesturestart", onGesture);
     };
   }, []);
 
@@ -346,24 +564,31 @@ export function CanvaEditor({
 
   return (
     <div className={cn("canva", floatTools && "is-float-tools")}>
+      {/* Sempre montado: o botão "Foto da galeria" funciona no painel, na folha do celular e na tela cheia. */}
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) addPhotoSticker(file);
+          e.target.value = "";
+        }}
+      />
       <div className="canva-top">
         <div className="canva-top-left">
           <button type="button" onClick={undo} className="canva-icon-btn" title="Desfazer">
             ↺
           </button>
           {selected ? (
-            <button
-              type="button"
-              className="canva-icon-btn"
-              title="Apagar"
-              onClick={() => {
-                if (!page) return;
-                patchPageAt(pageI, { ...page, blocks: page.blocks.filter((b) => b.id !== selected.id) });
-                setActive(null);
-              }}
-            >
-              <Trash2 size={14} />
-            </button>
+            <SelectionActions
+              block={selected}
+              onRemove={removeSelected}
+              onDuplicate={duplicateSelected}
+              onLayer={layerSelected}
+              onResetRotation={() => patchBlock(selected.id, { rotate: 0 })}
+            />
           ) : null}
           <label className="canva-mini">
             De
@@ -450,6 +675,10 @@ export function CanvaEditor({
             <>
               <p className="canva-panel-title">Texto</p>
               <p className="canva-panel-note">Fonte padrão deste papel: {design.fontFamily.split(",")[0]}</p>
+              <p className="canva-panel-note">
+                Arraste para qualquer lugar da folha. Os cantos mudam o tamanho, a bolinha de cima gira. Toque de
+                novo (ou dois cliques) para escrever.
+              </p>
               <button
                 type="button"
                 className="canva-add-type is-h"
@@ -483,17 +712,6 @@ export function CanvaEditor({
                 <ImagePlus size={16} />
                 Foto da galeria
               </button>
-              <input
-                ref={uploadRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) addPhotoSticker(file);
-                  e.target.value = "";
-                }}
-              />
               <input
                 className="canva-search"
                 placeholder="Buscar adesivos"
@@ -608,8 +826,9 @@ export function CanvaEditor({
                     color={b.color || ink}
                     font={b.fontFamily || design.fontFamily}
                     active={active === b.id && i === pageI}
-                    editing={editing && active === b.id && i === pageI}
+                    editing={!previewOpen && editing && active === b.id && i === pageI}
                     others={p.blocks.filter((x) => x.id !== b.id)}
+                    snap={snapOn}
                     onSelect={() => {
                       setPageI(i);
                       setActive(b.id);
@@ -621,7 +840,7 @@ export function CanvaEditor({
                       setActive(b.id);
                       setEditing(true);
                     }}
-                    onChange={(partial) => patchBlock(b.id, partial, i)}
+                    onChange={(partial, record) => patchBlock(b.id, partial, i, record)}
                     onGuides={setGuides}
                   />
                 ))}
@@ -663,7 +882,17 @@ export function CanvaEditor({
         <p className="canva-page-label">
           Página {pageI + 1} de {pages.length}
         </p>
-        <button type="button" className="canva-full-btn" onClick={() => setPreviewOpen(true)}>
+        <button
+          type="button"
+          className={cn("canva-snap-btn", snapOn && "is-on")}
+          aria-pressed={snapOn}
+          title="Guias magnéticas: puxam o elemento para o centro e as margens"
+          onClick={() => setSnapOn((v) => !v)}
+        >
+          <Magnet size={15} />
+          {snapOn ? "Ímã ligado" : "Ímã"}
+        </button>
+        <button type="button" className="canva-full-btn" onClick={openFull}>
           <Maximize2 size={15} />
           Tela cheia
         </button>
@@ -674,157 +903,221 @@ export function CanvaEditor({
         </div>
       </div>
 
-      {fullSheet.mounted ? (
-        <div className={cn("canva-full sheet-pop", fullSheet.shown && "is-in")} role="dialog" aria-label="Carta em tela cheia">
-          <div className="canva-full-veil" aria-hidden="true" />
-          <header className="canva-full-bar">
-            <p>Sua carta</p>
-            <button
-              type="button"
-              onClick={() => {
-                setPreviewOpen(false);
-                document.body.style.overflow = "";
-                document.documentElement.style.overflow = "";
-              }}
+      {fullSheet.mounted
+        ? createPortal(
+            <div
+              className={cn("canva-full sheet-pop", fullSheet.shown && "is-in")}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Carta em tela cheia"
             >
-              <Minimize2 size={18} />
-              Fechar
-            </button>
-          </header>
-          <div className="canva-full-scroll">
-            {pages.map((p, i) => (
+              <div className="canva-full-veil" aria-hidden="true" />
+              <header className="canva-full-bar">
+                <p>
+                  Sua carta
+                  <span className="canva-full-count">
+                    Página {pageI + 1} de {pages.length}
+                  </span>
+                </p>
+                <div className="canva-full-actions">
+                  {selected ? (
+                    <SelectionActions
+                      block={selected}
+                      onRemove={removeSelected}
+                      onDuplicate={duplicateSelected}
+                      onLayer={layerSelected}
+                      onResetRotation={() => patchBlock(selected.id, { rotate: 0 })}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    className="canva-full-tools"
+                    aria-pressed={dockOpen}
+                    onClick={() => setDockOpen((v) => !v)}
+                  >
+                    {dockOpen ? <PanelBottomClose size={18} /> : <PanelBottomOpen size={18} />}
+                    {dockOpen ? "Esconder ferramentas" : "Ferramentas"}
+                  </button>
+                  <button type="button" onClick={closeFull}>
+                    <Minimize2 size={18} />
+                    Fechar
+                  </button>
+                </div>
+              </header>
               <div
-                key={`full-${p.id}`}
-                className={cn("canva-sheet", i === pageI && "is-current")}
+                className="canva-full-scroll"
+                ref={fullScroll}
+                onPointerDown={(e) => {
+                  if (!canvasBackgroundClick(e.target)) return;
+                  setActive(null);
+                  setEditing(false);
+                  setGuides([]);
+                }}
               >
-                <div
-                  className={cn("canva-page", light && "is-light")}
-                  style={{
-                    backgroundImage: `url(${design.src})`,
-                    fontFamily: design.fontFamily,
-                    color: ink,
-                  }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    setPageI(i);
-                    if ((e.target as HTMLElement).closest(".canva-box")) return;
-                    setEditing(false);
-                  }}
-                >
-                  {p.blocks.map((b) => (
-                    <CanvasItem
-                      key={b.id}
-                      block={b}
-                      color={b.color || ink}
-                      font={b.fontFamily || design.fontFamily}
-                      active={active === b.id && i === pageI}
-                      editing={editing && active === b.id && i === pageI}
-                      others={p.blocks.filter((x) => x.id !== b.id)}
-                      onSelect={() => {
+                {pages.map((p, i) => (
+                  <div
+                    key={`full-${p.id}`}
+                    className={cn("canva-sheet", i === pageI && "is-current")}
+                    ref={(n) => {
+                      fullSheetRefs.current[p.id] = n;
+                    }}
+                  >
+                    <div
+                      className={cn("canva-page", light && "is-light")}
+                      style={{
+                        backgroundImage: `url(${design.src})`,
+                        fontFamily: design.fontFamily,
+                        color: ink,
+                        width: fullW ? `${fullW}px` : undefined,
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
                         setPageI(i);
-                        setActive(b.id);
+                        if ((e.target as HTMLElement).closest(".canva-box")) return;
                         setEditing(false);
                       }}
-                      onEdit={() => {
-                        if (b.kind === "sticker") return;
-                        setPageI(i);
-                        setActive(b.id);
-                        setEditing(true);
-                      }}
-                      onChange={(partial) => patchBlock(b.id, partial, i)}
-                      onGuides={setGuides}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <nav className="canva-dock" aria-label="Ferramentas da carta">
-            <div className="canva-dock-tabs">
-              {(
-                [
-                  ["design", "Design"],
-                  ["stickers", "Adesivos"],
-                  ["text", "Texto"],
-                  ["font", "Fonte"],
-                  ["size", "Tamanho"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={cn(panel === id && "is-on")}
-                  onClick={() => (id === "stickers" ? openStickers() : setPanel(id))}
-                >
-                  {label}
+                    >
+                      {p.blocks.map((b) => (
+                        <CanvasItem
+                          key={b.id}
+                          block={b}
+                          color={b.color || ink}
+                          font={b.fontFamily || design.fontFamily}
+                          active={active === b.id && i === pageI}
+                          editing={editing && active === b.id && i === pageI}
+                          others={p.blocks.filter((x) => x.id !== b.id)}
+                          snap={snapOn}
+                          onSelect={() => {
+                            setPageI(i);
+                            setActive(b.id);
+                            setEditing(false);
+                          }}
+                          onEdit={() => {
+                            if (b.kind === "sticker") return;
+                            setPageI(i);
+                            setActive(b.id);
+                            setEditing(true);
+                          }}
+                          onChange={(partial, record) => patchBlock(b.id, partial, i, record)}
+                          onGuides={setGuides}
+                        />
+                      ))}
+                      {i === pageI
+                        ? guides.map((g, gi) => (
+                            <i
+                              key={`${g.axis}-${g.pos}-${gi}`}
+                              className={cn("canva-guide", g.axis === "v" ? "is-v" : "is-h")}
+                              style={g.axis === "v" ? { left: `${g.pos}%` } : { top: `${g.pos}%` }}
+                            />
+                          ))
+                        : null}
+                    </div>
+                  </div>
+                ))}
+                <button type="button" className="canva-add-page" onClick={() => addPageAfter(pages.length - 1)}>
+                  <Plus size={14} /> Nova página
                 </button>
-              ))}
-            </div>
-            <div key={panel} className="canva-dock-pane">
-              {panel === "design" ? (
-                <div className="canva-thumbs">
-                  {filteredDesigns.map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      className={cn("canva-thumb", d.id === designId && "is-on")}
-                      onClick={() => onDesignId(d.id)}
-                    >
-                      <LetterThumb
-                        src={d.src}
-                        blocks={page?.blocks ?? []}
-                        ink={ink}
-                        font={design.fontFamily}
-                        fromName={fromName}
-                        toName={toName}
+              </div>
+              {dockOpen ? (
+                <nav className="canva-dock" aria-label="Ferramentas da carta">
+                  <div className="canva-dock-tabs">
+                    {(
+                      [
+                        ["design", "Design"],
+                        ["stickers", "Adesivos"],
+                        ["text", "Texto"],
+                        ["font", "Fonte"],
+                        ["size", "Tamanho"],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={cn(panel === id && "is-on")}
+                        onClick={() => setPanel(id)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div key={panel} className="canva-dock-pane">
+                    {panel === "design" ? (
+                      <div className="canva-thumbs">
+                        {filteredDesigns.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            className={cn("canva-thumb", d.id === designId && "is-on")}
+                            onClick={() => onDesignId(d.id)}
+                          >
+                            <LetterThumb
+                              src={d.src}
+                              blocks={page?.blocks ?? []}
+                              ink={ink}
+                              font={design.fontFamily}
+                              fromName={fromName}
+                              toName={toName}
+                            />
+                            <span>{d.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    {panel === "text" ? (
+                      <div className="canva-dock-stack">
+                        <button type="button" className="canva-add-type is-h" onClick={() => addBlock(headingBlock())}>
+                          Título
+                        </button>
+                        <button type="button" className="canva-add-type is-s" onClick={() => addBlock(subheadingBlock())}>
+                          Subtítulo
+                        </button>
+                        <button type="button" className="canva-add-type is-b" onClick={() => addBlock(bodyBlock())}>
+                          Texto
+                        </button>
+                      </div>
+                    ) : null}
+                    {panel === "stickers" ? (
+                      <>
+                        <button type="button" className="canva-upload" onClick={() => uploadRef.current?.click()}>
+                          <ImagePlus size={16} />
+                          Foto da galeria
+                        </button>
+                        <div className="canva-stickers">
+                          {filteredStickers.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              className="canva-sticker"
+                              title={s.name}
+                              onClick={() => addBlock(stickerBlock(s.src))}
+                            >
+                              <img src={s.src} alt="" />
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : null}
+                    {panel === "font" || panel === "size" ? (
+                      <Toolbar
+                        block={selected}
+                        fallbackFont={design.fontFamily}
+                        fallbackColor={ink}
+                        disabled={!selected}
+                        fontAlways={panel === "font"}
+                        onChange={applyType}
+                        onAlignPage={(where) => selected && patchBlock(selected.id, alignOnPage(selected, where))}
                       />
-                      <span>{d.name}</span>
-                    </button>
-                  ))}
-                </div>
+                    ) : null}
+                    {panel === null ? (
+                      <p className="canva-panel-note">Escolha uma aba para editar a carta.</p>
+                    ) : null}
+                  </div>
+                </nav>
               ) : null}
-              {panel === "text" ? (
-                <div className="canva-dock-stack">
-                  <button type="button" className="canva-add-type is-h" onClick={() => addBlock(headingBlock())}>
-                    Título
-                  </button>
-                  <button type="button" className="canva-add-type is-s" onClick={() => addBlock(subheadingBlock())}>
-                    Subtítulo
-                  </button>
-                  <button type="button" className="canva-add-type is-b" onClick={() => addBlock(bodyBlock())}>
-                    Texto
-                  </button>
-                </div>
-              ) : null}
-              {panel === "stickers" ? (
-                <div className="canva-stickers">
-                  {filteredStickers.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="canva-sticker"
-                      onClick={() => placeSticker(s.src)}
-                    >
-                      <img src={s.src} alt="" />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              {panel === "font" || panel === "size" ? (
-                <Toolbar
-                  block={selected}
-                  fallbackFont={design.fontFamily}
-                  fallbackColor={ink}
-                  disabled={!selected}
-                  fontAlways={panel === "font"}
-                  onChange={applyType}
-                  onAlignPage={(where) => selected && patchBlock(selected.id, alignOnPage(selected, where))}
-                />
-              ) : null}
-            </div>
-          </nav>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {designSheet.mounted ? (
         <div className={cn("canva-picker sheet-pop", designSheet.shown && "is-in")} role="dialog" aria-label="Escolher o papel">
@@ -1148,17 +1441,20 @@ function FontPicker({
   const menuSheet = usePresence(open);
   const [menu, setMenu] = useState({ top: 0, left: 0 });
   const root = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const current =
     EDITOR_FONT_GROUPS.flatMap((g) => g.fonts).find((f) => f.id === value)?.label ||
     value.split(",")[0].replace(/"/g, "");
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    const onDoc = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (root.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
   }, [open]);
 
   return (
@@ -1173,16 +1469,25 @@ function FontPicker({
           const r = root.current?.getBoundingClientRect();
           if (r) {
             const width = 240;
+            const height = Math.min(352, window.innerHeight * 0.7);
             const left = Math.min(Math.max(8, r.left), window.innerWidth - width - 8);
-            setMenu({ top: r.bottom + 6, left });
+            // Perto do rodapé (dock da tela cheia), abre para cima.
+            const top = r.bottom + 6 + height > window.innerHeight - 8 ? Math.max(8, r.top - 6 - height) : r.bottom + 6;
+            setMenu({ top, left });
           }
           setOpen((v) => !v);
         }}
       >
         {current}
       </button>
-      {menuSheet.mounted ? (
-        <div className={cn("canva-font-menu sheet-pop", menuSheet.shown && "is-in")} role="listbox" style={{ top: menu.top, left: menu.left }}>
+      {/* Portal no body: dentro da tela cheia (backdrop-filter) o menu fixo ficava fora do lugar. */}
+      {menuSheet.mounted ? createPortal(
+        <div
+          ref={menuRef}
+          className={cn("canva-font-menu sheet-pop", menuSheet.shown && "is-in")}
+          role="listbox"
+          style={{ top: menu.top, left: menu.left }}
+        >
           <button
             type="button"
             style={{ fontFamily: fallback }}
@@ -1215,7 +1520,8 @@ function FontPicker({
               ))}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );
@@ -1335,6 +1641,64 @@ function Toolbar({
   );
 }
 
+function SelectionActions({
+  block,
+  onRemove,
+  onDuplicate,
+  onLayer,
+  onResetRotation,
+}: {
+  block: TextBlock;
+  onRemove: () => void;
+  onDuplicate: () => void;
+  onLayer: (where: "front" | "back") => void;
+  onResetRotation: () => void;
+}) {
+  return (
+    <div className="canva-sel-actions" role="group" aria-label="Elemento selecionado">
+      <button type="button" className="canva-icon-btn" title="Duplicar" aria-label="Duplicar" onClick={onDuplicate}>
+        <Copy size={14} />
+      </button>
+      <button
+        type="button"
+        className="canva-icon-btn"
+        title="Trazer para frente"
+        aria-label="Trazer para frente"
+        onClick={() => onLayer("front")}
+      >
+        <BringToFront size={14} />
+      </button>
+      <button
+        type="button"
+        className="canva-icon-btn"
+        title="Enviar para trás"
+        aria-label="Enviar para trás"
+        onClick={() => onLayer("back")}
+      >
+        <SendToBack size={14} />
+      </button>
+      {block.rotate ? (
+        <button
+          type="button"
+          className="canva-icon-btn"
+          title="Desfazer giro"
+          aria-label="Desfazer giro"
+          onClick={onResetRotation}
+        >
+          <RotateCcw size={14} />
+        </button>
+      ) : null}
+      <button type="button" className="canva-icon-btn" title="Apagar" aria-label="Apagar" onClick={onRemove}>
+        <Trash2 size={14} />
+      </button>
+    </div>
+  );
+}
+
+const RESIZE_HANDLES: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+
+type GestureKind = "move" | "rotate" | ResizeHandle;
+
 function CanvasItem({
   block,
   color,
@@ -1342,6 +1706,7 @@ function CanvasItem({
   active,
   editing,
   others,
+  snap,
   onSelect,
   onEdit,
   onChange,
@@ -1353,76 +1718,167 @@ function CanvasItem({
   active: boolean;
   editing: boolean;
   others: TextBlock[];
+  snap: boolean;
   onSelect: () => void;
   onEdit: () => void;
-  onChange: (partial: Partial<TextBlock>) => void;
+  onChange: (partial: Partial<TextBlock>, record?: boolean) => void;
   onGuides: (guides: Guide[]) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{
-    kind: "move" | "se" | "e";
-    x: number;
-    y: number;
-    bx: number;
-    by: number;
-    bw: number;
-    bh: number;
-  } | null>(null);
+  /** Posição "ao vivo" durante o arraste: só vira histórico/rascunho ao soltar. */
+  const [live, setLive] = useState<Partial<TextBlock> | null>(null);
+  const liveRef = useRef<Partial<TextBlock> | null>(null);
+  const stopGesture = useRef<(() => void) | null>(null);
+  const typed = useRef(false);
   const isSticker = block.kind === "sticker" || Boolean(block.src && !block.text && block.kind !== "text");
+  const shown = live ? { ...block, ...live } : block;
 
-  function begin(kind: "move" | "se" | "e", e: React.PointerEvent) {
+  useEffect(() => () => stopGesture.current?.(), []);
+
+  function begin(kind: GestureKind, e: React.PointerEvent) {
+    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.stopPropagation();
     e.preventDefault();
-    const parent = box.current?.parentElement?.getBoundingClientRect();
-    if (!parent) return;
-    drag.current = { kind, x: e.clientX, y: e.clientY, bx: block.x, by: block.y, bw: block.w, bh: block.h };
+    const el = box.current;
+    const page = el?.parentElement;
+    if (!el || !page) return;
+    const pw = page.clientWidth;
+    const ph = page.clientHeight;
+    if (!pw || !ph) return;
+    stopGesture.current?.();
+    const wasActive = active;
     onSelect();
-    const move = (ev: PointerEvent) => {
-      const d = drag.current;
-      if (!d) return;
-      const dx = ((ev.clientX - d.x) / parent.width) * 100;
-      const dy = ((ev.clientY - d.y) / parent.height) * 100;
-      if (d.kind === "move") {
-        const snapped = snapBlock(block, others, d.bx + dx, d.by + dy);
-        onGuides(snapped.guides);
-        onChange({ x: snapped.x, y: snapped.y });
-      } else if (d.kind === "se") {
-        onChange({
-          w: clamp(d.bw + dx, 8, 100 - d.bx),
-          h: clamp(d.bh + dy, 8, 100 - d.by),
-        });
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    // Tamanho real na tela (o texto pode ter crescido além do mínimo salvo).
+    const start: BlockBox = {
+      x: block.x,
+      y: block.y,
+      w: (el.offsetWidth / pw) * 100,
+      h: (el.offsetHeight / ph) * 100,
+      rotate: block.rotate || 0,
+    };
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let moved = false;
+    let frame = 0;
+    let pending: PointerEvent | null = null;
+
+    const apply = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) < 3) return;
+      moved = true;
+      let next: Partial<TextBlock>;
+      if (kind === "move") {
+        const nx = start.x + (dx / pw) * 100;
+        const ny = start.y + (dy / ph) * 100;
+        if (snap && !ev.altKey) {
+          const snapped = snapBlock({ ...block, w: start.w, h: start.h }, others, nx, ny);
+          onGuides(snapped.guides);
+          next = { x: snapped.x, y: snapped.y };
+        } else {
+          next = clampBlockPosition({ w: start.w, h: start.h }, nx, ny);
+        }
+      } else if (kind === "rotate") {
+        next = {
+          rotate: rotationFromPointer(cx, cy, ev.clientX, ev.clientY, {
+            step: ev.shiftKey ? 15 : undefined,
+            snap,
+          }),
+        };
       } else {
-        onChange({ w: clamp(d.bw + dx, 8, 100 - d.bx) });
+        // Adesivo/foto mantém a proporção nos cantos (Shift solta); texto é livre (Shift trava).
+        const keepRatio = isSticker ? !ev.shiftKey : ev.shiftKey;
+        const r = resizeBox(start, kind, dx, dy, pw, ph, { keepRatio, minPct: isSticker ? 4 : 8 });
+        next = { x: r.x, y: r.y, w: r.w, h: r.h };
+      }
+      liveRef.current = next;
+      setLive(next);
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      pending = ev;
+      if (!frame) {
+        frame = window.requestAnimationFrame(() => {
+          frame = 0;
+          if (pending) apply(pending);
+        });
       }
     };
-    const up = () => {
-      drag.current = null;
-      onGuides([]);
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
+
+    const detach = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = 0;
+      stopGesture.current = null;
     };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+
+    function finish(ev: PointerEvent) {
+      if (ev.pointerId !== pointerId) return;
+      if (frame && pending) apply(pending);
+      detach();
+      onGuides([]);
+      const result = liveRef.current;
+      liveRef.current = null;
+      setLive(null);
+      if (moved && result) {
+        onChange(result);
+        return;
+      }
+      // Toque sem arrastar num texto já selecionado: entra no modo digitar (bom no celular).
+      if (!moved && kind === "move" && wasActive && !isSticker && ev.type === "pointerup") onEdit();
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+    stopGesture.current = () => {
+      detach();
+      liveRef.current = null;
+    };
   }
 
   useEffect(() => {
     if (editing && textRef.current) {
+      typed.current = false;
       textRef.current.innerText = block.text || "";
       textRef.current.focus();
+      // Cursor no fim do texto.
+      const sel = window.getSelection();
+      if (sel) {
+        const range = document.createRange();
+        range.selectNodeContents(textRef.current);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
     }
   }, [editing]);
 
   return (
     <div
       ref={box}
-      className={cn("canva-box", active && "is-active", editing && "is-editing", isSticker && "is-sticker")}
+      className={cn(
+        "canva-box",
+        active && "is-active",
+        editing && "is-editing",
+        isSticker ? "is-sticker" : "is-text",
+        live && "is-dragging",
+      )}
       style={{
-        left: `${block.x}%`,
-        top: `${block.y}%`,
-        width: `${block.w}%`,
-        height: `${block.h}%`,
-        transform: `rotate(${block.rotate || 0}deg) scaleX(${block.flipX ? -1 : 1})`,
+        left: `${shown.x}%`,
+        top: `${shown.y}%`,
+        width: `${shown.w}%`,
+        // Texto cresce com o conteúdo (h é o mínimo); adesivo tem caixa fixa.
+        ...(isSticker ? { height: `${shown.h}%` } : { minHeight: `${shown.h}%` }),
+        transform: shown.rotate ? `rotate(${shown.rotate}deg)` : undefined,
       }}
       onPointerDown={(e) => {
         if (editing) {
@@ -1438,7 +1894,13 @@ function CanvasItem({
       }}
     >
       {isSticker ? (
-        <img src={block.src} alt="" className="canva-box-sticker" draggable={false} />
+        <img
+          src={block.src}
+          alt=""
+          className="canva-box-sticker"
+          draggable={false}
+          style={block.flipX ? { transform: "scaleX(-1)" } : undefined}
+        />
       ) : (
         <div
           ref={textRef}
@@ -1448,10 +1910,14 @@ function CanvasItem({
           onPointerDown={(e) => {
             if (editing) e.stopPropagation();
           }}
-          onInput={(e) => onChange({ text: (e.currentTarget as HTMLDivElement).innerText })}
+          onInput={(e) => {
+            // Um passo de desfazer por sessão de digitação, não um por tecla.
+            onChange({ text: (e.currentTarget as HTMLDivElement).innerText }, !typed.current);
+            typed.current = true;
+          }}
           style={{
             fontFamily: font,
-            fontSize: `${block.size}px`,
+            fontSize: blockFontSize(block.size),
             fontWeight: block.weight || 400,
             fontStyle: block.italic ? "italic" : "normal",
             textDecoration: block.underline ? "underline" : "none",
@@ -1465,13 +1931,17 @@ function CanvasItem({
           {editing ? null : block.text || "Digite aqui"}
         </div>
       )}
-      {active ? (
+      {active && !editing ? (
         <>
-          <i className="canva-handle is-se" onPointerDown={(e) => begin("se", e)} />
-          <i className="canva-handle is-e" onPointerDown={(e) => begin("e", e)} />
-          <i className="canva-handle is-ne" />
-          <i className="canva-handle is-nw" />
-          <i className="canva-handle is-sw" />
+          {RESIZE_HANDLES.map((h) => (
+            <i
+              key={h}
+              className={cn("canva-handle", `is-${h}`)}
+              aria-hidden="true"
+              onPointerDown={(e) => begin(h, e)}
+            />
+          ))}
+          <i className="canva-rotate" aria-hidden="true" title="Girar" onPointerDown={(e) => begin("rotate", e)} />
         </>
       ) : null}
     </div>

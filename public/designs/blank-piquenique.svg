@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <pattern id="xadrez" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#fff7f4"/>
+      <rect width="20" height="40" fill="#f08a9b" opacity="0.45"/>
+      <rect width="40" height="20" fill="#f08a9b" opacity="0.45"/>
+    </pattern>
+    <g id="morango">
+      <path d="M0 -18 C18 -20 28 -6 24 8 C20 22 8 34 0 40 C-8 34 -20 22 -24 8 C-28 -6 -18 -20 0 -18 Z" fill="#e84a62"/>
+      <g fill="#ffe7a3">
+        <ellipse cx="-10" cy="0" rx="1.6" ry="2.4"/>
+        <ellipse cx="8" cy="-4" rx="1.6" ry="2.4"/>
+        <ellipse cx="0" cy="10" rx="1.6" ry="2.4"/>
+        <ellipse cx="-12" cy="16" rx="1.6" ry="2.4"/>
+        <ellipse cx="12" cy="14" rx="1.6" ry="2.4"/>
+        <ellipse cx="0" cy="26" rx="1.6" ry="2.4"/>
+      </g>
+      <path d="M0 -18 L-14 -28 L-6 -18 L-12 -10 L0 -16 L12 -10 L6 -18 L14 -28 Z" fill="#5fa36a"/>
+      <path d="M0 -18 L0 -30" stroke="#5fa36a" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </defs>
+  <rect width="600" height="800" fill="#fffaf6"/>
+  <rect width="600" height="96" fill="url(#xadrez)"/>
+  <rect y="704" width="600" height="96" fill="url(#xadrez)"/>
+  <path d="M0 96 Q15 108 30 96 T60 96 T90 96 T120 96 T150 96 T180 96 T210 96 T240 96 T270 96 T300 96 T330 96 T360 96 T390 96 T420 96 T450 96 T480 96 T510 96 T540 96 T570 96 T600 96 V104 H0 Z" fill="#fffaf6"/>
+  <path d="M0 704 Q15 692 30 704 T60 704 T90 704 T120 704 T150 704 T180 704 T210 704 T240 704 T270 704 T300 704 T330 704 T360 704 T390 704 T420 704 T450 704 T480 704 T510 704 T540 704 T570 704 T600 704 V696 H0 Z" fill="#fffaf6"/>
+  <use href="#morango" transform="translate(526 150) rotate(14) scale(1.2)"/>
+  <use href="#morango" transform="translate(560 214) rotate(-18) scale(0.7)"/>
+  <use href="#morango" transform="translate(70 640) rotate(-12) scale(1.1)"/>
+  <use href="#morango" transform="translate(36 588) rotate(16) scale(0.6)"/>
+  <g fill="#f08a9b" opacity="0.6">
+    <circle cx="80" cy="140" r="3"/>
+    <circle cx="100" cy="150" r="2"/>
+    <circle cx="520" cy="650" r="3"/>
+    <circle cx="500" cy="664" r="2"/>
+  </g>
+</svg>

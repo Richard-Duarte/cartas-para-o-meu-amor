@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AddressFields } from "@/components/letters/AddressFields";
+import { ArrivalEstimate, type ArrivalStatus } from "@/components/letters/ArrivalEstimate";
 import { CanvaEditor } from "@/components/letters/CanvaEditor";
 import { deliveryCanContinue, DeliveryChoices } from "@/components/letters/DeliveryChoices";
 import { CartDock, CartSummary } from "@/components/cart/CartSummary";
@@ -49,6 +50,11 @@ const STEPS = [
 const FALLBACK_FROM: Geo = { lat: -23.55, lng: -46.63 };
 const FALLBACK_TO: Geo = { lat: -22.9, lng: -43.17 };
 
+/** O geocoder devolve o centro de São Paulo quando não acha nada. */
+function isGeocodeMiss(geo: Geo) {
+  return geo.lat === FALLBACK_FROM.lat && geo.lng === FALLBACK_FROM.lng;
+}
+
 function goWithMotion(apply: () => void) {
   const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
   if (typeof doc.startViewTransition === "function") doc.startViewTransition(apply);
@@ -73,6 +79,10 @@ function WritePage() {
   const [anonymous, setAnonymous] = useState(false);
   const [scheduled, setScheduled] = useState(false);
   const [arriveOn, setArriveOn] = useState("");
+  /** Endereço (chave) que já tem rota calculada, e se ela saiu aproximada ou falhou. */
+  const [geoKey, setGeoKey] = useState("");
+  const [geoApproxKey, setGeoApproxKey] = useState("");
+  const [geoErrorKey, setGeoErrorKey] = useState("");
   useEffect(() => {
     void bootCatalog().then(() => {
       const draft = readDraft();
@@ -167,6 +177,31 @@ function WritePage() {
   const canWrite = pagesPlainText(pages).length > 1;
   const canNames = fromName.trim().length > 1 && toName.trim().length > 1;
   const canAddress = Boolean(fromAddress.cep && toAddress.cep && fromAddress.city && toAddress.city);
+  const addressKey = canAddress
+    ? [
+        fromAddress.street,
+        fromAddress.number,
+        fromAddress.city,
+        fromAddress.state,
+        toAddress.street,
+        toAddress.number,
+        toAddress.city,
+        toAddress.state,
+      ].join("|")
+    : "";
+  const arrivalStatus: ArrivalStatus = !canAddress
+    ? "empty"
+    : geoKey !== addressKey
+      ? "loading"
+      : geoErrorKey === addressKey
+        ? fromGeo && toGeo
+          ? "approx"
+          : "error"
+        : !fromGeo || !toGeo
+          ? "error"
+          : geoApproxKey === addressKey
+            ? "approx"
+            : "ready";
   const deliveryProps = {
     messengerId,
     onMessenger: setMessengerId,
@@ -190,6 +225,7 @@ function WritePage() {
   useEffect(() => {
     if (!canAddress) return;
     let cancel = false;
+    const key = addressKey;
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
@@ -218,8 +254,14 @@ function WritePage() {
           if (cancel) return;
           setFromGeo(fromHit);
           setToGeo(toHit);
+          setGeoApproxKey(isGeocodeMiss(fromHit) || isGeocodeMiss(toHit) ? key : "");
+          setGeoErrorKey("");
+          setGeoKey(key);
         } catch {
           /* a estimativa de São Paulo–Rio segue até o mapa responder */
+          if (cancel) return;
+          setGeoErrorKey(key);
+          setGeoKey(key);
         }
       })();
     }, 700);
@@ -229,6 +271,7 @@ function WritePage() {
     };
   }, [
     canAddress,
+    addressKey,
     fromAddress.street,
     fromAddress.number,
     fromAddress.city,
@@ -389,6 +432,7 @@ function WritePage() {
                   onChange={setMessengerId}
                   hoursById={hoursById}
                   arriveLabelById={arriveLabelById}
+                  etaApproximate={!(fromGeo && toGeo)}
                   disabledIds={blockedMessengers}
                 />
                 <div className="flex flex-wrap gap-3">
@@ -423,6 +467,15 @@ function WritePage() {
                   <AddressFields label="Origem" value={fromAddress} onChange={setFromAddress} />
                   <AddressFields label="Destino" value={toAddress} onChange={setToAddress} />
                 </div>
+                <ArrivalEstimate
+                  status={arrivalStatus}
+                  from={fromGeo}
+                  to={toGeo}
+                  messengerId={messengerId}
+                  onMessenger={setMessengerId}
+                  scheduled={scheduled}
+                  arriveOn={arriveOn}
+                />
                 <MessengerLivePreview id={messengerId} />
                 <DeliveryChoices {...deliveryProps} />
                 <div className="flex flex-wrap gap-3">

@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  blockFontSize,
   canvasBackgroundClick,
   clampBlockPosition,
+  duplicateBlock,
   newBlock,
+  reorderBlock,
+  resizeBox,
+  rotationFromPointer,
   snapBlock,
   stickerBlock,
 } from "./pages.ts";
@@ -90,5 +95,61 @@ describe("canvasBackgroundClick selection", () => {
   it("clears selection only on the empty workspace background", () => {
     assert.equal(canvasBackgroundClick({ closest: () => null }), true);
     assert.equal(canvasBackgroundClick(null), false);
+  });
+});
+
+describe("free transform helpers", () => {
+  it("scales font size with the paper width (cqw), keeping 420px as reference", () => {
+    assert.equal(blockFontSize(42), "10cqw");
+    assert.equal(blockFontSize(21), "5cqw");
+    assert.equal(blockFontSize(Number.NaN), blockFontSize(22));
+  });
+
+  it("resizes from the east edge without moving the west edge", () => {
+    const next = resizeBox({ x: 10, y: 10, w: 20, h: 10, rotate: 0 }, "e", 40, 0, 400, 400);
+    assert.ok(Math.abs(next.x - 10) < 1e-9);
+    assert.ok(Math.abs(next.w - 30) < 1e-9);
+    assert.ok(Math.abs(next.h - 10) < 1e-9);
+  });
+
+  it("resizes from the north-west corner keeping the south-east corner fixed", () => {
+    const next = resizeBox({ x: 20, y: 20, w: 20, h: 20, rotate: 0 }, "nw", -40, -40, 400, 400);
+    assert.ok(Math.abs(next.x - 10) < 1e-9);
+    assert.ok(Math.abs(next.y - 10) < 1e-9);
+    assert.ok(Math.abs(next.x + next.w - 40) < 1e-9);
+    assert.ok(Math.abs(next.y + next.h - 40) < 1e-9);
+  });
+
+  it("keeps aspect ratio on corners when asked and never collapses below the minimum", () => {
+    const ratio = resizeBox({ x: 0, y: 0, w: 20, h: 10, rotate: 0 }, "se", 80, 0, 400, 400, { keepRatio: true });
+    assert.ok(Math.abs(ratio.w / ratio.h - 2) < 1e-9);
+    const tiny = resizeBox({ x: 0, y: 0, w: 20, h: 10, rotate: 0 }, "e", -1000, 0, 400, 400);
+    assert.ok(tiny.w >= 4 - 1e-9);
+  });
+
+  it("resizes a rotated block along its own axis", () => {
+    // Girado 90°: arrastar para baixo na tela aumenta a largura do bloco.
+    const next = resizeBox({ x: 40, y: 40, w: 20, h: 10, rotate: 90 }, "e", 0, 40, 400, 400);
+    assert.ok(Math.abs(next.w - 30) < 1e-6);
+    assert.ok(Math.abs(next.h - 10) < 1e-6);
+  });
+
+  it("computes rotation from the pointer with optional steps", () => {
+    assert.equal(rotationFromPointer(0, 0, 0, -10), 0);
+    assert.equal(rotationFromPointer(0, 0, 10, 0), 90);
+    assert.equal(rotationFromPointer(0, 0, 10, -9.8, { step: 15 }), 45);
+    assert.equal(rotationFromPointer(0, 0, 10, -10.3, { snap: true }), 45);
+  });
+
+  it("brings a block to the front or back and duplicates with a new id", () => {
+    const a = newBlock({ id: "a" });
+    const b = newBlock({ id: "b" });
+    const c = newBlock({ id: "c" });
+    assert.deepEqual(reorderBlock([a, b, c], "a", "front").map((x) => x.id), ["b", "c", "a"]);
+    assert.deepEqual(reorderBlock([a, b, c], "c", "back").map((x) => x.id), ["c", "a", "b"]);
+    const copy = duplicateBlock(a);
+    assert.notEqual(copy.id, a.id);
+    assert.equal(copy.text, a.text);
+    assert.ok(copy.x > a.x);
   });
 });

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { getDesign } from "@/lib/designs";
-import { newBlock, newPage, type LetterPage } from "@/lib/pages";
+import { clampBlockPosition, newBlock, newPage, type LetterPage } from "@/lib/pages";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -124,18 +124,18 @@ function TextNode({
       if (!drag.current) return;
       const dx = ((ev.clientX - drag.current.x) / parent.width) * 100;
       const dy = ((ev.clientY - drag.current.y) / parent.height) * 100;
-      onChange({
-        x: Math.min(88, Math.max(2, drag.current.bx + dx)),
-        y: Math.min(88, Math.max(2, drag.current.by + dy)),
-      });
+      // Mesma regra do editor principal: solto na folha, só não some de vista.
+      onChange(clampBlockPosition(block, drag.current.bx + dx, drag.current.by + dy));
     };
     const up = () => {
       drag.current = null;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   }
 
   return (
