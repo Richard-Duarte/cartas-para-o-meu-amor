@@ -237,3 +237,108 @@ export function alignOnPage(
   if (where === "middle") return { y: (100 - block.h) / 2 };
   return { y: 100 - pad - block.h };
 }
+
+/** Largura de referência (px) do papel: o `size` dos textos é medido nela. */
+export const PAGE_REF_WIDTH = 420;
+
+/**
+ * Tamanho da fonte relativo à largura do papel (unidade `cqw`), para a carta
+ * ficar igual no editor, no zoom, na tela cheia, no celular e na carta entregue.
+ * Cartas antigas guardam `size` em px de um papel de ~420px, então continuam
+ * com o mesmo tamanho no desktop e só escalam junto com o papel.
+ */
+export function blockFontSize(size: number) {
+  const n = Number.isFinite(size) && size > 0 ? size : 22;
+  return `${Math.round((n / PAGE_REF_WIDTH) * 100 * 1000) / 1000}cqw`;
+}
+
+export type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+
+export type BlockBox = { x: number; y: number; w: number; h: number; rotate: number };
+
+/**
+ * Redimensiona pelo puxador escolhido, mesmo com o bloco girado: o lado (ou
+ * canto) oposto fica parado. Deltas em px da tela; resultado em % do papel.
+ */
+export function resizeBox(
+  start: BlockBox,
+  handle: ResizeHandle,
+  dxPx: number,
+  dyPx: number,
+  pageW: number,
+  pageH: number,
+  opts: { keepRatio?: boolean; minPct?: number } = {},
+): BlockBox {
+  if (pageW <= 0 || pageH <= 0) return start;
+  const rad = ((start.rotate || 0) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  // Delta do ponteiro no eixo do próprio bloco.
+  const lx = dxPx * cos + dyPx * sin;
+  const ly = -dxPx * sin + dyPx * cos;
+  const ex = handle.includes("e") ? 1 : handle.includes("w") ? -1 : 0;
+  const ey = handle.includes("s") ? 1 : handle.includes("n") ? -1 : 0;
+  const minPx = Math.max(6, (pageW * (opts.minPct ?? 4)) / 100);
+  const w0 = (start.w / 100) * pageW;
+  const h0 = (start.h / 100) * pageH;
+  let w1 = Math.max(minPx, w0 + ex * lx);
+  let h1 = Math.max(minPx, h0 + ey * ly);
+  if (opts.keepRatio && ex !== 0 && ey !== 0 && w0 > 0 && h0 > 0) {
+    const scale = Math.max(w1 / w0, h1 / h0, minPx / Math.min(w0, h0));
+    w1 = w0 * scale;
+    h1 = h0 * scale;
+  }
+  const dw = w1 - w0;
+  const dh = h1 - h0;
+  // O centro anda metade do crescimento, para o lado do puxador.
+  const sx = (ex * dw) / 2;
+  const sy = (ey * dh) / 2;
+  const cx = (start.x / 100) * pageW + w0 / 2 + sx * cos - sy * sin;
+  const cy = (start.y / 100) * pageH + h0 / 2 + sx * sin + sy * cos;
+  return {
+    x: ((cx - w1 / 2) / pageW) * 100,
+    y: ((cy - h1 / 2) / pageH) * 100,
+    w: (w1 / pageW) * 100,
+    h: (h1 / pageH) * 100,
+    rotate: start.rotate || 0,
+  };
+}
+
+/**
+ * Ângulo do bloco a partir do ponteiro (o puxador de giro fica em cima).
+ * `step` trava em degraus (Shift = 15°); `snap` só puxa de leve para 0/45/90…
+ */
+export function rotationFromPointer(
+  cx: number,
+  cy: number,
+  px: number,
+  py: number,
+  opts: { step?: number; snap?: boolean } = {},
+) {
+  let deg = (Math.atan2(py - cy, px - cx) * 180) / Math.PI + 90;
+  if (opts.step && opts.step > 0) deg = Math.round(deg / opts.step) * opts.step;
+  else if (opts.snap) {
+    const near = Math.round(deg / 45) * 45;
+    if (Math.abs(deg - near) < 3) deg = near;
+  }
+  deg = ((((deg + 180) % 360) + 360) % 360) - 180;
+  return Math.round(deg * 10) / 10;
+}
+
+/** Ordem no array = camada na página (o último fica por cima). */
+export function reorderBlock(blocks: TextBlock[], id: string, where: "front" | "back"): TextBlock[] {
+  const target = blocks.find((b) => b.id === id);
+  if (!target) return blocks;
+  const rest = blocks.filter((b) => b.id !== id);
+  return where === "front" ? [...rest, target] : [target, ...rest];
+}
+
+export function duplicateBlock(block: TextBlock): TextBlock {
+  const offset = 4;
+  return {
+    ...block,
+    id: crypto.randomUUID().slice(0, 8),
+    x: Math.min(100 - 2, block.x + offset),
+    y: Math.min(100 - 2, block.y + offset),
+  };
+}
