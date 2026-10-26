@@ -7,6 +7,7 @@ import {
   contactsReady,
   dayKey,
   earliestDay,
+  formatArrival,
   getAnonymousFee,
   latestDay,
   planArrival,
@@ -43,6 +44,7 @@ export function DeliveryChoices(props: Props) {
   const ready = contactsReady();
 
   const blocked = new Set<string>();
+  const arriveLabelById: Record<string, string> = {};
   for (const item of MESSENGERS) {
     const next = planArrival({
       messengerId: item.id,
@@ -52,6 +54,7 @@ export function DeliveryChoices(props: Props) {
       arriveOn: day,
     });
     if (props.scheduled && day && !next.fits) blocked.add(item.id);
+    arriveLabelById[item.id] = next.fits ? `Chega ${formatArrival(next.arriveAt)}` : "Não chega nesse dia";
   }
 
   return (
@@ -96,6 +99,8 @@ export function DeliveryChoices(props: Props) {
             value={props.messengerId}
             onChange={props.onMessenger}
             disabledIds={blocked}
+            arriveLabelById={arriveLabelById}
+            etaApproximate={!props.knownRoute}
             scheduled
           />
         </>

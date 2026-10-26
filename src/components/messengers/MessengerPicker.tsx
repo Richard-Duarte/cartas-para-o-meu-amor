@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { SCHEDULE_FEE_BRL } from "@/lib/delivery";
 import {
   MESSENGERS,
+  formatEta,
   messengerPhoto,
   messengerPreview,
   type MessengerId,
@@ -18,6 +19,8 @@ type Props = {
   onChange: (id: MessengerId) => void;
   hoursById?: Partial<Record<MessengerId, number>>;
   arriveLabelById?: Partial<Record<MessengerId, string>>;
+  /** A rota ainda é a de exemplo (sem endereço): marca o horário como estimativa. */
+  etaApproximate?: boolean;
   disabledIds?: Set<string>;
   scheduled?: boolean;
 };
@@ -71,13 +74,28 @@ export function MessengerLivePreview({ id }: { id: MessengerId }) {
   );
 }
 
-export function MessengerPicker({ value, onChange, disabledIds, scheduled }: Props) {
+export function MessengerPicker({
+  value,
+  onChange,
+  hoursById,
+  arriveLabelById,
+  etaApproximate,
+  disabledIds,
+  scheduled,
+}: Props) {
   const selected = MESSENGERS.find((m) => m.id === value) ?? MESSENGERS[0];
   const fee = SCHEDULE_FEE_BRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const hasEta = MESSENGERS.some((m) => Boolean(arriveLabelById?.[m.id]));
 
   return (
     <div className="messenger-picker">
       <div className="messenger-picker-grid">
+        {hasEta && etaApproximate ? (
+          <p className="messenger-picker-note">
+            Horários estimados numa rota de exemplo (São Paulo → Rio). Com o endereço, no próximo passo, a
+            previsão fica exata.
+          </p>
+        ) : null}
         {MESSENGERS.map((m) => {
           const active = m.id === value;
           const blocked = disabledIds?.has(m.id) ?? false;
@@ -85,6 +103,9 @@ export function MessengerPicker({ value, onChange, disabledIds, scheduled }: Pro
             style: "currency",
             currency: "BRL",
           });
+          const eta = arriveLabelById?.[m.id];
+          const hours = hoursById?.[m.id];
+          const fits = Boolean(eta && eta.startsWith("Chega"));
           return (
             <button
               key={m.id}
@@ -106,6 +127,12 @@ export function MessengerPicker({ value, onChange, disabledIds, scheduled }: Pro
                   {scheduled ? ` + ${fee}` : ""}
                   {` · ${m.speedKmh} km/h`}
                 </span>
+                {eta ? (
+                  <span className={cn("messenger-picker-eta", !fits && "is-off")}>
+                    {fits && etaApproximate ? `≈ ${eta}` : eta}
+                    {fits && typeof hours === "number" ? ` · viagem de ${formatEta(hours)}` : ""}
+                  </span>
+                ) : null}
               </span>
             </button>
           );
