@@ -138,7 +138,7 @@ export function ClotheslineSection({ className }: { className?: string }) {
           O envelope que ela vai guardar.
         </h2>
         <p className="mt-3 max-w-lg text-lg text-muted">
-          Seis papéis. Arraste o varal. O que fizer o peito apertar é o certo.
+          Papéis para todo jeito de amar. Arraste o varal. O que fizer o peito apertar é o certo.
         </p>
         <div className="clothesline-hint" aria-hidden="true">
           <DragArrow />

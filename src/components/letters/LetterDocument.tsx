@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getDesign, type DesignId } from "@/lib/designs";
 import { downloadLetterPng } from "@/lib/download-letter";
-import { type LetterPage } from "@/lib/pages";
+import { blockFontSize, type LetterPage } from "@/lib/pages";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -128,8 +128,8 @@ export function LetterDocument({
                         style={{
                           left: `${b.x}%`,
                           top: `${b.y}%`,
-                          width: `${Math.max(b.w, 8)}%`,
-                          height: `${Math.max(b.h, 8)}%`,
+                          width: `${Math.max(b.w, 1)}%`,
+                          height: `${Math.max(b.h, 1)}%`,
                           objectFit: "contain",
                           transform: `rotate(${b.rotate || 0}deg) scaleX(${b.flipX ? -1 : 1})`,
                         }}
@@ -145,7 +145,9 @@ export function LetterDocument({
                           left: `${b.x}%`,
                           top: `${b.y}%`,
                           width: `${b.w}%`,
-                          fontSize: `${b.size}px`,
+                          minHeight: `${b.h}%`,
+                          // Relativo à largura da folha: fica onde foi colocado em qualquer tela.
+                          fontSize: blockFontSize(b.size),
                           fontFamily: b.fontFamily || design.fontFamily,
                           fontWeight: b.weight || 400,
                           fontStyle: b.italic ? "italic" : "normal",
