@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdeef3"/>
+      <stop offset="1" stop-color="#fbe7f0"/>
+    </linearGradient>
+    <path id="h" d="M0 -5 C-5 -15 -21 -12 -18 1 C-16 9 -6 14 0 20 C6 14 16 9 18 1 C21 -12 5 -15 0 -5 Z"/>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <rect x="26" y="26" width="548" height="748" rx="28" fill="none" stroke="#f3a9bf" stroke-width="2" stroke-dasharray="2 10" stroke-linecap="round"/>
+  <use href="#h" transform="translate(70 78) rotate(-14) scale(1.6)" fill="#f7a1b8"/>
+  <use href="#h" transform="translate(128 52) rotate(10) scale(0.8)" fill="#cdb4f2"/>
+  <use href="#h" transform="translate(520 70) rotate(16) scale(1.3)" fill="#ffc4a8"/>
+  <use href="#h" transform="translate(466 44) rotate(-8) scale(0.6)" fill="#f7a1b8"/>
+  <use href="#h" transform="translate(548 150) rotate(-18) scale(0.7)" fill="#cdb4f2"/>
+  <use href="#h" transform="translate(54 190) rotate(12) scale(0.55)" fill="#ffc4a8"/>
+  <use href="#h" transform="translate(64 712) rotate(14) scale(1.2)" fill="#cdb4f2"/>
+  <use href="#h" transform="translate(126 748) rotate(-12) scale(0.7)" fill="#f7a1b8"/>
+  <use href="#h" transform="translate(530 720) rotate(-16) scale(1.7)" fill="#f7a1b8"/>
+  <use href="#h" transform="translate(462 754) rotate(8) scale(0.65)" fill="#ffc4a8"/>
+  <use href="#h" transform="translate(552 610) rotate(20) scale(0.5)" fill="#cdb4f2"/>
+  <use href="#h" transform="translate(44 600) rotate(-20) scale(0.5)" fill="#f7a1b8"/>
+  <g fill="#ffffff" opacity="0.9">
+    <circle cx="94" cy="62" r="3"/>
+    <circle cx="512" cy="704" r="4"/>
+    <circle cx="540" cy="58" r="2.5"/>
+  </g>
+  <g fill="#f3a9bf" opacity="0.55">
+    <circle cx="180" cy="40" r="2.5"/>
+    <circle cx="420" cy="760" r="2.5"/>
+    <circle cx="560" cy="300" r="2"/>
+    <circle cx="40" cy="420" r="2"/>
+  </g>
+</svg>
