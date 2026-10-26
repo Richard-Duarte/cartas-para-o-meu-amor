@@ -5325,3 +5325,398 @@ body.is-placing {
   }
 }
 
+
+/* ===================================================================
+   Editor livre: arrastar, redimensionar e girar com mouse e toque.
+   =================================================================== */
+.canva-page {
+  /* O texto usa cqw (largura do papel): zoom, celular e carta entregue ficam iguais. */
+  container-type: inline-size;
+  /* O dedo no papel ainda rola a área; só os elementos capturam o gesto. */
+  touch-action: pan-y;
+}
+
+.letter-sheet-stage {
+  container-type: inline-size;
+}
+
+.canva-box {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: grab;
+}
+
+.canva-box.is-dragging {
+  cursor: grabbing;
+}
+
+.canva-box.is-active {
+  z-index: 5;
+  outline: 1.5px solid var(--color-rose);
+  outline-offset: 2px;
+}
+
+.canva-box.is-editing {
+  touch-action: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.canva-box.is-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.canva-box.is-text .canva-box-text {
+  flex: 1 1 auto;
+  height: auto;
+  overflow: visible;
+}
+
+.canva-box.is-editing .canva-box-text {
+  outline: 1px dashed rgb(232 90 122 / 0.45);
+  outline-offset: 4px;
+}
+
+.canva-box .canva-handle {
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  border: 1.5px solid var(--color-rose);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(26 20 16 / 0.2);
+  touch-action: none;
+}
+
+/* Área de toque maior que o desenho do puxador. */
+.canva-box .canva-handle::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+
+.canva-box .canva-handle.is-nw { left: -7px; top: -7px; right: auto; bottom: auto; cursor: nwse-resize; }
+.canva-box .canva-handle.is-ne { right: -7px; top: -7px; left: auto; bottom: auto; cursor: nesw-resize; }
+.canva-box .canva-handle.is-sw { left: -7px; bottom: -7px; right: auto; top: auto; cursor: nesw-resize; }
+.canva-box .canva-handle.is-se { right: -7px; bottom: -7px; left: auto; top: auto; cursor: nwse-resize; }
+.canva-box .canva-handle.is-n { left: 50%; top: -7px; margin-left: -6px; cursor: ns-resize; }
+.canva-box .canva-handle.is-s { left: 50%; bottom: -7px; margin-left: -6px; cursor: ns-resize; }
+.canva-box .canva-handle.is-e { right: -7px; top: 50%; margin-top: -6px; cursor: ew-resize; }
+.canva-box .canva-handle.is-w { left: -7px; top: 50%; margin-top: -6px; cursor: ew-resize; }
+
+.canva-rotate {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: -36px;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--color-rose);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(26 20 16 / 0.2);
+  cursor: grab;
+  touch-action: none;
+  font-style: normal;
+}
+
+.canva-rotate::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1.5px;
+  height: 11px;
+  background: var(--color-rose);
+  transform: translateX(-50%);
+}
+
+.canva-rotate::after {
+  content: "↻";
+  font-size: 14px;
+  line-height: 1;
+  color: var(--color-rose);
+}
+
+@media (pointer: coarse) {
+  .canva-box .canva-handle { width: 16px; height: 16px; }
+  .canva-box .canva-handle.is-nw { left: -9px; top: -9px; }
+  .canva-box .canva-handle.is-ne { right: -9px; top: -9px; }
+  .canva-box .canva-handle.is-sw { left: -9px; bottom: -9px; }
+  .canva-box .canva-handle.is-se { right: -9px; bottom: -9px; }
+  .canva-box .canva-handle.is-n { top: -9px; margin-left: -8px; }
+  .canva-box .canva-handle.is-s { bottom: -9px; margin-left: -8px; }
+  .canva-box .canva-handle.is-e { right: -9px; margin-top: -8px; }
+  .canva-box .canva-handle.is-w { left: -9px; margin-top: -8px; }
+  .canva-rotate { width: 30px; height: 30px; margin-left: -15px; top: -44px; }
+}
+
+.canva-sel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.canva-snap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.canva-snap-btn.is-on {
+  border-color: var(--color-rose);
+  background: rgb(232 90 122 / 0.1);
+  color: var(--color-ink);
+}
+
+@media (max-width: 860px) {
+  .canva-top-left {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .canva-top-left::-webkit-scrollbar { display: none; }
+}
+
+/* ===================================================================
+   Tela cheia: overlay no body (portal), cabe a folha inteira na tela.
+   =================================================================== */
+.canva-full {
+  height: 100vh;
+  height: 100dvh;
+  overscroll-behavior: contain;
+}
+
+.canva-full-bar {
+  flex-wrap: wrap;
+  padding-left: calc(1rem + env(safe-area-inset-left));
+  padding-right: calc(1rem + env(safe-area-inset-right));
+}
+
+.canva-full-bar p {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.canva-full-count {
+  font-family: var(--font-sans, inherit);
+  font-size: 0.78rem;
+  font-style: normal;
+  color: var(--color-muted);
+}
+
+.canva-full-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.canva-full-actions .canva-sel-actions {
+  padding: 0.1rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.72);
+}
+
+.canva-full-actions .canva-sel-actions button {
+  min-height: 0;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.canva-full-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 0.6rem 1rem 1.4rem;
+  overscroll-behavior: contain;
+  scroll-snap-type: y proximity;
+}
+
+.canva-full .canva-sheet {
+  padding: 0;
+  scroll-snap-align: start;
+}
+
+.canva-full .canva-page {
+  /* Antes de medir: cabe na largura e na altura. O JS ajusta em px depois. */
+  width: min(92vw, calc((100dvh - 15rem) * 0.75));
+  max-width: 100%;
+}
+
+.canva-full .canva-dock {
+  flex: 0 0 auto;
+}
+
+.canva-full .canva-upload {
+  margin-bottom: 0.5rem;
+}
+
+.canva-full .canva-dock .canva-thumbs {
+  grid-template-columns: repeat(auto-fill, minmax(5.4rem, 1fr));
+  gap: 0.55rem;
+}
+
+.canva-full .canva-dock .canva-stickers {
+  grid-template-columns: repeat(auto-fill, minmax(3.6rem, 1fr));
+}
+
+/* Menus da barra precisam ficar acima da tela cheia (z-index 130). */
+.canva-font-menu {
+  z-index: 210;
+}
+
+/* ===================================================================
+   Previsão de chegada abaixo do endereço + horários no seletor.
+   =================================================================== */
+.arrival-eta {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1.1rem;
+  background: #fff;
+}
+
+.arrival-eta.is-loading .arrival-eta-empty {
+  animation: arrival-eta-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes arrival-eta-pulse {
+  50% { opacity: 0.45; }
+}
+
+.arrival-eta-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-rose);
+}
+
+.arrival-eta-empty,
+.arrival-eta-meta,
+.arrival-eta-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.arrival-eta-main {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.arrival-eta-when {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.arrival-eta-when strong {
+  color: var(--color-rose);
+  font-weight: 600;
+}
+
+.arrival-eta-note {
+  font-size: 0.82rem;
+}
+
+.arrival-eta-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arrival-eta-row {
+  display: flex;
+  width: 100%;
+  min-height: 2.6rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.8rem;
+  background: var(--color-paper);
+  color: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.arrival-eta-row span:last-child {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.arrival-eta-row.is-on {
+  border-color: var(--color-rose);
+  box-shadow: inset 0 0 0 1px var(--color-rose);
+}
+
+.arrival-eta-row.is-on span:last-child {
+  color: var(--color-ink);
+}
+
+.arrival-eta-row.is-off {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.messenger-picker-eta {
+  color: var(--color-ink);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.messenger-picker-eta.is-off {
+  color: var(--color-rose);
+}
+
+.messenger-picker-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* Selo dos papéis novos. */
+.paper-new {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-rose);
+  color: var(--color-paper);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
