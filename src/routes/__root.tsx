@@ -5,6 +5,7 @@ import { KeyboardLift } from "@/components/layout/KeyboardLift";
 import { SlowScroll } from "@/components/layout/SlowScroll";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { bootCatalog } from "@/lib/catalog";
+import { installChunkReload } from "@/lib/chunk-reload";
 import { pingVisit } from "@/lib/server/shop";
 import appCss from "../styles.css?url";
 
@@ -15,6 +16,8 @@ function Boot() {
     void bootCatalog();
     void pingVisit({ data: window.location.pathname }).catch(() => {});
   }, []);
+  // Aba aberta antes de um deploy: arquivos antigos somem e o import dinâmico falha.
+  useEffect(() => installChunkReload(), []);
   return null;
 }
 
