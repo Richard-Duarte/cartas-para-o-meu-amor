@@ -7471,3 +7471,12 @@ img.messenger-picker-live-media {
 @media (prefers-reduced-motion: reduce) {
   .install-sheet-backdrop, .install-sheet { animation: none; }
 }
+
+/* Logos Apple/Android: preenchidos, na cor do texto, do tamanho da letra. */
+.install-app svg.install-brand { fill: currentColor; stroke: none; }
+.install-option-btn svg.install-brand { width: 1.1em; height: 1.1em; margin-top: -0.12em; }
+.install-app .install-option-icon svg.install-brand { width: 1.55rem; height: 1.55rem; }
+.install-option-icon.is-apple { color: var(--color-ink); background: rgb(26 20 16 / 0.07); }
+.install-option-icon.is-android { color: var(--color-ink); background: rgb(26 20 16 / 0.07); }
+.install-sheet-kicker { display: inline-flex; align-items: center; gap: 0.35rem; }
+.install-sheet-kicker svg.install-brand { width: 1em; height: 1em; margin-top: -0.1em; }
