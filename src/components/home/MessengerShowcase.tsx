@@ -156,6 +156,24 @@ export function MessengerShowcase() {
     return () => window.cancelAnimationFrame(frame);
   }, [animate]);
 
+  /** Cartões inteiros visíveis (lê --pv do CSS: 1 no celular, 2 no tablet, 3 no desktop). */
+  function perView() {
+    const el = viewportRef.current;
+    const pv = el ? Number.parseFloat(getComputedStyle(el).getPropertyValue("--pv")) : 1;
+    return Number.isFinite(pv) && pv > 0 ? pv : 1;
+  }
+
+  // Setas: um cartão no celular, uma "página" (os cartões inteiros visíveis) no desktop.
+  // O giro é infinito, então as setas nunca ficam desativadas.
+  function step(dir: 1 | -1) {
+    const pv = perView();
+    const by = Math.max(1, Math.floor(pv + 0.01));
+    const maxPos = slides.length - Math.ceil(pv);
+    setAnimate(true);
+    setPos((p) => Math.min(maxPos, Math.max(0, p + dir * by)));
+    setResumeKey((k) => k + 1);
+  }
+
   function release() {
     if (hovering.current) return;
     setHold(false);
@@ -210,6 +228,13 @@ export function MessengerShowcase() {
       className="messenger-showcase"
       aria-roledescription="carrossel"
       aria-label="Os sete mensageiros"
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        const t = e.target as HTMLElement;
+        if (t.closest("input, textarea, select, [contenteditable]")) return;
+        e.preventDefault();
+        step(e.key === "ArrowRight" ? 1 : -1);
+      }}
     >
       <div className="messenger-showcase-head">
         <p className="section-kicker">Os sete</p>
@@ -272,6 +297,17 @@ export function MessengerShowcase() {
           ))}
         </div>
       </div>
+      <div className="messenger-carousel-controls">
+      <button
+        type="button"
+        className="messenger-carousel-arrow"
+        aria-label="Anterior"
+        onClick={() => step(-1)}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M14.5 5.5 8 12l6.5 6.5" />
+        </svg>
+      </button>
       <div className="messenger-carousel-dots" role="tablist" aria-label="Escolher mensageiro">
         {MESSENGERS.map((m, j) => (
           <button
@@ -287,6 +323,17 @@ export function MessengerShowcase() {
             }}
           />
         ))}
+      </div>
+      <button
+        type="button"
+        className="messenger-carousel-arrow"
+        aria-label="Próximo"
+        onClick={() => step(1)}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9.5 5.5 16 12l-6.5 6.5" />
+        </svg>
+      </button>
       </div>
     </section>
   );
