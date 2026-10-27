@@ -103,6 +103,7 @@ export function UserButton() {
         <img
           src={user.profileImageUrl}
           alt=""
+          referrerPolicy="no-referrer"
           className="h-8 w-8 rounded-full object-cover"
         />
       ) : (

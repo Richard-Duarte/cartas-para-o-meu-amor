@@ -183,7 +183,7 @@ export function SiteHeader({ className }: Props) {
                   </Link>
                   <Link to="/conta" className="site-header-avatar" aria-label="Minha conta">
                     {user?.profileImageUrl ? (
-                      <img src={user.profileImageUrl} alt="" />
+                      <img src={user.profileImageUrl} alt="" referrerPolicy="no-referrer" />
                     ) : (
                       <span>{initial}</span>
                     )}
@@ -249,7 +249,7 @@ export function SiteHeader({ className }: Props) {
             aria-label="Minha conta"
           >
             {user.profileImageUrl ? (
-              <img src={user.profileImageUrl} alt="" className="site-menu-heart-img" />
+              <img src={user.profileImageUrl} alt="" className="site-menu-heart-img" referrerPolicy="no-referrer" />
             ) : (
               <span className="site-menu-heart-fallback">{initial}</span>
             )}

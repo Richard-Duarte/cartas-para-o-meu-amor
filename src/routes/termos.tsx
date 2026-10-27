@@ -2,51 +2,203 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CONTACT_EMAIL, LegalPage } from "@/components/legal/LegalPage";
 
 export const Route = createFileRoute("/termos")({
-  head: () => ({ meta: [{ title: "Termos de uso · Carta para o meu amor" }] }),
+  head: () => ({ meta: [{ title: "Termos de Uso · Carta para o meu amor" }] }),
   component: TermsPage,
 });
 
 function TermsPage() {
+  const mail = <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
   return (
-    <LegalPage title="Termos de uso" updated="27 de outubro de 2026">
-      <p>Ao usar o Carta para o meu amor você concorda com estes termos.</p>
-
-      <h2>O serviço</h2>
+    <LegalPage title="Termos de Uso" updated="27 de outubro de 2026">
       <p>
-        Você escreve uma carta digital, escolhe um mensageiro e envia. A carta chega no tempo da viagem mostrada no site
-        e quem recebe abre pelo link ou pela conta. Os mensageiros e o trajeto são uma experiência ilustrativa: nenhum
-        animal ou objeto físico é enviado.
+        Estes Termos de Uso regem o uso do site Carta para o meu amor (cartas-para-o-meu-amor.vercel.app e
+        cartaparaomeuamor.com.br). Ao criar uma conta, escrever, enviar, receber ou responder uma carta, você declara
+        que leu e concorda com estes termos e com a <Link to="/privacidade">Política de Privacidade</Link>. Se não
+        concordar, não use o serviço.
       </p>
 
-      <h2>Sua conta</h2>
+      <h2>1. O serviço</h2>
+      <ul>
+        <li>
+          O Carta para o meu amor permite escrever uma carta digital (texto, desenho e papel escolhido) e enviá-la a
+          outra pessoa por um <strong>mensageiro virtual</strong>, como pombo-correio, cegonha, cisne, cavalo, jegue,
+          tartaruga ou avião.
+        </li>
+        <li>
+          Os mensageiros são personagens animados. <strong>Nenhum animal, objeto ou papel físico é enviado</strong>, e a
+          entrega acontece só no ambiente digital.
+        </li>
+        <li>
+          Cada mensageiro tem uma velocidade máxima de referência, informada em km/h (por exemplo, "até 95 km/h"),
+          inspirada no animal ou veículo real. O trajeto e o tempo da viagem são calculados pelo site a partir dos
+          endereços informados e do mensageiro escolhido, e o site mostra a previsão de chegada antes do pagamento.
+        </li>
+        <li>
+          A previsão pode variar um pouco por motivos técnicos. Ela não é prazo de entrega postal nem de transporte
+          físico.
+        </li>
+      </ul>
+
+      <h2>2. Conta e acesso</h2>
+      <ul>
+        <li>
+          Para enviar uma carta é preciso ter uma conta, criada com e-mail e senha ou com o login do Google. No login do
+          Google recebemos só o nome, o e-mail e a foto do perfil, que pode aparecer como sua foto no site.
+        </li>
+        <li>
+          Você é responsável por manter seus dados de acesso em segurança e por tudo o que for feito na sua conta.
+          Avise-nos se suspeitar de uso indevido.
+        </li>
+        <li>
+          Quem recebe uma carta também pode precisar entrar com uma conta para abri-la e acompanhá-la.
+        </li>
+        <li>Você deve ter 18 anos ou mais, ou usar o serviço com autorização dos seus responsáveis legais.</li>
+      </ul>
+
+      <h2>3. Cartas anônimas</h2>
+      <ul>
+        <li>
+          Você pode enviar uma carta anônima, mediante a taxa mostrada no carrinho. Nela, seu nome não aparece para quem
+          recebe ("Alguém especial"), a carta não usa endereço e chega em cerca de 2 horas pelo link e pela conta.
+        </li>
+        <li>
+          O anonimato vale para quem recebe. Para cumprir a lei, guardamos os dados da sua conta e podemos
+          fornecê-los às autoridades mediante ordem judicial ou requisição legal. O anonimato não protege conteúdo
+          ilegal.
+        </li>
+      </ul>
+
+      <h2>4. Respostas e comentários</h2>
+      <ul>
+        <li>
+          Quem recebe pode responder com uma nova carta, que segue as mesmas regras de mensageiro e pagamento. A
+          resposta a uma carta anônima também é anônima.
+        </li>
+        <li>
+          Também é possível deixar comentários e fotos no acompanhamento da carta. Esse conteúdo fica visível para as
+          pessoas da conversa.
+        </li>
+      </ul>
+
+      <h2>5. Agendamento e avisos</h2>
+      <ul>
+        <li>Você pode marcar a data de chegada, mediante a taxa de agendamento mostrada no carrinho.</li>
+        <li>
+          Quando a carta está perto de chegar, enviamos avisos por e-mail e, se você informou o telefone, por
+          WhatsApp, para você e para quem recebe.
+        </li>
+        <li>
+          Você declara ter autorização para nos passar os contatos de quem recebe. Quem recebe pode pedir para não
+          receber mais avisos.
+        </li>
+      </ul>
+
+      <h2>6. Responsabilidades e conteúdo proibido</h2>
+      <p>O conteúdo das cartas é de responsabilidade exclusiva de quem escreve. É proibido usar o serviço para:</p>
+      <ul>
+        <li>assediar, ameaçar, perseguir, intimidar ou constranger alguém, inclusive com cartas anônimas;</li>
+        <li>enviar conteúdo de ódio, discriminatório, violento, difamatório ou que incentive crimes;</li>
+        <li>enviar conteúdo sexual envolvendo menores de idade, em qualquer hipótese;</li>
+        <li>enviar conteúdo sexual explícito a quem não consentiu;</li>
+        <li>violar direitos autorais, de imagem ou de privacidade de terceiros;</li>
+        <li>enviar spam, golpes, links maliciosos ou se passar por outra pessoa;</li>
+        <li>burlar pagamentos, cupons, créditos ou o programa de indicação, ou atacar o funcionamento do site.</li>
+      </ul>
       <p>
-        Você é responsável pelo acesso à sua conta, seja por e-mail e senha ou pelo Google, e pelas informações que
-        fornece.
+        Podemos remover conteúdo, interromper entregas e suspender ou encerrar contas que violem estes termos, sem
+        prejuízo de comunicar as autoridades quando a lei exigir. Para denunciar uma carta, escreva para {mail}.
       </p>
 
-      <h2>Conteúdo</h2>
+      <h2>7. Preços e pagamento</h2>
+      <ul>
+        <li>
+          O preço depende do mensageiro e dos adicionais escolhidos (papel, carta anônima, agendamento). Ele aparece no
+          carrinho antes do pagamento, em reais.
+        </li>
+        <li>
+          Os pagamentos são processados pelo <strong>Mercado Pago</strong>, por PIX ou cartão de crédito, com
+          parcelamento quando disponível. Os dados do cartão e do PIX são tratados pelo Mercado Pago e não ficam
+          guardados no nosso site.
+        </li>
+        <li>
+          A carta <strong>só é criada e só parte depois que o pagamento é aprovado</strong>. O código PIX vale por 30
+          minutos; se expirar ou for recusado, nada é cobrado e nenhuma carta é enviada.
+        </li>
+        <li>
+          Cupons de desconto e créditos de indicação podem reduzir ou zerar o valor, conforme as condições mostradas
+          no site. Créditos não são convertidos em dinheiro, salvo as comissões do programa de indicação, pagas conforme
+          as regras da sua conta (valor mínimo para saque).
+        </li>
+      </ul>
+
+      <h2>8. Cancelamento e reembolso</h2>
+      <ul>
+        <li>
+          A carta é um conteúdo digital entregue logo após a aprovação do pagamento: ela parte e passa a ser
+          acompanhada na hora. Por isso, o site não tem um botão de cancelar uma carta já enviada.
+        </li>
+        <li>
+          Pelo Código de Defesa do Consumidor (art. 49), você pode pedir o arrependimento em até 7 dias da compra. Basta
+          escrever para {mail} com o e-mail da conta e a identificação da carta. Avaliamos cada pedido e, quando
+          cabível, fazemos o estorno pelo Mercado Pago, no mesmo meio de pagamento.
+        </li>
+        <li>
+          Se houver cobrança em duplicidade, falha técnica que impeça a entrega ou cobrança de uma carta que não foi
+          criada, fazemos o reembolso integral.
+        </li>
+        <li>
+          Cartas removidas por violar estes termos não dão direito a reembolso, salvo quando a lei determinar o
+          contrário.
+        </li>
+      </ul>
+
+      <h2>9. Propriedade intelectual</h2>
+      <ul>
+        <li>
+          A marca Carta para o meu amor, o site, os mensageiros, as ilustrações, os modelos 3D, os papéis, os textos e o
+          software são nossos ou licenciados para nós, e não podem ser copiados nem usados sem autorização.
+        </li>
+        <li>
+          O texto que você escreve continua seu. Você nos dá uma licença limitada para guardar, exibir e entregar a carta
+          a quem você escolheu, só para prestar o serviço. Não publicamos suas cartas.
+        </li>
+      </ul>
+
+      <h2>10. Limitação de responsabilidade</h2>
+      <ul>
+        <li>
+          Nos esforçamos para manter o site disponível e seguro, mas ele pode ter interrupções, atrasos ou erros por
+          manutenção, falhas de terceiros (hospedagem, pagamento, e-mail, WhatsApp) ou força maior.
+        </li>
+        <li>
+          Não respondemos pelo conteúdo escrito pelos usuários, pela reação de quem recebe, nem por avisos não recebidos
+          por causa de contato informado errado.
+        </li>
+        <li>Nada nestes termos limita direitos que o Código de Defesa do Consumidor garante a você.</li>
+      </ul>
+
+      <h2>11. Privacidade e LGPD</h2>
       <p>
-        O texto das cartas é seu. Não envie conteúdo ilegal, ofensivo, que assedie alguém ou que viole direitos de
-        terceiros. Podemos remover conteúdo e suspender contas que desrespeitem estes termos.
+        Tratamos dados pessoais conforme a Lei Geral de Proteção de Dados (Lei 13.709/2018). O que coletamos, para que
+        usamos, com quem compartilhamos e como exercer seus direitos de acesso, correção, exclusão e portabilidade
+        está na <Link to="/privacidade">Política de Privacidade</Link>.
       </p>
 
-      <h2>Pagamentos</h2>
+      <h2>12. Mudanças nos termos</h2>
       <p>
-        Os preços aparecem antes do pagamento, que é processado pelo Mercado Pago (PIX ou cartão). A carta só sai depois
-        do pagamento aprovado. Se algo der errado com a entrega, fale com a gente para avaliarmos o reembolso, conforme o
-        Código de Defesa do Consumidor.
+        Podemos atualizar estes termos para refletir mudanças no serviço ou na lei. A data no topo indica a versão em
+        vigor. Mudanças importantes serão avisadas no site, e continuar usando o serviço depois disso significa aceitar a
+        nova versão.
       </p>
 
-      <h2>Privacidade</h2>
+      <h2>13. Lei aplicável e foro</h2>
       <p>
-        O uso dos seus dados está na <Link to="/privacidade">Política de privacidade</Link>.
+        Estes termos seguem as leis da República Federativa do Brasil. Fica eleito o foro do domicílio do consumidor
+        para resolver qualquer controvérsia, conforme o Código de Defesa do Consumidor.
       </p>
 
-      <h2>Mudanças e contato</h2>
-      <p>
-        Podemos atualizar estes termos; a data no topo mostra a versão atual. Dúvidas:{" "}
-        <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
-      </p>
+      <h2>14. Contato</h2>
+      <p>Dúvidas, denúncias, pedidos de reembolso ou sobre seus dados: {mail}.</p>
     </LegalPage>
   );
 }

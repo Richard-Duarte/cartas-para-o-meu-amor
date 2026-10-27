@@ -39,7 +39,7 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
-import { directSocialProviders } from "./direct-providers.server";
+import { directSocialProviders, syncGooglePhoto } from "./direct-providers.server";
 import { serverlessDbUrl, SERVERLESS_POOL } from "../db-url";
 import { pgliteDialect } from "./pglite-dialect";
 import {
@@ -211,6 +211,17 @@ export const auth = betterAuth({
 
   // Login direto com Google (só quando as envs existem; ver direct-providers.server.ts).
   socialProviders: directSocialProviders,
+
+  // Foto herdada do Google (não sobrescreve foto enviada em /conta). Nunca bloqueia o login.
+  databaseHooks: {
+    session: {
+      create: {
+        after: async (session) => {
+          await syncGooglePhoto(session.userId).catch((e) => console.warn("[auth] foto google", e instanceof Error ? e.message : e));
+        },
+      },
+    },
+  },
 
   // Encrypt broker-issued OAuth tokens at rest, and treat the broker's upstreams
   // as trusted first-party identities. The broker owns identity and X emails are

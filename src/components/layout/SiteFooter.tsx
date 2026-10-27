@@ -1,6 +1,6 @@
 "use client";
 
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { LogoMark } from "@/components/layout/LogoMark";
 
 export function SiteFooter() {
@@ -12,12 +12,19 @@ export function SiteFooter() {
           <span>Carta para o meu amor</span>
         </Link>
         <nav className="site-footer-nav" aria-label="Informações">
+          <Link to="/termos">Termos de Uso</Link>
           <Link to="/privacidade">Privacidade</Link>
-          <Link to="/termos">Termos</Link>
           <a href="mailto:contato.cartaparaomeuamor@gmail.com">Contato</a>
         </nav>
       </div>
       <p className="site-footer-note">Papel, selo e um bicho a caminho.</p>
     </footer>
   );
+}
+
+/** Rodapé em todas as páginas (o painel /admin tem layout próprio). */
+export function GlobalFooter() {
+  const path = useRouterState({ select: (s) => s.location.pathname });
+  if (path.startsWith("/admin")) return null;
+  return <SiteFooter />;
 }
