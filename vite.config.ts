@@ -164,6 +164,14 @@ export default defineConfig(({ command, isPreview }) => ({
     strictPort: true,
   },
   resolve: { tsconfigPaths: true },
+  // Versão do build para o service worker (/sw.js?v=…): cada deploy troca os caches.
+  define: {
+    __APP_BUILD__: JSON.stringify(
+      (process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 10) ||
+        process.env.VERCEL_DEPLOYMENT_ID ||
+        `local-${Date.now().toString(36)}`,
+    ),
+  },
   plugins: [
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.

@@ -12,6 +12,9 @@ export function SiteFooter() {
           <span>Carta para o meu amor</span>
         </Link>
         <nav className="site-footer-nav" aria-label="Informações">
+          <Link to="/" hash="app">
+            Baixe o app
+          </Link>
           <Link to="/termos">Termos de Uso</Link>
           <Link to="/privacidade">Privacidade</Link>
           <a href="mailto:contato.cartaparaomeuamor@gmail.com">Contato</a>
