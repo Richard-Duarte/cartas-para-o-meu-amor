@@ -107,8 +107,10 @@ export const startPayment = createServerFn({ method: "POST" })
     let pay: MpPayment;
     try {
       pay = await mp<MpPayment>("/v1/payments", { method: "POST", body: JSON.stringify(body), idempotencyKey: intentId });
-    } catch {
+    } catch (err) {
       await sql`update payment_intents set status = 'error', updated_at = now() where id = ${intentId}`;
+      if (err instanceof Error && err.message.endsWith(":payer-email"))
+        throw new Error("O Mercado Pago não aceitou esse e-mail. Use outro e-mail (por exemplo, Gmail ou Outlook).");
       throw new Error("Não deu para falar com o Mercado Pago agora. Tente de novo.");
     }
     const intent = (await sql<IntentRow>`select * from payment_intents where id = ${intentId} limit 1`)[0];

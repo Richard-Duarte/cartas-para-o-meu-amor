@@ -27,5 +27,5 @@ export type GrokProvider = {
 
 export const GROK_PROVIDERS: readonly GrokProvider[] = [
   { providerId: "grok-google", idp: "google", label: "Google" },
-  { providerId: "grok-x", idp: "twitter", label: "X" },
+  // "Entrar com X" desligado (27/10): a API do X é paga por uso e o login consulta /2/users/me.
 ];
