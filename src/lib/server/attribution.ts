@@ -4,6 +4,7 @@
  * o checkout e a carta nunca dependem disso. Ver docs/tracking.md.
  */
 import { env } from "@/lib/env.server";
+import { paymentsMode } from "@/lib/payments-mode";
 import type { getSql } from "@/lib/db";
 
 type Sql = Awaited<ReturnType<typeof getSql>>;
@@ -77,8 +78,8 @@ async function post(url: string, body: unknown, headers: Record<string, string> 
 
 /** Purchase server-side (Meta CAPI + TikTok Events API). event_id = o mesmo do pixel → deduplica. */
 export async function sendServerPurchase(p: Purchase) {
-  // Pagamento de teste (simulado) nunca vira Purchase. Só com PAYMENTS_LIVE=true e pagamento real.
-  if (env("PAYMENTS_LIVE") !== "true") return;
+  // Pagamento de teste (simulado) nunca vira Purchase: só pagamento real aprovado no Mercado Pago.
+  if (paymentsMode() !== "mercadopago") return;
   const eventId = `purchase-${p.letterId}`;
   const now = Math.floor(Date.now() / 1000);
   const value = Math.max(0, Math.round(p.valueBrl * 100) / 100);

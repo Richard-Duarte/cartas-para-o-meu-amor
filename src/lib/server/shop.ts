@@ -3,10 +3,11 @@ import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
 import { getSql } from "@/lib/db";
+import { paymentsMode } from "@/lib/payments-mode";
 import { approachNoticeAt, cleanEmail, formatArrival, planArrival, whatsAppNumber } from "@/lib/delivery";
 import { requireAdminSession } from "@/lib/server/admin-auth";
 import { attributionSchema } from "@/lib/attribution-schema";
-import { requestContext, saveAttribution, sendServerPurchase } from "@/lib/server/attribution";
+import { saveAttribution } from "@/lib/server/attribution";
 import { ensureNoticeTables, recordAnonymousView } from "@/lib/server/notifications";
 import {
   dispatchDueNotices,
@@ -172,10 +173,7 @@ export const myProfile = createServerFn({ method: "GET" })
     return rows[0] ?? null;
   });
 
-export const checkoutLetter = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
-  .validator(
-    z.object({
+export const checkoutSchema = z.object({
       fromName: z.string(),
       toName: z.string(),
       pagesJson: z.string(),
@@ -201,179 +199,236 @@ export const checkoutLetter = createServerFn({ method: "POST" })
       replyToLetterId: z.string().max(16).optional(),
       /** Origem do anúncio (UTM/fbclid/ttclid). Opcional: clientes antigos não mandam. */
       attribution: attributionSchema,
-    }),
-  )
-  .handler(async ({ context, data }) => {
-    const sql = await getSql();
-    await ensureProfile(sql, context.userId);
-    await ensureDeliveryColumns(sql);
-    await ensureLetterInbox(sql);
-    await ensureReplyColumns(sql);
-    const id = crypto.randomUUID().slice(0, 8);
-    const anonymous = Boolean(data.anonymous);
-    let toName = data.toName;
-    let fromAddressJson = data.fromAddressJson;
-    let fromGeoJson = data.fromGeoJson;
-    let toAddressJson = data.toAddressJson;
-    let toGeoJson = data.toGeoJson;
-    let replyTo: string | null = null;
-    let threadId: string | null = null;
-    let recipientUserId: string | null = null;
-    let recipientEmail: string | null = null;
-    let recipientPhone: string | null = null;
-    if (data.replyToLetterId) {
-      const parent = await replyParent(sql, data.replyToLetterId, context.userId);
-      if (!parent) throw new Error("Só quem recebeu a carta pode responder.");
-      replyTo = parent.id;
-      threadId = parent.thread_id || parent.id;
-      recipientUserId = parent.user_id;
-      recipientEmail = parent.sender_email;
-      recipientPhone = parent.sender_phone;
-      // Regra: anônima ⇔ sem endereço. Resposta a carta anônima é sempre anônima.
-      if (parent.anonymous && !anonymous) throw new Error("Resposta a uma carta anônima é sempre anônima.");
-      toName = parent.anonymous ? "Alguém especial" : parent.from_name;
-      if (anonymous) {
-        toAddressJson = "{}";
-        toGeoJson = "";
-      } else {
-        // Resposta com nome: endereços invertidos da carta original, sempre no servidor.
-        // origem da resposta = destino da original (quem responde); destino = origem da original.
-        fromAddressJson = parent.to_address_json || "{}";
-        fromGeoJson = parseGeo(parent.to_geo_json) ? parent.to_geo_json : "";
-        toAddressJson = parent.from_address_json || "{}";
-        toGeoJson = parseGeo(parent.from_geo_json) ? parent.from_geo_json : "";
-      }
+      /** Só para conferir o valor no servidor (modo Mercado Pago). Opcionais: clientes antigos não mandam. */
+      useCredit: z.boolean().optional(),
+      cartScheduled: z.boolean().optional(),
+    });
+export type CheckoutInput = z.infer<typeof checkoutSchema>;
+
+/** Confere, ANTES de cobrar, o que faria a carta ser recusada depois (resposta e data marcada). */
+export async function precheckLetter(sql: Awaited<ReturnType<typeof getSql>>, userId: string, data: CheckoutInput) {
+  await ensureReplyColumns(sql);
+  const anonymous = Boolean(data.anonymous);
+  let fromGeoJson = data.fromGeoJson;
+  let toGeoJson = data.toGeoJson;
+  if (data.replyToLetterId) {
+    const parent = await replyParent(sql, data.replyToLetterId, userId);
+    if (!parent) throw new Error("Só quem recebeu a carta pode responder.");
+    if (parent.anonymous && !anonymous) throw new Error("Resposta a uma carta anônima é sempre anônima.");
+    if (!anonymous) {
+      fromGeoJson = parent.to_geo_json;
+      toGeoJson = parent.from_geo_json;
     }
-    // Anônima nunca guarda endereço nem coordenada (de origem ou destino) e chega em 2h.
-    const addressless = anonymous;
-    if (addressless) {
-      fromAddressJson = "{}";
-      fromGeoJson = "";
+  }
+  if (anonymous || !data.scheduled) return;
+  const plan = planArrival({
+    messengerId: data.messengerId,
+    from: parseGeo(fromGeoJson) ?? { lat: -23.55, lng: -46.63 },
+    to: parseGeo(toGeoJson) ?? { lat: -22.9, lng: -43.17 },
+    arriveOn: data.arriveOn || null,
+    addressless: false,
+  });
+  if (!plan.fits) throw new Error("Esse mensageiro não chega na data escolhida.");
+}
+
+/**
+ * Cria a carta (e o pedido) já paga. Usada pelo checkout de teste e, no modo Mercado Pago, só depois
+ * do pagamento aprovado. Com `letterId` é idempotente: a 2ª chamada devolve a mesma carta sem repetir
+ * pedido, cupom, comissão ou eventos.
+ */
+export async function placeLetter(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  userId: string,
+  data: CheckoutInput,
+  opts: { letterId?: string } = {},
+) {
+  await ensureProfile(sql, userId);
+  await ensureDeliveryColumns(sql);
+  await ensureLetterInbox(sql);
+  await ensureReplyColumns(sql);
+  const id = opts.letterId ?? crypto.randomUUID().slice(0, 8);
+  const anonymous = Boolean(data.anonymous);
+  let toName = data.toName;
+  let fromAddressJson = data.fromAddressJson;
+  let fromGeoJson = data.fromGeoJson;
+  let toAddressJson = data.toAddressJson;
+  let toGeoJson = data.toGeoJson;
+  let replyTo: string | null = null;
+  let threadId: string | null = null;
+  let recipientUserId: string | null = null;
+  let recipientEmail: string | null = null;
+  let recipientPhone: string | null = null;
+  if (data.replyToLetterId) {
+    const parent = await replyParent(sql, data.replyToLetterId, userId);
+    if (!parent) throw new Error("Só quem recebeu a carta pode responder.");
+    replyTo = parent.id;
+    threadId = parent.thread_id || parent.id;
+    recipientUserId = parent.user_id;
+    recipientEmail = parent.sender_email;
+    recipientPhone = parent.sender_phone;
+    // Regra: anônima ⇔ sem endereço. Resposta a carta anônima é sempre anônima.
+    if (parent.anonymous && !anonymous) throw new Error("Resposta a uma carta anônima é sempre anônima.");
+    toName = parent.anonymous ? "Alguém especial" : parent.from_name;
+    if (anonymous) {
       toAddressJson = "{}";
       toGeoJson = "";
+    } else {
+      // Resposta com nome: endereços invertidos da carta original, sempre no servidor.
+      // origem da resposta = destino da original (quem responde); destino = origem da original.
+      fromAddressJson = parent.to_address_json || "{}";
+      fromGeoJson = parseGeo(parent.to_geo_json) ? parent.to_geo_json : "";
+      toAddressJson = parent.from_address_json || "{}";
+      toGeoJson = parseGeo(parent.from_geo_json) ? parent.from_geo_json : "";
     }
-    const from = parseGeo(fromGeoJson) ?? { lat: -23.55, lng: -46.63 };
-    const to = parseGeo(toGeoJson) ?? { lat: -22.9, lng: -43.17 };
-    const plan = planArrival({
-      messengerId: data.messengerId,
-      from,
-      to,
-      arriveOn: data.scheduled && !addressless ? data.arriveOn || null : null,
+  }
+  // Anônima nunca guarda endereço nem coordenada (de origem ou destino) e chega em 2h.
+  const addressless = anonymous;
+  if (addressless) {
+    fromAddressJson = "{}";
+    fromGeoJson = "";
+    toAddressJson = "{}";
+    toGeoJson = "";
+  }
+  const from = parseGeo(fromGeoJson) ?? { lat: -23.55, lng: -46.63 };
+  const to = parseGeo(toGeoJson) ?? { lat: -22.9, lng: -43.17 };
+  const plan = planArrival({
+    messengerId: data.messengerId,
+    from,
+    to,
+    arriveOn: data.scheduled && !addressless ? data.arriveOn || null : null,
+    addressless,
+  });
+  if (data.scheduled && !plan.fits) {
+    throw new Error("Esse mensageiro não chega na data escolhida.");
+  }
+  await sql`alter table profiles add column if not exists phone text`;
+  const authUser = await sql<{ email: string }>`
+    select email from "user" where id = ${userId} limit 1
+  `;
+  const profile = await sql<{ phone: string | null }>`
+    select phone from profiles where user_id = ${userId} limit 1
+  `;
+  const senderEmail = cleanEmail(authUser[0]?.email ?? "") ?? "";
+  const senderPhone = whatsAppNumber(profile[0]?.phone ?? "") ?? "";
+  const origin = safeOrigin(data.origin);
+  const inserted = await sql<{ id: string }>`
+    insert into letters (
+      id, user_id, from_name, to_name, pages_json, template_id, messenger_id,
+      from_address_json, to_address_json, from_geo_json, to_geo_json,
+      paid_brl, coupon_code, affiliate_code, demo_duration_ms,
+      anonymous, scheduled, recipient_phone, recipient_email, sender_phone, sender_email,
+      share_origin, depart_at, arrive_at, recipient_user_id, reply_to_letter_id, thread_id
+    ) values (
+      ${id}, ${userId}, ${data.fromName}, ${toName}, ${data.pagesJson},
+      ${data.templateId}, ${data.messengerId}, ${fromAddressJson}, ${toAddressJson},
+      ${fromGeoJson}, ${toGeoJson}, ${data.paidBrl}, ${data.couponCode ?? null},
+      ${data.affiliateCode ?? null}, ${data.demoDurationMs},
+      ${anonymous}, ${Boolean(data.scheduled) && !addressless}, ${recipientPhone}, ${recipientEmail},
+      ${senderPhone || null}, ${senderEmail || null}, ${origin},
+      ${plan.departAt.toISOString()}, ${plan.arriveAt.toISOString()},
+      ${recipientUserId}, ${replyTo}, ${threadId}
+    )
+    on conflict (id) do nothing
+    returning id
+  `;
+  if (!inserted.length) {
+    // Já criada (ex.: webhook e consulta de status chegando juntos): devolve a mesma, sem repetir efeitos.
+    const row = await sql<{ to_name: string; depart_at: string; arrive_at: string }>`
+      select to_name, depart_at, arrive_at from letters where id = ${id} limit 1
+    `;
+    return {
+      id,
+      linkSent: false,
+      notice: (plan.instant ? "instant" : "queued") as NoticeState,
       addressless,
-    });
-    if (data.scheduled && !plan.fits) {
-      throw new Error("Esse mensageiro não chega na data escolhida.");
-    }
-    await sql`alter table profiles add column if not exists phone text`;
-    const authUser = await sql<{ email: string }>`
-      select email from "user" where id = ${context.userId} limit 1
-    `;
-    const profile = await sql<{ phone: string | null }>`
-      select phone from profiles where user_id = ${context.userId} limit 1
-    `;
-    const senderEmail = cleanEmail(authUser[0]?.email ?? "") ?? "";
-    const senderPhone = whatsAppNumber(profile[0]?.phone ?? "") ?? "";
-    const origin = safeOrigin(data.origin);
-    await sql`
-      insert into letters (
-        id, user_id, from_name, to_name, pages_json, template_id, messenger_id,
-        from_address_json, to_address_json, from_geo_json, to_geo_json,
-        paid_brl, coupon_code, affiliate_code, demo_duration_ms,
-        anonymous, scheduled, recipient_phone, recipient_email, sender_phone, sender_email,
-        share_origin, depart_at, arrive_at, recipient_user_id, reply_to_letter_id, thread_id
-      ) values (
-        ${id}, ${context.userId}, ${data.fromName}, ${toName}, ${data.pagesJson},
-        ${data.templateId}, ${data.messengerId}, ${fromAddressJson}, ${toAddressJson},
-        ${fromGeoJson}, ${toGeoJson}, ${data.paidBrl}, ${data.couponCode ?? null},
-        ${data.affiliateCode ?? null}, ${data.demoDurationMs},
-        ${anonymous}, ${Boolean(data.scheduled) && !addressless}, ${recipientPhone}, ${recipientEmail},
-        ${senderPhone || null}, ${senderEmail || null}, ${origin},
-        ${plan.departAt.toISOString()}, ${plan.arriveAt.toISOString()},
-        ${recipientUserId}, ${replyTo}, ${threadId}
-      )
-    `;
-    if (replyTo && recipientUserId) {
-      try {
-        await ensureNoticeTables(sql);
-        await sql`
-          insert into notifications (id, user_id, kind, title, body, href, letter_id)
-          values (
-            ${`letter-${id}`}, ${recipientUserId}, 'letter',
-            ${"Chegou uma resposta para a sua carta"},
-            ${anonymous ? "Alguém respondeu sem mostrar o nome." : `${data.fromName.slice(0, 60)} respondeu.`},
-            ${`/acompanhar/${id}`}, ${id}
-          )
-          on conflict (id) do nothing
-        `;
-      } catch {
-        /* o aviso é extra; a carta já foi */
-      }
-    }
-    await sql`
-      insert into orders (id, user_id, letter_id, total_brl, method)
-      values (${crypto.randomUUID().slice(0, 10)}, ${context.userId}, ${id}, ${data.paidBrl}, ${data.method})
-    `;
-    // Anúncios: atribuição (tabela separada) + Purchase server-side. Nunca derrubam o checkout.
-    await saveAttribution(sql, id, context.userId, data.attribution);
-    // Purchase server-side só com pagamento real (PAYMENTS_LIVE=true). Hoje o /pagar é de teste.
-    if (process.env.PAYMENTS_LIVE === "true") {
-      try {
-        const rc = await requestContext();
-        const m = await sql<{ name: string }>`select name from messengers where id = ${data.messengerId} limit 1`.catch(() => []);
-        await sendServerPurchase({
-          letterId: id,
-          messengerId: data.messengerId,
-          messengerName: m[0]?.name ?? data.messengerId,
-          valueBrl: data.paidBrl,
-          email: senderEmail || undefined,
-          externalId: context.userId,
-          sourceUrl: origin ? `${origin}/pagar` : rc.referer,
-          ip: rc.ip,
-          userAgent: rc.userAgent,
-          attribution: data.attribution,
-        });
-      } catch (err) {
-        console.warn("[capi] falhou", err instanceof Error ? err.message : err);
-      }
-    }
-    if (data.couponCode) {
-      await sql`update coupons set uses = uses + 1 where upper(code) = ${data.couponCode.toUpperCase()}`;
-    }
-    if (data.affiliateCode) {
-      const ref = await sql<{ user_id: string }>`
-        select user_id from profiles where affiliate_code = ${data.affiliateCode} limit 1
+      toName: row[0]?.to_name ?? toName,
+      arriveAt: row[0] ? new Date(row[0].arrive_at).getTime() : plan.arriveAt.getTime(),
+      departAt: row[0] ? new Date(row[0].depart_at).getTime() : plan.departAt.getTime(),
+    };
+  }
+  if (replyTo && recipientUserId) {
+    try {
+      await ensureNoticeTables(sql);
+      await sql`
+        insert into notifications (id, user_id, kind, title, body, href, letter_id)
+        values (
+          ${`letter-${id}`}, ${recipientUserId}, 'letter',
+          ${"Chegou uma resposta para a sua carta"},
+          ${anonymous ? "Alguém respondeu sem mostrar o nome." : `${data.fromName.slice(0, 60)} respondeu.`},
+          ${`/acompanhar/${id}`}, ${id}
+        )
+        on conflict (id) do nothing
       `;
-      if (ref[0] && ref[0].user_id !== context.userId) {
-        const setting = await sql<{ value: string }>`
-          select value from app_settings where key = 'affiliate_percent' limit 1
-        `;
-        const percent = Number(setting[0]?.value ?? 10);
-        const commission = Math.max(1, Math.round(data.paidBrl * (percent / 100)));
-        const credit = Math.max(2, Math.round(data.paidBrl * 0.1));
-        await sql`
-          update profiles
-          set credit_brl = credit_brl + ${credit}, payable_brl = payable_brl + ${commission}
-          where user_id = ${ref[0].user_id}
-        `;
-        await sql`
-          insert into affiliate_events (id, referrer_user_id, buyer_user_id, letter_id, credit_brl, commission_brl)
-          values (${crypto.randomUUID().slice(0, 10)}, ${ref[0].user_id}, ${context.userId}, ${id}, ${credit}, ${commission})
-        `;
+    } catch {
+      /* o aviso é extra; a carta já foi */
+    }
+  }
+  await sql`
+    insert into orders (id, user_id, letter_id, total_brl, method)
+    values (${crypto.randomUUID().slice(0, 10)}, ${userId}, ${id}, ${data.paidBrl}, ${data.method})
+  `;
+  // Anúncios: atribuição (tabela separada); nunca derruba o checkout. O Purchase server-side sai
+  // só do pagamento real aprovado (src/lib/server/payments.ts → finalizeIntent).
+  await saveAttribution(sql, id, userId, data.attribution);
+  if (data.couponCode) {
+    await sql`update coupons set uses = uses + 1 where upper(code) = ${data.couponCode.toUpperCase()}`;
+  }
+  if (data.affiliateCode) {
+    const ref = await sql<{ user_id: string }>`
+      select user_id from profiles where affiliate_code = ${data.affiliateCode} limit 1
+    `;
+    if (ref[0] && ref[0].user_id !== userId) {
+      const setting = await sql<{ value: string }>`
+        select value from app_settings where key = 'affiliate_percent' limit 1
+      `;
+      const percent = Number(setting[0]?.value ?? 10);
+      const commission = Math.max(1, Math.round(data.paidBrl * (percent / 100)));
+      const credit = Math.max(2, Math.round(data.paidBrl * 0.1));
+      await sql`
+        update profiles
+        set credit_brl = credit_brl + ${credit}, payable_brl = payable_brl + ${commission}
+        where user_id = ${ref[0].user_id}
+      `;
+      await sql`
+        insert into affiliate_events (id, referrer_user_id, buyer_user_id, letter_id, credit_brl, commission_brl)
+        values (${crypto.randomUUID().slice(0, 10)}, ${ref[0].user_id}, ${userId}, ${id}, ${credit}, ${commission})
+      `;
+    }
+  }
+  if (data.paidBrl === 0) {
+    await sql`update profiles set credit_brl = greatest(credit_brl - 0, credit_brl) where user_id = ${userId}`;
+  }
+  const linkSent = false;
+  let notice: NoticeState = plan.instant ? "instant" : "queued";
+  if (!plan.instant) {
+    const at = approachNoticeAt(new Date(), plan.departAt, plan.arriveAt);
+    if (at) {
+      await sql`update letters set notice_at = ${at.toISOString()} where id = ${id}`;
+      if (at.getTime() <= Date.now()) notice = await dispatchLetterNotice(id);
+    }
+  }
+  return { id, linkSent, notice, addressless, toName, arriveAt: plan.arriveAt.getTime(), departAt: plan.departAt.getTime() };
+}
+
+export const checkoutLetter = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(checkoutSchema)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    if (paymentsMode() === "mercadopago") {
+      // Pagamento real ligado: este atalho só serve para carrinho que sai grátis (cupom/crédito).
+      const { serverCartTotal } = await import("@/lib/server/payments.server");
+      const { total } = await serverCartTotal(sql, context.userId, data);
+      if (total > 0) {
+        // Só as contas de PAYMENT_BYPASS_EMAILS (checado aqui, no servidor) enviam sem pagar.
+        const { bypassAllowed } = await import("@/lib/server/payments.server");
+        if (!(await bypassAllowed(sql, context.userId))) throw new Error("Pagamento necessário.");
+        // Envio de teste: sem receita, sem comissão de afiliado e sem Purchase.
+        return placeLetter(sql, context.userId, { ...data, paidBrl: 0, method: "bypass", affiliateCode: undefined });
       }
+      return placeLetter(sql, context.userId, { ...data, paidBrl: 0 });
     }
-    if (data.paidBrl === 0) {
-      await sql`update profiles set credit_brl = greatest(credit_brl - 0, credit_brl) where user_id = ${context.userId}`;
-    }
-    const linkSent = false;
-    let notice: NoticeState = plan.instant ? "instant" : "queued";
-    if (!plan.instant) {
-      const at = approachNoticeAt(new Date(), plan.departAt, plan.arriveAt);
-      if (at) {
-        await sql`update letters set notice_at = ${at.toISOString()} where id = ${id}`;
-        if (at.getTime() <= Date.now()) notice = await dispatchLetterNotice(id);
-      }
-    }
-    return { id, linkSent, notice, addressless, toName, arriveAt: plan.arriveAt.getTime(), departAt: plan.departAt.getTime() };
+    return placeLetter(sql, context.userId, data);
   });
 
 export const adminDashboard = createServerFn({ method: "GET" })

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CartSummary } from "@/components/cart/CartSummary";
 import { CheckoutForm } from "@/components/cart/CheckoutForm";
+import { MercadoPagoCheckout, type BrickPayment } from "@/components/cart/MercadoPagoCheckout";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { EnvelopeLetter } from "@/components/delivery/EnvelopeLetter";
 import { SendCeremony } from "@/components/letters/SendCeremony";
@@ -25,6 +26,8 @@ import { pagesPlainText } from "@/lib/pages";
 import { prefetchTracking } from "@/lib/prefetch-tracking";
 import { readAttribution, track, trackPurchase } from "@/lib/tracking";
 import { applyCoupon as checkCoupon, checkoutLetter, myProfile, spendCredit } from "@/lib/server/shop";
+import { paymentsConfig, paymentStatus, startPayment } from "@/lib/server/payments";
+import type { PaidResult } from "@/lib/payments-types";
 
 export const Route = createFileRoute("/pagar")({
   component: PayPage,
@@ -41,6 +44,20 @@ function PayPage() {
   const [useCredit, setUseCredit] = useState(true);
   const [error, setError] = useState("");
   const [sent, setSent] = useState<Letter | null>(null);
+  /** "test" = fluxo atual (sem cobrança); "mercadopago" = PIX/cartão reais. Vem do servidor (PAYMENTS_MODE). */
+  const [payMode, setPayMode] = useState<"test" | "mercadopago" | null>(null);
+  /** Conta de teste do dono (PAYMENT_BYPASS_EMAILS): vê também os botões de avançar sem pagar. */
+  const [canSkip, setCanSkip] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    void paymentsConfig()
+      .then((c) => {
+        setPayMode(c.mode);
+        setCanSkip(c.bypass);
+      })
+      .catch(() => setPayMode("test"));
+  }, [user]);
 
   useEffect(() => {
     void bootCatalog().then(() => setDraft(readDraft()));
@@ -72,6 +89,82 @@ function PayPage() {
     track("InitiateCheckout", { id: m.id, name: m.name, value: cart.total }, { extra: { num_items: 1 } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkoutKey]);
+
+  /** O que vai para o servidor (o mesmo no teste e no Mercado Pago). Nada aqui vai para pixel. */
+  function checkoutData(method: string) {
+    if (!draft || !cart) throw new Error("Carrinho vazio");
+    const addressless = draftAddressless(draft);
+    return {
+      fromName: draft.fromName,
+      toName: draft.toName,
+      pagesJson: JSON.stringify(draft.pages),
+      templateId: draft.designId,
+      messengerId: draft.messengerId,
+      // Resposta: o servidor inverte os endereços da carta original.
+      fromAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.fromAddress),
+      // Resposta: o destino é preenchido no servidor (aqui só vai vazio).
+      toAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.toAddress),
+      fromGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.fromGeo ?? {}),
+      toGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.toGeo ?? {}),
+      replyToLetterId: draft.replyTo?.letterId,
+      paidBrl: cart.total,
+      couponCode: couponInfo?.code,
+      affiliateCode: draft.affiliateCode,
+      demoDurationMs: demoDurationMs(getMessenger(draft.messengerId).speedKmh),
+      method,
+      anonymous: Boolean(draft.anonymous),
+      scheduled: Boolean(draft.scheduled) && !addressless,
+      arriveOn: draft.arriveOn,
+      recipientPhone: draft.recipientPhone,
+      recipientEmail: draft.recipientEmail,
+      senderPhone: draft.senderPhone,
+      origin: window.location.origin,
+      attribution: readAttribution(),
+      useCredit: Boolean(useCredit && credit > 0),
+      cartScheduled: Boolean(draft.scheduled),
+    };
+  }
+
+  /** Pagamento real aprovado (Mercado Pago): a carta já foi criada no servidor. */
+  function finishPaid(r: PaidResult) {
+    if (!draft || !cart) return;
+    const addressless = draftAddressless(draft);
+    const m = getMessenger(draft.messengerId);
+    trackPurchase(r.letterId, { id: m.id, name: m.name, value: r.amountBrl }, { approvedPaymentId: r.paymentId });
+    const letter = saveLetter({
+      id: r.letterId,
+      fromName: draft.fromName,
+      toName: r.toName || draft.replyTo?.toLabel || draft.toName,
+      body: pagesPlainText(draft.pages) || "…",
+      pages: draft.pages,
+      designId: draft.designId,
+      messengerId: draft.messengerId,
+      fromCityId: "sp",
+      toCityId: "rj",
+      fromAddress: addressless ? undefined : draft.fromAddress,
+      toAddress: addressless ? undefined : draft.replyTo ? { ...draft.toAddress, street: "" } : draft.toAddress,
+      fromGeo: addressless ? undefined : draft.fromGeo,
+      toGeo: addressless ? undefined : draft.toGeo,
+      addressless,
+      replyToLetterId: draft.replyTo?.letterId ?? null,
+      paidBrl: r.amountBrl,
+      paidMethod: r.method,
+      couponCode: couponInfo?.code,
+      affiliateCode: draft.affiliateCode,
+      anonymous: draft.anonymous,
+      scheduled: draft.scheduled,
+      departAt: r.departAt,
+      arriveAt: r.arriveAt,
+      recipientPhone: draft.recipientPhone,
+      recipientEmail: draft.recipientEmail,
+      senderPhone: draft.senderPhone,
+      linkSent: r.linkSent,
+      notice: r.notice,
+    });
+    clearDraft();
+    setBusy(false);
+    setSent(letter);
+  }
 
   async function pay(method: string) {
     if (!draft || !cart) return;
@@ -109,42 +202,14 @@ function PayPage() {
     try {
       const saved = await Promise.race([
         checkoutLetter({
-          data: {
-            fromName: draft.fromName,
-            toName: draft.toName,
-            pagesJson: JSON.stringify(draft.pages),
-            templateId: draft.designId,
-            messengerId: draft.messengerId,
-            // Resposta: o servidor inverte os endereços da carta original.
-            fromAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.fromAddress),
-            // Resposta: o destino é preenchido no servidor (aqui só vai vazio).
-            toAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.toAddress),
-            fromGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.fromGeo ?? {}),
-            toGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.toGeo ?? {}),
-            replyToLetterId: draft.replyTo?.letterId,
-            paidBrl: cart.total,
-            couponCode: couponInfo?.code,
-            affiliateCode: draft.affiliateCode,
-            demoDurationMs: demoDurationMs(getMessenger(draft.messengerId).speedKmh),
-            method,
-            anonymous: Boolean(draft.anonymous),
-            scheduled: Boolean(draft.scheduled) && !addressless,
-            arriveOn: draft.arriveOn,
-            recipientPhone: draft.recipientPhone,
-            recipientEmail: draft.recipientEmail,
-            senderPhone: draft.senderPhone,
-            origin: window.location.origin,
-            attribution: readAttribution(),
-          },
+          data: checkoutData(method),
         }),
         new Promise<never>((_, reject) =>
           window.setTimeout(() => reject(new Error("checkout-timeout")), 8000),
         ),
       ]);
       id = saved.id;
-      // Purchase só com pagamento real (VITE_PAYMENTS_LIVE=true) e carta confirmada no servidor;
-      // hoje o PIX/cartão é de teste, então não dispara. event_id = o mesmo do envio server-side.
-      trackPurchase(saved.id, product);
+      // Checkout de teste: NUNCA dispara Purchase (só o pagamento real aprovado no Mercado Pago).
       linkSent = saved.linkSent;
       notice = saved.notice;
       serverPlan = { departAt: saved.departAt, arriveAt: saved.arriveAt, toName: saved.toName };
@@ -152,6 +217,12 @@ function PayPage() {
       if (spent && spent.priceBrl < 0) await spendCredit({ data: Math.abs(spent.priceBrl) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
+      if (message.includes("Pagamento necessário") || payMode === "mercadopago") {
+        // Pagamento real ligado: nunca cria carta sem o pagamento aprovado.
+        setBusy(false);
+        setError(message.includes("Pagamento") ? "Escolha PIX ou cartão para pagar." : "Não deu para enviar agora. Tente de novo.");
+        return;
+      }
       if (message.includes("mensageiro")) {
         setBusy(false);
         setError("Esse mensageiro não chega na data escolhida.");
@@ -361,11 +432,34 @@ function PayPage() {
               Usar {credit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de crédito
             </label>
           ) : null}
-          <button type="button" className="pay-submit" onClick={() => void pay("teste")} disabled={busy}>
-            {busy ? "Enviando…" : "Continuar"}
-          </button>
-          <p className="pay-fine">Teste: a carta segue sem PIX nem cartão.</p>
-          {cart.total > 0 ? (
+          {payMode === "mercadopago" ? (
+            cart.total > 0 ? (
+              <MercadoPagoCheckout
+                total={cart.total}
+                payerEmail={user?.primaryEmail ?? undefined}
+                onStart={(p: BrickPayment) => {
+                  const m = getMessenger(draft.messengerId);
+                  track("AddPaymentInfo", { id: m.id, name: m.name, value: cart.total }, { extra: { payment_type: p.method } });
+                  return startPayment({ data: { checkout: checkoutData(p.method), payment: p } });
+                }}
+                onPoll={(intentId) => paymentStatus({ data: { intentId } })}
+                onPaid={finishPaid}
+              />
+            ) : (
+              <button type="button" className="pay-submit" onClick={() => void pay("gratis")} disabled={busy}>
+                {busy ? "Enviando…" : "Enviar (sem custo)"}
+              </button>
+            )
+          ) : null}
+          {payMode === "test" || (payMode === "mercadopago" && canSkip && cart.total > 0) ? (
+            <>
+              <button type="button" className="pay-submit" onClick={() => void pay("teste")} disabled={busy}>
+                {busy ? "Enviando…" : payMode === "mercadopago" ? "Avançar sem pagamento (teste)" : "Continuar"}
+              </button>
+              <p className="pay-fine">Teste: a carta segue sem PIX nem cartão{payMode === "mercadopago" ? " · só nesta conta" : ""}.</p>
+            </>
+          ) : null}
+          {payMode === "test" && cart.total > 0 ? (
             <CheckoutForm
               total={cart.total}
               busy={busy}

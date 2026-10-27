@@ -12,11 +12,6 @@ const META_ID = String(import.meta.env.VITE_META_PIXEL_ID ?? "").trim();
 const TIKTOK_ID = String(import.meta.env.VITE_TIKTOK_PIXEL_ID ?? "").trim();
 
 export const TRACKING_ENABLED = Boolean(META_ID || TIKTOK_ID);
-/**
- * O pagamento de /pagar ainda é de TESTE (PIX/cartão simulados): Purchase NÃO sai.
- * Só quando houver pagamento real confirmado e `VITE_PAYMENTS_LIVE=true` no build.
- */
-export const PAYMENTS_LIVE = String(import.meta.env.VITE_PAYMENTS_LIVE ?? "").trim() === "true";
 
 type Params = Record<string, unknown>;
 type W = Window & {
@@ -215,8 +210,9 @@ export function trackViewMessenger(product: Product) {
 export function purchaseEventId(letterId: string) {
   return `purchase-${letterId}`;
 }
-export function trackPurchase(letterId: string, product: Product) {
-  if (!PAYMENTS_LIVE) return;
+/** Só com pagamento REAL aprovado (Mercado Pago). O checkout de teste nunca dispara Purchase. */
+export function trackPurchase(letterId: string, product: Product, proof: { approvedPaymentId: string }) {
+  if (!proof?.approvedPaymentId) return;
   const s = safeStorage("local");
   const key = `trk:purchase:${letterId}`;
   if (s?.getItem(key)) return;

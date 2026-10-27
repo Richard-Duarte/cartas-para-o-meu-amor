@@ -8,7 +8,7 @@ Tudo depende de variáveis de ambiente. **Se nenhuma estiver definida, nenhum sc
 |---|---|---|
 | `VITE_META_PIXEL_ID` | build (cliente) | ID do Pixel/Dataset do Meta. Carrega o `fbevents.js`. **Valor: `1685962036479525`** (conta de anúncio 4772805709665562, BRL). Pixel ID é público. |
 | `VITE_TIKTOK_PIXEL_ID` | build (cliente) | ID do Pixel do TikTok. Carrega o `events.js`. Ainda não temos o ID. |
-| `VITE_PAYMENTS_LIVE` / `PAYMENTS_LIVE` | build / servidor | **Só `true` quando houver pagamento real.** Sem isso, o Purchase **não sai**, nem do pixel nem do servidor. |
+| `PAYMENTS_MODE` | servidor | `mercadopago` = pagamento real (docs/pagamentos.md). O Purchase só sai de pagamento real aprovado; bypass e teste nunca disparam. |
 | `META_CAPI_TOKEN` | servidor | Token da Conversions API: manda o Purchase pelo servidor. |
 | `TIKTOK_EVENTS_TOKEN` | servidor | Access token da Events API do TikTok: manda o CompletePayment pelo servidor. |
 | `META_PIXEL_ID` / `TIKTOK_PIXEL_ID` | servidor (opcional) | Se ficarem vazias, o servidor usa os `VITE_*`. |
@@ -24,19 +24,14 @@ As `VITE_*` entram no build. Depois de criar ou trocar uma delas, faça um **red
 | ViewContent | Mensageiro visto ou escolhido no passo 3 ("Entregador"); 1x por mensageiro por sessão | `src/routes/escrever.tsx` | `content_ids` = id do mensageiro, `content_name` = nome, `value` = preço base, `currency` = BRL |
 | InitiateCheckout | Abrir `/pagar` com carrinho; 1x por mensageiro + papel | `src/routes/pagar.tsx` | mensageiro e valor total |
 | AddPaymentInfo | Toque em "Já paguei" (PIX) ou envio do cartão | `src/routes/pagar.tsx` (`pay`) | mensageiro, valor e `payment_type` (pix/card) |
-| Purchase / CompletePayment | **Desligado enquanto o pagamento for de teste.** Com `VITE_PAYMENTS_LIVE=true` (cliente) e `PAYMENTS_LIVE=true` (servidor), sai quando o servidor confirma a carta (`checkoutLetter` devolveu o id). | `src/routes/pagar.tsx` e, do lado do servidor, `src/lib/server/shop.ts` → `sendServerPurchase` | `value` = total, `currency` = BRL, `content_ids` = mensageiro, `order_id` = id da carta, `event_id = purchase-<id da carta>` |
+| Purchase / CompletePayment | Só com pagamento real **aprovado** no Mercado Pago. Teste e bypass nunca disparam. | `pagar.tsx` → `finishPaid`; no servidor, `payments.server.ts` → `applyPayment` → `sendServerPurchase` (1x por pagamento) | `value` = valor pago, BRL, `content_ids` = mensageiro, `order_id` e `event_id = purchase-<id da carta>` |
 | CompleteRegistration | Cadastro novo por e-mail (`/login` → "Criar conta"); sai na página seguinte ao redirect | `src/routes/login.tsx` + `queueEvent` | `method: email` |
 
 Purchase sem duplicar:
 - O navegador grava `trk:purchase:<id>` no localStorage. Recarregar a página não dispara de novo.
 - O pixel e o envio pelo servidor usam o mesmo `event_id`, então Meta e TikTok deduplicam.
 
-> ⚠️ Hoje o pagamento é **de teste**: o PIX e o cartão de `CheckoutForm` são simulados. Por isso o Purchase fica **desligado** (`PAYMENTS_LIVE` vazio) e o pagamento de teste nunca conta como compra no Meta ou no TikTok.
->
-> Quando entrar um gateway de verdade (Mercado Pago, Stripe, etc.):
-> 1. Mova `sendServerPurchase` para o webhook de pagamento aprovado, usando o mesmo `event_id = purchase-<id da carta>`.
-> 2. Mova o `trackPurchase` para a tela de confirmação.
-> 3. Ligue `PAYMENTS_LIVE=true` e `VITE_PAYMENTS_LIVE=true`.
+O Purchase sai com o mesmo `event_id` no pixel e no servidor, então o Meta e o TikTok deduplicam.
 
 ## Privacidade
 - Nunca vai para os pixels nada da carta: texto, páginas, nomes, endereços, telefones.

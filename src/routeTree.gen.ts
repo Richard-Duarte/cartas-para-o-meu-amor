@@ -20,6 +20,7 @@ import { Route as AcompanharIndexRouteImport } from './routes/acompanhar.index'
 import { Route as AcompanharLetterIdRouteImport } from './routes/acompanhar.$letterId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronNoticesRouteImport } from './routes/api/cron/notices'
+import { Route as ApiMercadopagoWebhookRouteImport } from './routes/api/mercadopago/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +77,11 @@ const ApiCronNoticesRoute = ApiCronNoticesRouteImport.update({
   path: '/api/cron/notices',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMercadopagoWebhookRoute = ApiMercadopagoWebhookRouteImport.update({
+  id: '/api/mercadopago/webhook',
+  path: '/api/mercadopago/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/acompanhar/': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notices': typeof ApiCronNoticesRoute
+  '/api/mercadopago/webhook': typeof ApiMercadopagoWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/acompanhar': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notices': typeof ApiCronNoticesRoute
+  '/api/mercadopago/webhook': typeof ApiMercadopagoWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/acompanhar/': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/notices': typeof ApiCronNoticesRoute
+  '/api/mercadopago/webhook': typeof ApiMercadopagoWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/acompanhar/'
     | '/api/auth/$'
     | '/api/cron/notices'
+    | '/api/mercadopago/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/acompanhar'
     | '/api/auth/$'
     | '/api/cron/notices'
+    | '/api/mercadopago/webhook'
   id:
     | '__root__'
     | '/'
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/acompanhar/'
     | '/api/auth/$'
     | '/api/cron/notices'
+    | '/api/mercadopago/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   PagarRoute: typeof PagarRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronNoticesRoute: typeof ApiCronNoticesRoute
+  ApiMercadopagoWebhookRoute: typeof ApiMercadopagoWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -248,6 +261,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronNoticesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mercadopago/webhook': {
+      id: '/api/mercadopago/webhook'
+      path: '/api/mercadopago/webhook'
+      fullPath: '/api/mercadopago/webhook'
+      preLoaderRoute: typeof ApiMercadopagoWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -275,6 +295,7 @@ const rootRouteChildren: RootRouteChildren = {
   PagarRoute: PagarRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronNoticesRoute: ApiCronNoticesRoute,
+  ApiMercadopagoWebhookRoute: ApiMercadopagoWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
