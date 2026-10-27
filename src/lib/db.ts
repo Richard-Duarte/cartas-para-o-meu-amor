@@ -93,13 +93,17 @@ function createNeonSql(): Promise<Sql> {
     types.setTypeParser(OID_INT8, Number);
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
+    const { serverlessDbUrl, SERVERLESS_POOL } = await import("./db-url");
     const pool = new Pool({
-      connectionString: databaseUrl,
+      ...SERVERLESS_POOL,
+      connectionString: serverlessDbUrl(databaseUrl),
       // Supabase's pooler cert chain is not in Node's trust store.
       ssl: databaseUrl?.includes("supabase")
         ? { rejectUnauthorized: false }
         : undefined,
     });
+    // Conexão ociosa derrubada pelo pooler não pode derrubar a função.
+    pool.on("error", (err) => console.warn("[db] pool", err.message));
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
