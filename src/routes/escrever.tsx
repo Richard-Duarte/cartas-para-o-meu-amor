@@ -1,16 +1,20 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { ChevronLeft, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddressFields } from "@/components/letters/AddressFields";
 import { ArrivalEstimate, type ArrivalStatus } from "@/components/letters/ArrivalEstimate";
 import { CanvaEditor } from "@/components/letters/CanvaEditor";
 import { deliveryCanContinue, DeliveryChoices } from "@/components/letters/DeliveryChoices";
-import { CartDock, CartSummary } from "@/components/cart/CartSummary";
+import { CartSummary } from "@/components/cart/CartSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { MessengerLivePreview, MessengerPicker } from "@/components/messengers/MessengerPicker";
-import { emptyAddress } from "@/lib/address";
+import { MessengerPicker } from "@/components/messengers/MessengerPicker";
+import { MeasuredBar } from "@/components/ui/MeasuredBar";
+import { emptyAddress, type Address } from "@/lib/address";
 import {
   buildCart,
   emptyDraft,
+  formatBrl,
   readDraft,
   writeDraft,
   type LetterDraft,
@@ -55,11 +59,37 @@ function isGeocodeMiss(geo: Geo) {
   return geo.lat === FALLBACK_FROM.lat && geo.lng === FALLBACK_FROM.lng;
 }
 
-function goWithMotion(apply: () => void) {
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
-  if (typeof doc.startViewTransition === "function") doc.startViewTransition(apply);
-  else apply();
+function geoQuery(a: Address) {
+  return {
+    data: {
+      street: a.street,
+      number: a.number,
+      city: a.city,
+      state: a.state,
+      neighborhood: a.neighborhood,
+      cep: a.cep,
+    },
+  };
 }
+
+/** A rota não pode travar o botão de pagar: depois de alguns segundos segue com o que tem. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        window.clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 function WritePage() {
   const navigate = useNavigate();
@@ -83,6 +113,25 @@ function WritePage() {
   const [geoKey, setGeoKey] = useState("");
   const [geoApproxKey, setGeoApproxKey] = useState("");
   const [geoErrorKey, setGeoErrorKey] = useState("");
+  const [paying, setPaying] = useState(false);
+  const direction = useRef(1);
+  const firstStep = useRef(true);
+  const reduceMotion = useReducedMotion();
+
+  function go(next: number) {
+    direction.current = next >= step ? 1 : -1;
+    setStep(next);
+  }
+
+  // Troca de passo começa do topo, como uma tela nova de app.
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false;
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [step]);
+
   useEffect(() => {
     void bootCatalog().then(() => {
       const draft = readDraft();
@@ -230,26 +279,8 @@ function WritePage() {
       void (async () => {
         try {
           const [fromHit, toHit] = await Promise.all([
-            geocodeAddress({
-              data: {
-                street: fromAddress.street,
-                number: fromAddress.number,
-                city: fromAddress.city,
-                state: fromAddress.state,
-                neighborhood: fromAddress.neighborhood,
-                cep: fromAddress.cep,
-              },
-            }),
-            geocodeAddress({
-              data: {
-                street: toAddress.street,
-                number: toAddress.number,
-                city: toAddress.city,
-                state: toAddress.state,
-                neighborhood: toAddress.neighborhood,
-                cep: toAddress.cep,
-              },
-            }),
+            geocodeAddress(geoQuery(fromAddress)),
+            geocodeAddress(geoQuery(toAddress)),
           ]);
           if (cancel) return;
           setFromGeo(fromHit);
@@ -283,69 +314,68 @@ function WritePage() {
   ]);
 
   async function goPay() {
+    if (paying) return;
+    setPaying(true);
     writeDraft(draft);
+    const next: LetterDraft = { ...draft };
+    // A rota já calculada para estes endereços vale: não precisa esperar o mapa de novo.
+    const fresh = geoKey === addressKey && geoErrorKey !== addressKey && Boolean(fromGeo && toGeo);
     try {
-      if (fromAddress.city) {
-        const g = await geocodeAddress({
-          data: {
-            street: fromAddress.street,
-            number: fromAddress.number,
-            city: fromAddress.city,
-            state: fromAddress.state,
-            neighborhood: fromAddress.neighborhood,
-            cep: fromAddress.cep,
-          },
-        });
-        setFromGeo(g);
-        draft.fromGeo = g;
-      }
-      if (toAddress.city) {
-        const g = await geocodeAddress({
-          data: {
-            street: toAddress.street,
-            number: toAddress.number,
-            city: toAddress.city,
-            state: toAddress.state,
-            neighborhood: toAddress.neighborhood,
-            cep: toAddress.cep,
-          },
-        });
-        setToGeo(g);
-        draft.toGeo = g;
+      if (!fresh && fromAddress.city && toAddress.city) {
+        const [fromHit, toHit] = await withTimeout(
+          Promise.all([geocodeAddress(geoQuery(fromAddress)), geocodeAddress(geoQuery(toAddress))]),
+          8000,
+        );
+        setFromGeo(fromHit);
+        setToGeo(toHit);
+        next.fromGeo = fromHit;
+        next.toGeo = toHit;
       }
     } catch {
-      /* keep city fallback */
+      /* segue com a rota que já existe (ou a da cidade) */
     }
-    writeDraft(draft);
-    void navigate({ to: "/pagar" });
+    writeDraft(next);
+    try {
+      await navigate({ to: "/pagar" });
+    } finally {
+      setPaying(false);
+    }
   }
 
   const stepsNav = (
-        <ol className="write-steps" aria-label="Passos">
-          {STEPS.map((s) => (
-            <li key={s.n}>
-              <button
-                type="button"
-                className={cn("write-step", step === s.n && "is-on", step > s.n && "is-done")}
-                disabled={s.n >= step}
-                onClick={() => {
-                  if (s.n >= step) return;
-                  goWithMotion(() => setStep(s.n));
-                }}
-              >
-                <span className="write-step-n">{s.n}</span>
-                <span className="write-step-label">{s.label}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
+    <ol className="write-steps" aria-label="Passos">
+      {STEPS.map((s) => (
+        <li key={s.n}>
+          <button
+            type="button"
+            className={cn("write-step", step === s.n && "is-on", step > s.n && "is-done")}
+            disabled={s.n >= step}
+            onClick={() => {
+              if (s.n >= step) return;
+              go(s.n);
+            }}
+          >
+            <span className="write-step-n">{s.n}</span>
+            <span className="write-step-label">{s.label}</span>
+          </button>
+        </li>
+      ))}
+    </ol>
   );
+
+  const stageMotion = {
+    initial: reduceMotion ? { opacity: 0 } : { opacity: 0, x: 28 * direction.current },
+    animate: { opacity: 1, x: 0 },
+    transition: { duration: reduceMotion ? 0.12 : 0.34, ease: EASE },
+  };
+
+  const chosen = MESSENGERS.find((m) => m.id === messengerId) ?? MESSENGERS[0];
 
   if (step === 1) {
     return (
       <div className="write-shell min-h-dvh">
         <SiteHeader />
-        <main className="write-main mx-auto max-w-lg px-5">
+        <motion.main key="step-1" className="write-main mx-auto max-w-lg px-5" {...stageMotion}>
           <p className="text-xs uppercase tracking-widest text-rose">
             {anonymous ? "Nova carta anônima" : "Nova carta"}
           </p>
@@ -355,10 +385,10 @@ function WritePage() {
           </p>
           {stepsNav}
           <form
-            className="pay-card-form mt-8 ios-stage"
+            className="pay-card-form mt-8"
             onSubmit={(e) => {
               e.preventDefault();
-              if (canNames) goWithMotion(() => setStep(2));
+              if (canNames) go(2);
             }}
           >
             <label>
@@ -368,6 +398,7 @@ function WritePage() {
                 onChange={(e) => setFromName(e.target.value)}
                 placeholder="Seu nome"
                 autoComplete="name"
+                enterKeyHint="next"
                 required
               />
             </label>
@@ -377,6 +408,7 @@ function WritePage() {
                 value={toName}
                 onChange={(e) => setToName(e.target.value)}
                 placeholder="Nome de quem recebe"
+                enterKeyHint="go"
                 required
               />
             </label>
@@ -384,43 +416,49 @@ function WritePage() {
               Escolher o papel
             </button>
           </form>
-        </main>
+        </motion.main>
       </div>
     );
   }
 
   if (step === 2) {
     return (
-      <div className="write-shell min-h-dvh">
-        <SiteHeader />
-        <div className="canva-steps-wrap">{stepsNav}</div>
+      <div className="write-shell write-shell-editor min-h-dvh">
+        {/* No celular o editor ocupa a tela toda; cabeçalho e passos ficam só no computador. */}
+        <div className="write-chrome">
+          <SiteHeader />
+          <div className="canva-steps-wrap">{stepsNav}</div>
+        </div>
         <div className="paper-arrive">
-        <CanvaEditor
-          designId={designId}
-          onDesignId={setDesignId}
-          pages={pages}
-          onChange={setPages}
-          fromName={fromName}
-          toName={toName}
-          onFromName={setFromName}
-          onToName={setToName}
-          canContinue={canWrite}
-          onContinue={() => goWithMotion(() => setStep(3))}
-        />
+          <CanvaEditor
+            designId={designId}
+            onDesignId={setDesignId}
+            pages={pages}
+            onChange={setPages}
+            fromName={fromName}
+            toName={toName}
+            onFromName={setFromName}
+            onToName={setToName}
+            canContinue={canWrite}
+            onContinue={() => go(3)}
+            onBack={() => go(1)}
+            stepLabel="Passo 2 de 5"
+          />
         </div>
       </div>
     );
   }
 
+  const payLabel = paying ? "Calculando rota…" : "Ir para o pagamento";
+
   return (
-    <div className="write-shell min-h-dvh pb-24">
+    <div className="write-shell write-shell-flow min-h-dvh">
       <SiteHeader />
       <main className="write-main mx-auto max-w-5xl px-5">
         {stepsNav}
 
         <div className={step === 3 ? "mt-6" : "mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]"}>
-          <div key={step} className="ios-stage grid gap-8">
-
+          <motion.div key={`step-${step}`} className="grid min-w-0 gap-6 sm:gap-8" {...stageMotion}>
             {step === 3 ? (
               <>
                 <div>
@@ -435,17 +473,17 @@ function WritePage() {
                   etaApproximate={!(fromGeo && toGeo)}
                   disabledIds={blockedMessengers}
                 />
-                <div className="flex flex-wrap gap-3">
+                <div className="write-actions-inline">
                   <button
                     type="button"
-                    onClick={() => goWithMotion(() => setStep(2))}
+                    onClick={() => go(2)}
                     className="min-h-11 rounded-full border border-line bg-paper px-6"
                   >
                     Voltar
                   </button>
                   <button
                     type="button"
-                    onClick={() => goWithMotion(() => setStep(4))}
+                    onClick={() => go(4)}
                     className="min-h-11 rounded-full bg-rose px-8 text-paper"
                   >
                     Endereço de entrega
@@ -458,15 +496,16 @@ function WritePage() {
               <>
                 <div>
                   <p className="text-sm uppercase tracking-widest text-muted">Entrega</p>
-                  <h2 className="mt-1 font-display text-3xl">De onde sai. Onde pousa.</h2>
+                  <h2 className="mt-1 font-display text-3xl">Onde pousa. De onde sai.</h2>
                   <p className="mt-2 max-w-xl text-muted">
-                    Digite a rua ou o CEP. O correio completa o resto, inclusive o CEP.
+                    Digite o CEP ou a rua. O correio completa o resto.
                   </p>
                 </div>
-                <div className="grid gap-5 lg:grid-cols-2">
-                  <AddressFields label="Origem" value={fromAddress} onChange={setFromAddress} />
-                  <AddressFields label="Destino" value={toAddress} onChange={setToAddress} />
+                <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
+                  <AddressFields label="Destino" hint="Onde a carta chega" value={toAddress} onChange={setToAddress} />
+                  <AddressFields label="Origem" hint="De onde o mensageiro sai" value={fromAddress} onChange={setFromAddress} />
                 </div>
+                <DeliveryChoices {...deliveryProps} />
                 <ArrivalEstimate
                   status={arrivalStatus}
                   from={fromGeo}
@@ -476,28 +515,28 @@ function WritePage() {
                   scheduled={scheduled}
                   arriveOn={arriveOn}
                 />
-                <MessengerLivePreview id={messengerId} />
-                <DeliveryChoices {...deliveryProps} />
-                <div className="flex flex-wrap gap-3">
+                <div className="write-actions-inline">
                   <button
                     type="button"
-                    onClick={() => goWithMotion(() => setStep(3))}
+                    onClick={() => go(3)}
                     className="min-h-11 rounded-full border border-line bg-paper px-6"
                   >
                     Voltar
                   </button>
                   <button
                     type="button"
-                    disabled={!canDeliver}
+                    disabled={!canDeliver || paying}
+                    aria-busy={paying}
                     onClick={() => void goPay()}
-                    className="min-h-11 rounded-full bg-rose px-8 text-paper disabled:opacity-40"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-full bg-rose px-8 text-paper disabled:opacity-40"
                   >
-                    Ir para o pagamento
+                    {paying ? <Loader2 size={16} className="animate-spin" /> : null}
+                    {payLabel}
                   </button>
                 </div>
               </>
             ) : null}
-          </div>
+          </motion.div>
 
           <div className="hidden lg:block">
             <div className="sticky top-24">
@@ -506,7 +545,38 @@ function WritePage() {
           </div>
         </div>
       </main>
-      <CartDock lines={cart.lines} total={cart.total} />
+
+      {/* Barra de ação fixa no polegar (celular e tablet). */}
+      <MeasuredBar spaceVar="--app-bar-space" className="app-actionbar" role="region" aria-label="Continuar">
+        <button
+          type="button"
+          className="app-actionbar-back"
+          onClick={() => go(step - 1)}
+          aria-label="Voltar"
+        >
+          <ChevronLeft size={22} />
+        </button>
+        <div className="app-actionbar-sum">
+          <span>{step === 3 ? chosen.name : canDeliver ? "Total" : "Falta o endereço"}</span>
+          <strong>{formatBrl(cart.total)}</strong>
+        </div>
+        {step === 3 ? (
+          <button type="button" className="app-actionbar-go" onClick={() => go(4)}>
+            Endereço de entrega
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="app-actionbar-go"
+            disabled={!canDeliver || paying}
+            aria-busy={paying}
+            onClick={() => void goPay()}
+          >
+            {paying ? <Loader2 size={18} className="animate-spin" /> : null}
+            {paying ? "Calculando rota…" : "Ir para o pagamento"}
+          </button>
+        )}
+      </MeasuredBar>
     </div>
   );
 }

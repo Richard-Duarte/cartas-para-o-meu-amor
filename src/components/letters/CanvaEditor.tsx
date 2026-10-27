@@ -15,6 +15,8 @@ import {
   AlignVerticalJustifyStart,
   Bold,
   BringToFront,
+  Check,
+  ChevronLeft,
   Copy,
   ImagePlus,
   Italic,
@@ -31,6 +33,8 @@ import {
   Trash2,
   Type,
   Underline,
+  Undo2,
+  X,
 } from "lucide-react";
 import { DESIGNS, getDesign } from "@/lib/designs";
 import { formatBrl } from "@/lib/cart";
@@ -44,6 +48,7 @@ import {
   duplicateBlock,
   headingBlock,
   newPage,
+  pagesPlainText,
   reorderBlock,
   resizeBox,
   rotationFromPointer,
@@ -58,8 +63,33 @@ import {
 } from "@/lib/pages";
 import { STICKER_GROUPS, STICKERS } from "@/lib/stickers";
 import { cn } from "@/lib/utils";
+import { MeasuredBar } from "@/components/ui/MeasuredBar";
 
 type Panel = "design" | "text" | "stickers" | "font" | "size";
+
+/** O seletor de papel abre sozinho só na primeira carta; depois fica no botão "Papel". */
+const PICKER_SEEN_KEY = "cartas-papel-visto";
+const MOBILE_EDITOR = "(max-width: 860px)";
+
+function isMobileEditor() {
+  return typeof window !== "undefined" && window.matchMedia(MOBILE_EDITOR).matches;
+}
+
+function pickerSeen() {
+  try {
+    return window.localStorage.getItem(PICKER_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markPickerSeen() {
+  try {
+    window.localStorage.setItem(PICKER_SEEN_KEY, "1");
+  } catch {
+    /* modo privado: abre de novo na próxima, sem problema */
+  }
+}
 
 type FsDocument = Document & {
   webkitFullscreenElement?: Element | null;
@@ -135,6 +165,10 @@ type Props = {
   onToName: (v: string) => void;
   onContinue: () => void;
   canContinue: boolean;
+  /** Volta para o passo anterior (barra compacta do celular). */
+  onBack?: () => void;
+  /** Ex.: "Passo 2 de 5". */
+  stepLabel?: string;
 };
 
 export function CanvaEditor({
@@ -148,13 +182,15 @@ export function CanvaEditor({
   onToName,
   onContinue,
   canContinue,
+  onBack,
+  stepLabel,
 }: Props) {
   const design = getDesign(designId);
   const [panel, setPanel] = useState<Panel | null>("design");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [stickerPop, setStickerPop] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [dockOpen, setDockOpen] = useState(true);
+  const [dockOpen, setDockOpen] = useState(false);
   const [fullW, setFullW] = useState<number | null>(null);
   const [snapOn, setSnapOn] = useState(false);
   const nativeFs = useRef(false);
@@ -279,6 +315,9 @@ export function CanvaEditor({
   function openFull() {
     setEditing(false);
     setGuides([]);
+    // Abre limpo: só a folha. As ferramentas ficam a um toque.
+    setDockOpen(false);
+    setPanel((current) => current ?? "design");
     setPreviewOpen(true);
     // Precisa ser dentro do clique (gesto do usuário) para o navegador aceitar.
     if (!fullscreenElement()) requestNativeFullscreen();
@@ -381,6 +420,8 @@ export function CanvaEditor({
     patchPageAt(pageI, { ...target, blocks: [...target.blocks, block] });
     setActive(block.id);
     setEditing(block.kind !== "sticker");
+    // No celular a folha de ferramentas fecha para o texto novo aparecer inteiro.
+    if (!previewOpen && isMobileEditor()) setPanel((current) => (current === "text" ? null : current));
   }
 
   function addPageAfter(index: number) {
@@ -407,26 +448,63 @@ export function CanvaEditor({
     if (id) sheetRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
+  const startedWriting = useRef(false);
+
+  /** Carta vazia: o primeiro texto já abre pronto para digitar (no computador, com o cursor nele). */
+  function startWriting() {
+    if (startedWriting.current) return;
+    startedWriting.current = true;
+    if (pagesPlainText(pages).length > 0) return;
+    const first = pages[0]?.blocks.find((b) => b.kind !== "sticker");
+    if (!first || isMobileEditor()) return;
+    setPageI(0);
+    setActive(first.id);
+    setEditing(true);
+  }
+
   useEffect(() => {
-    if (window.matchMedia("(max-width: 860px)").matches) setPickerOpen(true);
+    if (isMobileEditor() && !pickerSeen()) {
+      setPickerOpen(true);
+      return;
+    }
+    startWriting();
+    // Só na abertura do editor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function closePicker() {
+    markPickerSeen();
+    setPickerOpen(false);
+    startWriting();
+  }
 
   function pickDesign(id: string) {
     onDesignId(id);
-    if (window.matchMedia("(max-width: 860px)").matches) setPickerOpen(false);
+    if (isMobileEditor()) closePicker();
   }
 
   function openDesigns() {
     setPanel("design");
-    if (window.matchMedia("(max-width: 860px)").matches) setPickerOpen(true);
+    if (isMobileEditor()) setPickerOpen(true);
   }
 
   function openStickers() {
-    if (window.matchMedia("(max-width: 860px)").matches) {
+    if (isMobileEditor()) {
       setStickerPop(true);
       return;
     }
     setPanel("stickers");
+  }
+
+  /** Abas da barra de baixo no celular: tocar de novo fecha a folha. */
+  function togglePanel(next: Panel) {
+    setPanel((current) => (current === next ? null : next));
+  }
+
+  function clearSelection() {
+    setActive(null);
+    setEditing(false);
+    setGuides([]);
   }
 
   function addPhotoSticker(file: File) {
@@ -563,7 +641,7 @@ export function CanvaEditor({
   });
 
   return (
-    <div className={cn("canva", floatTools && "is-float-tools")}>
+    <div className={cn("canva", floatTools && "is-float-tools", selected && "has-selection", editing && "is-typing")}>
       {/* Sempre montado: o botão "Foto da galeria" funciona no painel, na folha do celular e na tela cheia. */}
       <input
         ref={uploadRef}
@@ -577,9 +655,21 @@ export function CanvaEditor({
         }}
       />
       <div className="canva-top">
+        {onBack ? (
+          <button type="button" className="canva-back" onClick={onBack} aria-label="Voltar para os nomes">
+            <ChevronLeft size={20} />
+            <span>Voltar</span>
+          </button>
+        ) : null}
+        {stepLabel ? (
+          <p className="canva-steplabel">
+            <span>{stepLabel}</span>
+            <strong>Escreva a carta</strong>
+          </p>
+        ) : null}
         <div className="canva-top-left">
-          <button type="button" onClick={undo} className="canva-icon-btn" title="Desfazer">
-            ↺
+          <button type="button" onClick={undo} className="canva-icon-btn" title="Desfazer" aria-label="Desfazer">
+            <Undo2 size={16} />
           </button>
           {selected ? (
             <SelectionActions
@@ -637,6 +727,9 @@ export function CanvaEditor({
         </nav>
 
         <aside className="canva-panel">
+          <button type="button" className="canva-panel-close" onClick={() => setPanel(null)} aria-label="Fechar ferramentas">
+            <X size={18} />
+          </button>
           {panel === "design" ? (
             <>
               <p className="canva-panel-title">Templates</p>
@@ -808,7 +901,6 @@ export function CanvaEditor({
                   fontFamily: design.fontFamily,
                   color: ink,
                   ["--canva-zoom" as string]: String(zoom / 100),
-                  width: `min(${(420 * zoom) / 100}px, ${0.86 * zoom}vw)`,
                 }}
                 onPointerDown={(e) => {
                   e.stopPropagation();
@@ -878,6 +970,47 @@ export function CanvaEditor({
           </button>
         </aside>
 
+        {selected ? (
+          <MeasuredBar
+            spaceVar="--canva-context-space"
+            mode="height"
+            className="canva-context"
+            role="toolbar"
+            aria-label="Editar o elemento selecionado"
+          >
+            <div className="canva-context-scroll">
+              <SelectionActions
+                block={selected}
+                onRemove={removeSelected}
+                onDuplicate={duplicateSelected}
+                onLayer={layerSelected}
+                onResetRotation={() => patchBlock(selected.id, { rotate: 0 })}
+              />
+              <Toolbar
+                block={selected}
+                fallbackFont={design.fontFamily}
+                fallbackColor={ink}
+                disabled={false}
+                onChange={applyType}
+                onAlignPage={(where) => selected && patchBlock(selected.id, alignOnPage(selected, where))}
+              />
+              <button
+                type="button"
+                className={cn("canva-snap-btn", snapOn && "is-on")}
+                aria-pressed={snapOn}
+                title="Guias magnéticas"
+                onClick={() => setSnapOn((v) => !v)}
+              >
+                <Magnet size={15} />
+                Ímã
+              </button>
+            </div>
+            <button type="button" className="canva-context-done" onClick={clearSelection} aria-label="Concluir edição">
+              <Check size={18} />
+            </button>
+          </MeasuredBar>
+        ) : null}
+
         <div className="canva-bottom">
         <p className="canva-page-label">
           Página {pageI + 1} de {pages.length}
@@ -903,6 +1036,32 @@ export function CanvaEditor({
         </div>
       </div>
 
+      <nav className="canva-tabbar" aria-label="Ferramentas da carta">
+        <button type="button" className={cn(pickerOpen && "is-on")} onClick={openDesigns}>
+          <LayoutTemplate size={20} />
+          <span>Papel</span>
+        </button>
+        <button type="button" className={cn(panel === "text" && "is-on")} onClick={() => togglePanel("text")}>
+          <Type size={20} />
+          <span>Texto</span>
+        </button>
+        <button type="button" className={cn(stickerPop && "is-on")} onClick={openStickers}>
+          <Sticker size={20} />
+          <span>Adesivos</span>
+        </button>
+        <button type="button" className={cn(panel === "font" && "is-on")} onClick={() => togglePanel("font")}>
+          <Bold size={20} />
+          <span>Fonte</span>
+        </button>
+        <button type="button" onClick={openFull}>
+          <Maximize2 size={20} />
+          <span>Ampliar</span>
+        </button>
+        <button type="button" className="canva-tabbar-next" disabled={!canContinue} onClick={onContinue}>
+          Continuar
+        </button>
+      </nav>
+
       {fullSheet.mounted
         ? createPortal(
             <div
@@ -914,9 +1073,10 @@ export function CanvaEditor({
               <div className="canva-full-veil" aria-hidden="true" />
               <header className="canva-full-bar">
                 <p>
-                  Sua carta
+                  <span className="canva-full-title">Sua carta</span>
                   <span className="canva-full-count">
-                    Página {pageI + 1} de {pages.length}
+                    {pageI + 1}/{pages.length}
+                    <span className="canva-full-label"> páginas</span>
                   </span>
                 </p>
                 <div className="canva-full-actions">
@@ -933,14 +1093,15 @@ export function CanvaEditor({
                     type="button"
                     className="canva-full-tools"
                     aria-pressed={dockOpen}
+                    aria-label={dockOpen ? "Esconder ferramentas" : "Mostrar ferramentas"}
                     onClick={() => setDockOpen((v) => !v)}
                   >
                     {dockOpen ? <PanelBottomClose size={18} /> : <PanelBottomOpen size={18} />}
-                    {dockOpen ? "Esconder ferramentas" : "Ferramentas"}
+                    <span className="canva-full-label">{dockOpen ? "Esconder ferramentas" : "Ferramentas"}</span>
                   </button>
-                  <button type="button" onClick={closeFull}>
+                  <button type="button" className="canva-full-close" onClick={closeFull} aria-label="Sair da tela cheia">
                     <Minimize2 size={18} />
-                    Fechar
+                    <span className="canva-full-label">Fechar</span>
                   </button>
                 </div>
               </header>
@@ -1126,9 +1287,9 @@ export function CanvaEditor({
               <p className="canva-picker-kicker">Papel</p>
               <h2>Escolha o template</h2>
             </div>
-            <button type="button" className="canva-picker-min" onClick={() => setPickerOpen(false)}>
-              <Minimize2 size={18} />
-              Minimizar
+            <button type="button" className="canva-picker-min" onClick={closePicker}>
+              <Check size={18} />
+              Pronto
             </button>
           </header>
           <input
@@ -1832,8 +1993,21 @@ function CanvasItem({
         onChange(result);
         return;
       }
-      // Toque sem arrastar num texto já selecionado: entra no modo digitar (bom no celular).
-      if (!moved && kind === "move" && wasActive && !isSticker && ev.type === "pointerup") onEdit();
+      // Toque sem arrastar: no celular já entra no modo digitar (um toque só); no mouse,
+      // o primeiro clique seleciona e o segundo (ou dois cliques) escreve.
+      if (!moved && kind === "move" && !isSticker && ev.type === "pointerup" && (wasActive || ev.pointerType !== "mouse")) {
+        // Foca ainda dentro do gesto: o iPhone só abre o teclado assim.
+        const t = textRef.current;
+        if (t) {
+          t.contentEditable = "true";
+          try {
+            t.focus({ preventScroll: true });
+          } catch {
+            /* foco volta no efeito abaixo */
+          }
+        }
+        onEdit();
+      }
     }
 
     window.addEventListener("pointermove", onMove);
@@ -1905,6 +2079,7 @@ function CanvasItem({
         <div
           ref={textRef}
           className="canva-box-text"
+          data-placeholder="Escreva aqui…"
           contentEditable={editing}
           suppressContentEditableWarning
           onPointerDown={(e) => {
@@ -1931,7 +2106,9 @@ function CanvasItem({
           {editing ? null : block.text || "Digite aqui"}
         </div>
       )}
-      {active && !editing ? (
+      {/* Puxadores também enquanto digita: no celular um toque já escreve, e dá para
+          redimensionar ou girar sem sair do texto. */}
+      {active ? (
         <>
           {RESIZE_HANDLES.map((h) => (
             <i

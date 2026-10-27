@@ -401,10 +401,12 @@
   }
 }
 
+/* Canto esquerdo: no direito ficava em cima da atribuição do mapa. */
 .delivery-preview .mute {
   position: fixed;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  left: max(12px, env(safe-area-inset-left));
+  right: auto;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 90;
   width: 44px;
   height: 44px;
@@ -661,4 +663,65 @@
     animation: none !important;
     transition-duration: 0.01s !important;
   }
+}
+
+/* Mapa estático (sem Leaflet/WebGL) — último recurso do fallback. */
+.delivery-preview .static-map {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--cream);
+  filter: sepia(0.25) saturate(0.8);
+}
+
+.delivery-preview .static-map-tiles img {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  max-width: none;
+  user-select: none;
+}
+
+.delivery-preview .static-map-route {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.delivery-preview .static-map-pin {
+  position: absolute;
+  z-index: 2;
+  width: 0;
+  height: 0;
+}
+
+.delivery-preview .static-map-attr {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 0 5px;
+  background: rgb(255 255 255 / 0.8);
+  color: #333;
+  font-family: var(--font-sans), sans-serif;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 9px;
+  line-height: 1.6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delivery-preview .map-retry {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--rose);
+  font: inherit;
+  font-size: 0.85em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }

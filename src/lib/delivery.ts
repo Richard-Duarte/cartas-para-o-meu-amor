@@ -60,6 +60,20 @@ export function formatArrival(date: Date) {
   return `${day} às ${time}`;
 }
 
+/**
+ * Versão média, que cabe numa linha do celular: "terça, 27 de out. às 02:25".
+ * Tira o "-feira" e abrevia o mês.
+ */
+export function formatArrivalCompact(date: Date) {
+  const weekday = date
+    .toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "long" })
+    .replace(/-feira$/i, "");
+  const day = date.toLocaleDateString("pt-BR", { timeZone: TZ, day: "numeric" });
+  const month = date.toLocaleDateString("pt-BR", { timeZone: TZ, month: "short" }).replace(/\.?$/, ".");
+  const time = date.toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+  return `${weekday}, ${day} de ${month} às ${time}`;
+}
+
 /** Versão curta para listas: "sáb., 31/10 às 18:00". */
 export function formatArrivalShort(date: Date) {
   const day = date.toLocaleDateString("pt-BR", {

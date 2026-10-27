@@ -4,6 +4,7 @@ import { CinematicHero } from "@/components/home/CinematicHero";
 import { MessengerMarquee } from "@/components/home/MessengerMarquee";
 import { MessengerShowcase } from "@/components/home/MessengerShowcase";
 import { RitualSteps } from "@/components/home/RitualSteps";
+import { StickyWriteCta } from "@/components/home/StickyWriteCta";
 import { StoryFilm } from "@/components/home/StoryFilm";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -19,9 +20,10 @@ function Home() {
         <CinematicHero />
       </div>
       <main>
+        {/* Primeiro o "como funciona", logo depois do vídeo de abertura. */}
+        <RitualSteps />
         <MessengerMarquee />
         <StoryFilm />
-        <RitualSteps />
         <div id="mensageiros">
           <MessengerShowcase />
         </div>
@@ -40,6 +42,7 @@ function Home() {
         </section>
       </main>
       <SiteFooter />
+      <StickyWriteCta />
     </div>
   );
 }

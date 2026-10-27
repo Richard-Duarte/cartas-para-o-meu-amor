@@ -2,9 +2,9 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { KeyboardLift } from "@/components/layout/KeyboardLift";
-import { SlowScroll } from "@/components/layout/SlowScroll";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { bootCatalog } from "@/lib/catalog";
+import { installChunkReload } from "@/lib/chunk-reload";
 import { pingVisit } from "@/lib/server/shop";
 import appCss from "../styles.css?url";
 
@@ -15,6 +15,8 @@ function Boot() {
     void bootCatalog();
     void pingVisit({ data: window.location.pathname }).catch(() => {});
   }, []);
+  // Aba aberta antes de um deploy: arquivos antigos somem e o import dinâmico falha.
+  useEffect(() => installChunkReload(), []);
   return null;
 }
 
@@ -29,12 +31,18 @@ export const Route = createRootRoute({
         content: "Escreva uma carta, escolha um mensageiro e acompanhe a entrega no mapa.",
       },
       { name: "theme-color", content: "#F6EDE4" },
+      // Na tela de início abre como app (sem a barra do navegador).
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Cartas" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "format-detection", content: "telephone=no" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/__grok/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/__grok/icon-180.png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -52,7 +60,6 @@ export const Route = createRootRoute({
         <PreviewHostBridge />
         <AuthProvider>
           <Boot />
-          <SlowScroll />
           <KeyboardLift />
           <Outlet />
         </AuthProvider>

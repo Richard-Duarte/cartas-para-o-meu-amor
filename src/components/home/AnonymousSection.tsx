@@ -68,7 +68,8 @@ export function AnonymousSection() {
         className="anon-film"
         src={VIDEO}
         playsInline
-        preload="auto"
+        preload="metadata"
+        poster="/media/anonimo-poster.jpg"
         muted
         onLoadedData={(event) => holdFirstFrame(event.currentTarget)}
       />

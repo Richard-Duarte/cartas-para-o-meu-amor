@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SCHEDULE_FEE_BRL } from "@/lib/delivery";
 import {
   MESSENGERS,
@@ -24,6 +24,19 @@ type Props = {
   disabledIds?: Set<string>;
   scheduled?: boolean;
 };
+
+/** Vídeo grande do mensageiro só em tela larga: no celular a lista fica compacta e economiza 4G. */
+function useWide(query = "(min-width: 900px)") {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, [query]);
+  return wide;
+}
 
 function PreviewClip({ id, name }: { id: MessengerId; name: string }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -86,6 +99,7 @@ export function MessengerPicker({
   const selected = MESSENGERS.find((m) => m.id === value) ?? MESSENGERS[0];
   const fee = SCHEDULE_FEE_BRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const hasEta = MESSENGERS.some((m) => Boolean(arriveLabelById?.[m.id]));
+  const wide = useWide();
 
   return (
     <div className="messenger-picker">
@@ -111,6 +125,7 @@ export function MessengerPicker({
               key={m.id}
               type="button"
               disabled={blocked}
+              aria-pressed={active}
               onClick={() => onChange(m.id)}
               className={cn(
                 "messenger-picker-card",
@@ -138,6 +153,7 @@ export function MessengerPicker({
           );
         })}
       </div>
+      {wide ? (
       <div className="messenger-picker-preview">
         <div className="relative aspect-square">
           <AnimatePresence mode="wait">
@@ -155,6 +171,7 @@ export function MessengerPicker({
         </div>
         <p className="px-4 py-3 font-display text-lg">{selected.name}</p>
       </div>
+      ) : null}
     </div>
   );
 }

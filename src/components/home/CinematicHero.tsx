@@ -11,6 +11,7 @@ export function CinematicHero() {
         muted
         loop
         playsInline
+        preload="metadata"
         poster="/media/fundo-poster.jpg"
         aria-hidden="true"
       >

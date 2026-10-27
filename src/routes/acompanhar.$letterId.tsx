@@ -150,14 +150,28 @@ function TrackView({
     <div className="track-screen min-h-dvh">
       <SiteHeader />
       <main className="track-main">
+        {/* Mapa e status primeiro; título compacto em cima e ações logo abaixo do mapa. */}
         <header className="track-hero">
-          <p className="track-kicker">Acompanhar</p>
-          <h1 className="track-title">Uma carta está a caminho</h1>
+          <p className="track-kicker">{delivered ? "Chegou" : "A caminho"}</p>
+          <h1 className="track-title">
+            {delivered ? "A carta chegou" : "Uma carta está a caminho"}
+          </h1>
           <p className="track-sub">
             <span className="track-names">
               {fromLabel} → {letter.toName}
             </span>
           </p>
+        </header>
+
+        <DeliveryJourney
+          ref={journeyRef}
+          letter={letter}
+          allowDownload={delivered}
+          onDelivered={() => setNow(Date.now())}
+          onOpened={() => setOpened(true)}
+        />
+
+        <section className="track-after" aria-label="Detalhes e compartilhar">
           <p className="track-meta">
             {meta.from}
             {" → "}
@@ -166,10 +180,9 @@ function TrackView({
             {meta.animal}
             {meta.price ? ` · ${meta.price}` : ""}
           </p>
-
           <div className="share-bar track-share">
             <button type="button" onClick={copyLink}>
-              {copied ? "Link copiado" : "Copiar link"}
+              {copied ? "Link copiado ✓" : "Copiar link"}
             </button>
             <a href={wa} target="_blank" rel="noreferrer">
               WhatsApp
@@ -194,15 +207,7 @@ function TrackView({
           {!delivered ? (
             <p className="track-note">O download destrava quando a carta chegar.</p>
           ) : null}
-        </header>
-
-        <DeliveryJourney
-          ref={journeyRef}
-          letter={letter}
-          allowDownload={delivered}
-          onDelivered={() => setNow(Date.now())}
-          onOpened={() => setOpened(true)}
-        />
+        </section>
 
         {letter.id !== "demo" && role === "recipient" && !showLetter ? (
           <p className="reply-wait">O comentário abre quando você ler a carta.</p>

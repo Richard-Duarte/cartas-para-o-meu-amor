@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import { LetterDocument } from "@/components/letters/LetterDocument";
 import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
+import { reloadOnceForStaleChunks } from "@/lib/chunk-reload";
 import { getDesign } from "@/lib/designs";
 import { messengerModelId } from "@/lib/messengers";
 import { journeySnapshot, letterEndpoints, letterOverlay } from "./journey";
@@ -54,6 +55,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [mapOnly, setMapOnly] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [pagesEl, setPagesEl] = useState<HTMLElement | null>(null);
   const ends = letterEndpoints(letter);
   const animalId = messengerModelId(letter.messengerId);
@@ -87,6 +89,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
     setReady(false);
     setError("");
     setMapOnly(false);
+    setLoadFailed(false);
     setPagesEl(null);
 
     async function waitLayout() {
@@ -104,9 +107,26 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
       if (!ok && attempt === 0) {
         await new Promise((r) => window.setTimeout(r, 80));
       }
+      // O import do engine (three + leaflet) falha quando o arquivo some (deploy novo com a aba
+      // aberta) ou a rede cai. O navegador guarda essa falha até recarregar, então tentar de novo
+      // aqui não adianta: recarrega uma vez; se já recarregou, mostra o mapa sem 3D.
+      let mountDeliveryPreview: (typeof import("./engine.js"))["mountDeliveryPreview"] | undefined;
       try {
-        const { mountDeliveryPreview } = await import("./engine.js");
-        if (dead) return;
+        ({ mountDeliveryPreview } = await import("./engine.js"));
+      } catch (err) {
+        mountDeliveryPreview = undefined;
+        console.error("[delivery-load]", err);
+      }
+      if (dead) return;
+      if (typeof mountDeliveryPreview !== "function") {
+        if (reloadOnceForStaleChunks()) return;
+        setLoadFailed(true);
+        setMapOnly(true);
+        setError("");
+        setReady(true);
+        return;
+      }
+      try {
         const place = letterEndpoints(letterRef.current);
         const design = getDesign(letterRef.current.designId);
         const cleanup = await mountDeliveryPreview(host, {
@@ -172,7 +192,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   if (mapOnly) {
     return (
       <div className="delivery-slot" aria-label="Viagem do mensageiro">
-        <MapOnlyFallback letter={letter} />
+        <MapOnlyFallback letter={letter} loadFailed={loadFailed} />
       </div>
     );
   }

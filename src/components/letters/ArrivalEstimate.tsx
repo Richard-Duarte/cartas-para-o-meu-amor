@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { earliestDay, formatArrival, formatArrivalShort, planArrival } from "@/lib/delivery";
+import { earliestDay, formatArrivalCompact, formatArrivalShort, planArrival } from "@/lib/delivery";
 import { MESSENGERS, formatEta, getMessenger, type Geo, type MessengerId } from "@/lib/messengers";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +25,17 @@ function useMinuteClock() {
     return () => window.clearInterval(timer);
   }, []);
   return now;
+}
+
+/** "qua., 28/10 às 18:22" em dois pedaços que só quebram entre si, nunca no meio. */
+function ShortWhen({ text }: { text: string }) {
+  const at = text.lastIndexOf(" às ");
+  if (at < 0) return <span className="arrival-eta-nw">{text}</span>;
+  return (
+    <>
+      <span className="arrival-eta-nw">{text.slice(0, at)}</span> <span className="arrival-eta-nw">{text.slice(at + 1)}</span>
+    </>
+  );
 }
 
 /** Previsão de chegada logo abaixo dos endereços, para o mensageiro escolhido e os demais. */
@@ -67,7 +78,8 @@ export function ArrivalEstimate({ status, from, to, messengerId, onMessenger, sc
           <p className="arrival-eta-when">
             {current.plan.fits ? (
               <>
-                {chosen.name} chega <strong>{formatArrival(current.plan.arriveAt)}</strong>
+                <span className="arrival-eta-who">{chosen.name} chega</span>
+                <strong className="arrival-eta-date">{formatArrivalCompact(current.plan.arriveAt)}</strong>
               </>
             ) : (
               <>{chosen.name} não chega no dia escolhido.</>
@@ -94,7 +106,9 @@ export function ArrivalEstimate({ status, from, to, messengerId, onMessenger, sc
               onClick={() => onMessenger(messenger.id)}
             >
               <span>{messenger.name}</span>
-              <span>{plan.fits ? formatArrivalShort(plan.arriveAt) : "não chega nesse dia"}</span>
+              <span className="arrival-eta-row-when">
+                {plan.fits ? <ShortWhen text={formatArrivalShort(plan.arriveAt)} /> : "não chega nesse dia"}
+              </span>
             </button>
           </li>
         ))}

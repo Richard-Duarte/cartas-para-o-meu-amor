@@ -5720,3 +5720,834 @@ body.is-placing {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+
+/* ===================================================================
+   App no celular (mobile-first): toque, barras fixas no polegar,
+   editor em tela inteira, áreas seguras do iPhone.
+   =================================================================== */
+
+/* —— sensação de app —— */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Sem zoom de toque duplo (o pinça continua valendo). */
+  touch-action: manipulation;
+}
+
+:where(a, button, [role="button"], label, summary) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (pointer: coarse) {
+  :where(button, [role="button"]) {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  :where(button, [role="button"], a[href]):active:not(:disabled) {
+    filter: brightness(0.94);
+  }
+}
+
+.app-actionbar button,
+.canva-tabbar button,
+.canva-back,
+.canva-context button,
+.addr-summary,
+.addr-done,
+.home-sticky-cta-btn,
+.pay-submit,
+.choice-card,
+.messenger-picker-card,
+.share-bar button,
+.share-bar a {
+  transition: transform 140ms ease, filter 140ms ease, background-color 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.app-actionbar button:active:not(:disabled),
+.canva-tabbar button:active:not(:disabled),
+.canva-back:active,
+.canva-context button:active:not(:disabled),
+.addr-summary:active,
+.addr-done:active,
+.home-sticky-cta-btn:active,
+.pay-submit:active:not(:disabled),
+.choice-card:active,
+.messenger-picker-card:active:not(:disabled),
+.share-bar button:active:not(:disabled),
+.share-bar a:active {
+  transform: scale(0.97);
+}
+
+/* —— alvos de toque de 44px e textos legíveis —— */
+@media (min-width: 768px) {
+  .site-header-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 0.3rem;
+  }
+}
+
+.canva-share { min-height: 2.75rem; padding: 0 1.15rem; }
+.canva-picker-min { min-height: 2.75rem; }
+.canva-rail button { font-size: 0.72rem; }
+.canva-sticker span { font-size: 0.72rem; }
+.canva-chips button { min-height: 2.25rem; font-size: 0.78rem; }
+.canva-font-group p { font-size: 0.7rem; }
+.canva-pager button span { font-size: 0.72rem; }
+.canva-picker-kicker { font-size: 0.72rem; }
+.paper-new { font-size: 0.7rem; }
+.messenger-tilt-meta { font-size: 0.74rem; }
+
+@media (pointer: coarse) {
+  .addr-fav-btn { min-height: 2.75rem; }
+  .canva-chips button { min-height: 2.6rem; }
+  .canva-font-menu button { min-height: 2.75rem; }
+}
+
+/* —— editor: peças novas (escondidas no computador) —— */
+.canva-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+  padding: 0 0.75rem 0 0.35rem;
+  border-radius: 999px;
+  color: var(--color-ink);
+  font-size: 0.9rem;
+}
+.canva-back:hover { background: #f3eee8; }
+
+.canva-steplabel,
+.canva-tabbar,
+.canva-context,
+.canva-panel-close {
+  display: none;
+}
+
+.canva-box.is-editing .canva-box-text:empty::before {
+  content: attr(data-placeholder);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Tela de computador baixa (celular grande deitado): sem cabeçalho e passos. */
+@media (min-width: 861px) and (max-height: 520px) {
+  .write-shell-editor .write-chrome { display: none; }
+}
+
+/* —— editor no celular —— */
+@media (max-width: 860px) {
+  .write-shell-editor .write-chrome { display: none; }
+
+  .write-shell-editor .paper-arrive { animation-duration: 360ms; }
+
+  .canva {
+    position: relative;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+  }
+
+  /* Uma linha só: Voltar · Passo 2 de 5 · Desfazer */
+  .canva-top {
+    display: flex !important;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 3.25rem;
+    padding: calc(0.25rem + env(safe-area-inset-top)) calc(0.45rem + env(safe-area-inset-right)) 0.25rem
+      calc(0.3rem + env(safe-area-inset-left));
+  }
+  .canva-top > .canva-toolbar,
+  .canva-top > .canva-share,
+  .canva-top .canva-sel-actions {
+    display: none !important;
+  }
+  .canva-top-left {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+  .canva-top .canva-icon-btn {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+  }
+  .canva-steplabel {
+    display: grid;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    text-align: center;
+    line-height: 1.15;
+  }
+  .canva-steplabel span {
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-rose);
+  }
+  .canva-steplabel strong {
+    overflow: hidden;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* A folha ganha o espaço das barras antigas. */
+  .canva-body {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
+  .canva-rail,
+  .canva-bottom,
+  .canva-pager {
+    display: none !important;
+  }
+  .canva-workspace {
+    gap: 0.2rem;
+    padding: 0.7rem 0.5rem 1.4rem;
+    scroll-padding: 0.7rem;
+  }
+  .canva.has-selection .canva-workspace {
+    padding-bottom: 6rem;
+    padding-bottom: calc(var(--canva-context-space, 4.75rem) + 1.25rem);
+  }
+  .canva-sheet {
+    gap: 0.55rem;
+    padding: 0.2rem 0 0.6rem;
+  }
+  .canva-sheet:only-child .canva-sheet-num { display: none; }
+  .canva-workspace .canva-page {
+    /* Cabe na largura e na altura da tela, entre a barra de cima e a de baixo. */
+    width: min(
+      calc(var(--canva-zoom, 1) * (100vw - 1.25rem)),
+      calc(var(--canva-zoom, 1) * (100dvh - 9.25rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.75)
+    );
+  }
+
+  /* Barra de ferramentas no polegar: Papel · Texto · Adesivos · Fonte · Ampliar · Continuar */
+  .canva-tabbar {
+    position: relative;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0.3rem calc(0.45rem + env(safe-area-inset-right)) calc(0.3rem + env(safe-area-inset-bottom))
+      calc(0.35rem + env(safe-area-inset-left));
+    background: #fff;
+    border-top: 1px solid var(--color-line);
+  }
+  .canva-tabbar > button:not(.canva-tabbar-next) {
+    flex: 1 1 0;
+    min-width: 2.75rem;
+    min-height: 3rem;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 0.15rem;
+    padding: 0.2rem 0;
+    border-radius: 0.85rem;
+    color: var(--color-muted);
+    font-size: 0.72rem;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .canva-tabbar > button.is-on {
+    background: #f3eee8;
+    color: var(--color-ink);
+  }
+  .canva-tabbar-next {
+    flex: 0 0 auto;
+    min-height: 2.9rem;
+    margin-left: 0.2rem;
+    padding: 0 1.05rem;
+    border-radius: 999px;
+    background: var(--color-rose);
+    color: var(--color-paper);
+    font-size: 0.92rem;
+    font-weight: 600;
+    box-shadow: 0 8px 18px rgb(232 90 122 / 0.28);
+  }
+  .canva-tabbar-next:disabled {
+    opacity: 0.45;
+    box-shadow: none;
+  }
+
+  /* Formatação só aparece com algo selecionado, flutuando sobre a folha. */
+  .canva-context {
+    position: absolute;
+    left: calc(0.45rem + env(safe-area-inset-left));
+    right: calc(0.45rem + env(safe-area-inset-right));
+    bottom: 0.5rem;
+    z-index: 35;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem;
+    border: 1px solid var(--color-line);
+    border-radius: 1.15rem;
+    background: rgb(255 255 255 / 0.98);
+    box-shadow: 0 14px 32px rgb(26 20 16 / 0.18);
+    animation: paper-rise 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .canva-context-scroll {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding-right: 1.6rem;
+    /* Esmaece a ponta: mostra que dá para deslizar para o lado. */
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 2rem), transparent);
+  }
+  .canva-context-scroll::-webkit-scrollbar { display: none; }
+  .canva-context .canva-toolbar {
+    flex: 0 0 auto;
+    flex-wrap: nowrap !important;
+    overflow: visible;
+    padding: 0;
+    opacity: 1;
+  }
+  .canva-context .canva-sel-actions {
+    flex: 0 0 auto;
+    padding-right: 0.25rem;
+    border-right: 1px solid var(--color-line);
+  }
+  .canva-context .canva-sel-actions .canva-icon-btn {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+  }
+  .canva-context .canva-snap-btn {
+    flex: 0 0 auto;
+    min-height: 2.75rem;
+  }
+  .canva-context-done {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+
+  /* Texto e Fonte abrem numa folha que sobe de baixo, sem empurrar a carta. */
+  .canva.is-float-tools .canva-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: block !important;
+    max-height: min(62%, 24rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 1rem calc(1rem + env(safe-area-inset-right)) 1.1rem calc(1rem + env(safe-area-inset-left));
+    border: 1px solid var(--color-line);
+    border-bottom: 0;
+    border-radius: 1.3rem 1.3rem 0 0;
+    background: #fff;
+    box-shadow: 0 -18px 40px rgb(26 20 16 / 0.14);
+    animation: paper-rise 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .canva-panel-close {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    float: right;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin: -0.45rem -0.45rem 0 0.5rem;
+    border-radius: 999px;
+    background: #f3eee8;
+    color: var(--color-ink);
+  }
+  .canva-panel .canva-toolbar {
+    flex-wrap: wrap !important;
+    overflow: visible;
+  }
+  .canva-add-type { min-height: 3rem; }
+}
+
+/* Celular deitado: folha pela largura, rola para escrever; barras mais baixas. */
+@media (max-width: 860px) and (orientation: landscape) {
+  .canva-top {
+    min-height: 2.9rem;
+    padding-top: calc(0.1rem + env(safe-area-inset-top));
+    padding-bottom: 0.1rem;
+  }
+  .canva-workspace .canva-page {
+    width: min(calc(var(--canva-zoom, 1) * (100vw - 7rem)), calc(var(--canva-zoom, 1) * 26rem));
+  }
+  .canva-tabbar { padding-top: 0.15rem; padding-bottom: calc(0.15rem + env(safe-area-inset-bottom)); }
+  .canva-tabbar > button:not(.canva-tabbar-next) {
+    min-height: 2.75rem;
+    grid-auto-flow: column;
+    gap: 0.35rem;
+  }
+  .canva.is-float-tools .canva-panel { max-height: 80%; }
+}
+
+/* —— tela cheia: uma linha, fundo opaco, folha grande —— */
+.canva-full-veil {
+  background: var(--color-cream);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.canva-full-bar {
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  padding-top: calc(0.4rem + env(safe-area-inset-top));
+  padding-bottom: 0.4rem;
+}
+.canva-full-bar p {
+  min-width: 0;
+  white-space: nowrap;
+}
+.canva-full-actions { flex-wrap: nowrap; }
+.canva-full-bar > .canva-full-actions > button {
+  min-height: 2.75rem;
+  justify-content: center;
+}
+.canva-full-scroll { padding: 0.3rem 0.5rem 1rem; }
+
+@media (max-width: 860px) {
+  .canva-full-title,
+  .canva-full-label { display: none; }
+  .canva-full-bar > .canva-full-actions > button {
+    width: 2.75rem;
+    padding: 0;
+    background: #fff;
+    border: 1px solid var(--color-line);
+  }
+  .canva-full-count {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .canva-full .canva-page {
+    width: min(96vw, calc((100dvh - 4.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 0.75));
+  }
+  .canva-full .canva-dock-pane { max-height: 9.5rem; min-height: 6rem; }
+}
+
+/* —— escrever: barra de ação fixa (passos 3 e 4) —— */
+.write-shell-flow .write-main {
+  /* A barra mede a si mesma (MeasuredBar → --app-bar-space): o fim da página sempre sobe acima dela. */
+  padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  padding-bottom: max(calc(7rem + env(safe-area-inset-bottom)), calc(var(--app-bar-space, 0px) + 1.5rem));
+}
+
+.app-actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem calc(0.85rem + env(safe-area-inset-right)) calc(0.55rem + env(safe-area-inset-bottom))
+    calc(0.85rem + env(safe-area-inset-left));
+  border-top: 1px solid var(--color-line);
+  background: rgb(251 246 240 / 0.96);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.app-actionbar-back {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+.app-actionbar-sum {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.15;
+}
+.app-actionbar-sum span {
+  overflow: hidden;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-actionbar-sum strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  white-space: nowrap;
+}
+@media (max-width: 374px) {
+  .app-actionbar-sum strong { font-size: 1rem; }
+  .app-actionbar .app-actionbar-go { padding-inline: 0.95rem; font-size: 0.86rem; }
+}
+.app-actionbar-go {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 3rem;
+  padding: 0 1.2rem;
+  border-radius: 999px;
+  background: var(--color-rose);
+  color: var(--color-paper);
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 10px 22px rgb(232 90 122 / 0.28);
+}
+.app-actionbar-go:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+.write-actions-inline { display: none; }
+
+@media (min-width: 1024px) {
+  .app-actionbar { display: none; }
+  .write-actions-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .write-shell-flow .write-main { padding-bottom: 4rem; }
+}
+
+/* Teclado aberto no celular: a barra sai da frente dos campos. */
+@media (pointer: coarse) and (max-width: 1023px) {
+  .write-shell-flow:has(input:focus, select:focus, textarea:focus) .app-actionbar { display: none; }
+}
+
+/* —— mensageiros compactos no celular (mais de 3 por tela) —— */
+@media (max-width: 639px) {
+  .messenger-picker-grid { gap: 0.5rem; }
+  .messenger-picker-card {
+    grid-template-columns: 2.9rem minmax(0, 1fr);
+    gap: 0.7rem;
+    min-height: 0;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.95rem;
+  }
+  .messenger-picker-photo {
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 0.65rem;
+  }
+  .messenger-picker-copy { gap: 0.1rem; }
+  .messenger-picker-tag { display: none; }
+  .messenger-picker-name { font-size: 1rem; }
+  .messenger-picker-card.is-on {
+    box-shadow: inset 0 0 0 1px var(--color-rose), 0 6px 16px rgb(26 20 16 / 0.08);
+  }
+}
+
+/* —— entrega: endereços viram resumo editável —— */
+.addr-hint {
+  margin: 0.1rem 0 0;
+  font-size: 0.88rem;
+  color: var(--color-muted);
+}
+.addr-summary {
+  position: relative;
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1.15rem;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  text-align: left;
+  animation: paper-rise 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.addr-summary-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-rose);
+}
+.addr-summary-main {
+  padding-right: 5.5rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+.addr-summary-sub {
+  font-size: 0.88rem;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+.addr-summary-edit {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.4rem;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  background: var(--color-cream);
+  font-size: 0.85rem;
+}
+.addr-done {
+  width: 100%;
+  min-height: 2.9rem;
+  margin-top: 0.95rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-size: 0.92rem;
+}
+
+@media (max-width: 639px) {
+  .addr-card { padding: 0.9rem; }
+  .choice-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .choice-card { min-width: 0; min-height: 0; padding: 0.75rem 0.8rem; overflow-wrap: anywhere; }
+  .choice-card strong { font-size: 0.95rem; line-height: 1.25; }
+  .choice-card span { font-size: 0.8rem; line-height: 1.35; }
+  .arrival-eta { padding: 0.9rem; }
+  .arrival-eta-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arrival-eta-row {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.1rem;
+    min-height: 2.9rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.82rem;
+  }
+  .arrival-note { padding: 0.8rem 0.9rem; font-size: 0.88rem; }
+}
+
+/* —— início: os sete mensageiros num carrossel que anda sozinho —— */
+.messenger-carousel {
+  --pv: 1.18;
+  --gap: 0.8rem;
+  position: relative;
+  overflow: hidden;
+  margin: 1.8rem -1.4rem 0;
+  padding: 0.4rem 1.4rem 1.2rem;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.messenger-carousel-track {
+  display: flex;
+  gap: var(--gap);
+  transform: translate3d(
+    calc(var(--pos, 0) * -1 * ((100% - (var(--pv) - 1) * var(--gap)) / var(--pv) + var(--gap)) + var(--dx, 0px)),
+    0,
+    0
+  );
+  will-change: transform;
+}
+.messenger-carousel-track.is-animated {
+  transition: transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.messenger-carousel-slide {
+  flex: 0 0 calc((100% - (var(--pv) - 1) * var(--gap)) / var(--pv));
+  min-width: 0;
+  perspective: 1200px;
+}
+.messenger-carousel-slide > .messenger-tilt { height: 100%; }
+.messenger-carousel .messenger-tilt-photo { -webkit-user-drag: none; }
+.messenger-carousel-dots {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.2rem;
+}
+.messenger-carousel-dots button {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.75rem;
+}
+.messenger-carousel-dots button::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgb(26 20 16 / 0.18);
+  transition: width 300ms ease, background-color 300ms ease;
+}
+.messenger-carousel-dots button.is-on::before {
+  width: 1.5rem;
+  background: var(--color-rose);
+}
+@media (max-width: 719px) {
+  .messenger-carousel .messenger-tilt-photo { aspect-ratio: 4 / 3; }
+}
+@media (min-width: 720px) {
+  .messenger-carousel { --pv: 2.15; --gap: 0.9rem; }
+}
+@media (min-width: 1100px) {
+  .messenger-carousel {
+    --pv: 3;
+    max-width: 74rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .messenger-carousel-track.is-animated { transition: none; }
+  .messenger-carousel-dots button::before { transition: none; }
+}
+
+.home-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  padding: 1.2rem calc(1rem + env(safe-area-inset-right)) calc(0.75rem + env(safe-area-inset-bottom))
+    calc(1rem + env(safe-area-inset-left));
+  background: linear-gradient(to top, rgb(246 237 228 / 0.95) 35%, rgb(246 237 228 / 0));
+  pointer-events: none;
+}
+.home-sticky-cta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 26rem;
+  min-height: 3.1rem;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--color-rose);
+  color: var(--color-paper);
+  font-weight: 600;
+  box-shadow: 0 14px 30px rgb(232 90 122 / 0.32);
+  pointer-events: auto;
+}
+@media (min-width: 768px) {
+  .home-sticky-cta { display: none; }
+}
+
+/* Vídeo de abertura com o celular deitado: o texto e os dois botões cabem. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .cinematic-hero {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .cinematic-hero-copy {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    justify-content: center;
+    padding: calc(4.3rem + env(safe-area-inset-top)) calc(1.5rem + env(safe-area-inset-right)) 1.2rem
+      calc(1.5rem + env(safe-area-inset-left));
+  }
+  .cinematic-title {
+    margin-top: 0.35rem;
+    font-size: clamp(1.8rem, 8vh + 0.6rem, 2.6rem);
+  }
+  .cinematic-lede {
+    max-width: 40rem;
+    margin-top: 0.5rem;
+    font-size: 0.92rem;
+  }
+  .cinematic-actions {
+    flex-direction: row !important;
+    width: auto !important;
+    margin-top: 0.9rem;
+  }
+  .cinematic-actions .magnetic-btn,
+  .cinematic-actions a {
+    width: auto !important;
+  }
+}
+
+/* —— acompanhar: mapa primeiro, ações compactas embaixo —— */
+.track-hero { margin-bottom: 0.9rem; }
+.track-after {
+  max-width: 46rem;
+  margin: 1rem auto 0;
+  text-align: center;
+}
+.track-after .track-meta { margin-top: 0; }
+
+@media (max-width: 480px) {
+  .track-screen .track-title { font-size: clamp(1.4rem, 6.5vw, 1.8rem); }
+  .track-screen .share-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .track-screen .share-bar button,
+  .track-screen .share-bar a {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canva-context,
+  .canva.is-float-tools .canva-panel,
+  .addr-summary { animation: none; }
+  .app-actionbar button:active,
+  .canva-tabbar button:active,
+  .home-sticky-cta-btn:active,
+  .choice-card:active,
+  .messenger-picker-card:active { transform: none; }
+}
+
+/* —— previsão de chegada: "Pombo-correio chega" em cima, data e hora numa linha só —— */
+.arrival-eta-main {
+  min-width: 0;
+  container-type: inline-size;
+}
+.arrival-eta-when:has(.arrival-eta-date) {
+  display: grid;
+  gap: 0.1rem;
+}
+.arrival-eta-who { display: block; }
+.arrival-eta-when .arrival-eta-date {
+  display: block;
+  overflow: hidden;
+  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 6.3cqi, 1.45rem);
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.arrival-eta-list > li { min-width: 0; }
+.arrival-eta-row { min-width: 0; }
+.arrival-eta-row > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.arrival-eta-row > span.arrival-eta-row-when {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 0.28em;
+  min-width: 0;
+  white-space: normal;
+}
+.arrival-eta-nw { white-space: nowrap; }
+@media (max-width: 639px) {
+  .arrival-eta-row > span.arrival-eta-row-when { justify-content: flex-start; }
+}
