@@ -18,6 +18,11 @@ type Props = {
   hint?: string;
   value: Address;
   onChange: (next: Address) => void;
+  /**
+   * Endereço confirmado pela primeira vez (botão Confirmar ou favorito aplicado).
+   * Não dispara ao reabrir um resumo já preenchido para editar.
+   */
+  onConfirm?: () => void;
 };
 
 /** Dá para fechar o cartão num resumo: CEP completo, rua e cidade. */
@@ -25,7 +30,7 @@ function addressComplete(a: Address) {
   return digitsCep(a.cep).length === 8 && Boolean(a.street.trim()) && Boolean(a.city.trim());
 }
 
-export function AddressFields({ label, hint, value, onChange }: Props) {
+export function AddressFields({ label, hint, value, onChange, onConfirm }: Props) {
   const [status, setStatus] = useState("");
   const [hits, setHits] = useState<Partial<Address>[]>([]);
   const [open, setOpen] = useState(false);
@@ -33,6 +38,14 @@ export function AddressFields({ label, hint, value, onChange }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   // Endereço que já volta preenchido (rascunho) abre fechado, como um resumo editável.
   const [collapsed, setCollapsed] = useState(() => addressComplete(value) && Boolean(value.number.trim()));
+  /** Já foi confirmado uma vez (ou veio pronto): editar depois não puxa a tela. */
+  const confirmedOnce = useRef(collapsed);
+  function confirm() {
+    setCollapsed(true);
+    if (confirmedOnce.current) return;
+    confirmedOnce.current = true;
+    onConfirm?.();
+  }
   const streetRef = useRef(value.street);
   streetRef.current = value.street;
   /** Só sugere ruas quando a pessoa digitou a rua — não quando o CEP preencheu. */
@@ -119,7 +132,7 @@ export function AddressFields({ label, hint, value, onChange }: Props) {
     setOpen(false);
     setPickerOpen(false);
     setStatus(`Favorito “${fav.label}” aplicado`);
-    if (fav.cep && fav.street && fav.city) setCollapsed(true);
+    if (fav.cep && fav.street && fav.city) confirm();
   }
 
   function rememberFavorite() {
@@ -297,7 +310,7 @@ export function AddressFields({ label, hint, value, onChange }: Props) {
         </label>
       </div>
       {complete ? (
-        <button type="button" className="addr-done" onClick={() => setCollapsed(true)}>
+        <button type="button" className="addr-done" onClick={confirm}>
           Confirmar {label.toLowerCase()}
         </button>
       ) : null}

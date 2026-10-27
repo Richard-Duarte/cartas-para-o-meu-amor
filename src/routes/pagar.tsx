@@ -1,17 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CartSummary } from "@/components/cart/CartSummary";
 import { CheckoutForm } from "@/components/cart/CheckoutForm";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { EnvelopeLetter } from "@/components/delivery/EnvelopeLetter";
 import { SendCeremony } from "@/components/letters/SendCeremony";
-import { MessengerPicker } from "@/components/messengers/MessengerPicker";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { addressLine } from "@/lib/address";
 import {
   buildCart,
   clearDraft,
+  formatBrl,
   readDraft,
   writeDraft,
   type LetterDraft,
@@ -19,8 +19,9 @@ import {
 import { bootCatalog } from "@/lib/catalog";
 import { saveLetter, shownFromName, type Letter } from "@/lib/letters";
 import { formatArrival, planArrival } from "@/lib/delivery";
-import { getMessenger, demoDurationMs, type MessengerId } from "@/lib/messengers";
+import { getMessenger, demoDurationMs, messengerPhoto } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
+import { prefetchTracking } from "@/lib/prefetch-tracking";
 import { applyCoupon as checkCoupon, checkoutLetter, myProfile, spendCredit } from "@/lib/server/shop";
 
 export const Route = createFileRoute("/pagar")({
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/pagar")({
 });
 
 function PayPage() {
+  const navigate = useNavigate();
   const { user, isPending } = useCurrentUserState();
   const [draft, setDraft] = useState<LetterDraft | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -64,6 +66,7 @@ function PayPage() {
     if (!draft || !cart) return;
     setBusy(true);
     setError("");
+    prefetchTracking({ messengerId: draft.messengerId, from: draft.fromGeo, to: draft.toGeo });
     await new Promise((r) => window.setTimeout(r, 900));
     const body = pagesPlainText(draft.pages) || "…";
     const from = draft.fromGeo ?? { lat: -23.55, lng: -46.63 };
@@ -159,6 +162,14 @@ function PayPage() {
     setSent(letter);
   }
 
+  // Esquenta a tela de acompanhar (mapa + 3D) enquanto a pessoa paga; de novo ao enviar.
+  const prefetchKey = draft ? `${draft.messengerId}:${draft.fromGeo?.lat}:${draft.toGeo?.lat}` : "";
+  useEffect(() => {
+    if (!draft) return;
+    prefetchTracking({ messengerId: draft.messengerId, from: draft.fromGeo, to: draft.toGeo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefetchKey]);
+
   if (isPending || draft === undefined) {
     return (
       <div className="min-h-dvh">
@@ -204,11 +215,16 @@ function PayPage() {
         <div>
           <p className="text-xs uppercase tracking-widest text-rose">Passo 5</p>
           <h1 className="mt-2 font-logo text-4xl italic leading-tight sm:text-5xl">O lacre antes da viagem.</h1>
-          <p className="mt-3 max-w-xl text-muted">
-            {addressLine(draft.fromAddress) || "Origem"}
-            <br />
-            {addressLine(draft.toAddress) || "Destino"}
-          </p>
+          <dl className="checkout-addr max-w-xl">
+            <div>
+              <dt>De onde sai:</dt>
+              <dd>{addressLine(draft.fromAddress) || "falta o endereço"}</dd>
+            </div>
+            <div>
+              <dt>De onde entrega:</dt>
+              <dd>{addressLine(draft.toAddress) || "falta o endereço"}</dd>
+            </div>
+          </dl>
           <p className="mt-2 max-w-xl">
             {getMessenger(draft.messengerId).name} chega {formatArrival(arrival.arriveAt)}.{" "}
             {draft.anonymous ? "O nome não vai na carta." : "O nome vai na carta."}{" "}
@@ -231,22 +247,43 @@ function PayPage() {
           <div className="checkout-messenger">
             <p className="cart-kicker">Mensageiro</p>
             <h2 className="checkout-messenger-title">Quem leva a carta</h2>
-            <MessengerPicker
-              value={draft.messengerId as MessengerId}
-              onChange={(id) => {
-                const next = { ...draft, messengerId: id };
-                writeDraft(next);
-                setDraft(next);
-              }}
-              scheduled={draft.scheduled}
-            />
+            <div className="chosen-messenger">
+              <img src={messengerPhoto(draft.messengerId)} alt="" width={72} height={72} />
+              <div>
+                <h3>{getMessenger(draft.messengerId).name}</h3>
+                <p>
+                  <b>{formatBrl(getMessenger(draft.messengerId).basePriceBrl)}</b> · chega{" "}
+                  {formatArrival(arrival.arriveAt)}
+                </p>
+              </div>
+              <Link to="/escrever" search={{ passo: 3, voltar: "pagar" }} className="chosen-adjust">
+                Ajustar
+              </Link>
+            </div>
           </div>
-          <Link to="/escrever" className="mt-4 inline-block text-sm text-muted underline-offset-4 hover:underline">
+          <Link
+            to="/escrever"
+            search={{ passo: 4, voltar: "pagar" }}
+            className="mt-4 inline-block text-sm text-muted underline-offset-4 hover:underline"
+          >
             Voltar e ajustar
           </Link>
         </div>
         <div className="checkout-pay">
-          <CartSummary lines={cart.lines} total={cart.total} />
+          <CartSummary
+            lines={cart.lines}
+            total={cart.total}
+            onAdjust={(kind) =>
+              void navigate({
+                to: "/escrever",
+                search:
+                  kind === "paper"
+                    ? { passo: 2, ajustar: "papel", voltar: "pagar" }
+                    : { passo: 3, voltar: "pagar" },
+              })
+            }
+            onBack={() => void navigate({ to: "/escrever", search: { passo: 4, voltar: "pagar" } })}
+          />
           <form
             className="coupon-row"
             onSubmit={(e) => {

@@ -135,7 +135,7 @@ export function ClotheslineSection({ className }: { className?: string }) {
       <div className="mx-auto max-w-5xl px-5">
         <p className="text-xs uppercase tracking-widest text-rose">O papel</p>
         <h2 className="mt-2 max-w-xl font-display text-4xl leading-tight md:text-5xl">
-          O envelope que ela vai guardar.
+          A decoração do seu sentimento.
         </h2>
         <p className="mt-3 max-w-lg text-lg text-muted">
           Papéis para todo jeito de amar. Arraste o varal. O que fizer o peito apertar é o certo.

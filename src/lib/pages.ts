@@ -23,7 +23,15 @@ export type TextBlock = {
   rotate: number;
   src?: string;
   flipX?: boolean;
+  /** Texto que se ajusta ao conteúdo (largura até a margem, altura automática). */
+  fit?: boolean;
 };
+
+/** Largura máxima (%) de um texto ajustado: até a margem direita, espelhando a esquerda (máx. 10%). */
+export function fitMaxWidth(block: Pick<TextBlock, "x">) {
+  const x = Math.max(0, block.x);
+  return Math.max(20, 100 - x - Math.min(x, 10));
+}
 
 export type LetterPage = {
   id: string;
@@ -54,15 +62,15 @@ export function newBlock(partial: Partial<TextBlock> = {}): TextBlock {
 }
 
 export function headingBlock(fontFamily?: string): TextBlock {
-  return newBlock({ y: 12, size: 36, weight: 700, h: 12, text: "", fontFamily });
+  return newBlock({ y: 12, size: 36, weight: 700, h: 12, text: "", fontFamily, fit: true });
 }
 
 export function subheadingBlock(fontFamily?: string): TextBlock {
-  return newBlock({ y: 28, size: 24, weight: 600, h: 12, text: "", fontFamily });
+  return newBlock({ y: 28, size: 24, weight: 600, h: 12, text: "", fontFamily, fit: true });
 }
 
 export function bodyBlock(fontFamily?: string): TextBlock {
-  return newBlock({ y: 42, size: 18, weight: 400, h: 28, text: "", fontFamily });
+  return newBlock({ y: 42, size: 18, weight: 400, h: 28, text: "", fontFamily, fit: true });
 }
 
 export function stickerBlock(src: string): TextBlock {

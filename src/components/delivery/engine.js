@@ -19,11 +19,11 @@ const SHELL = `
 <section class="card map-card"><div id="map"></div><canvas id="mapfx"></canvas>
   <div class="map-ui"><div class="eta"><span id="eta">Em voo…</span><div class="bar"><i id="prog"></i></div></div><button id="skip" class="btn" type="button">Simular chegada</button></div></section>
 <section id="arrival" class="arrival hidden">
-  <div class="card stage-card"><p class="eyebrow">chegou para você</p><h2 id="landed"></h2><div class="stage" id="stageWrap"><canvas id="stage"></canvas></div><p id="hint" class="hint">Toque no animal para receber · arraste para girar</p></div>
+  <div class="card stage-card"><p class="eyebrow">chegou para você</p><h2 id="landed"></h2><div class="stage" id="stageWrap"><canvas id="stage"></canvas></div><p id="hint" class="hint">Toque no animal para receber a carta · arraste para girar</p></div>
   <div class="card env-card"><p class="eyebrow">sua carta</p><h2 id="envTitle">Aguardando…</h2><div class="stage"><canvas id="envc"></canvas></div><p id="envHint" class="hint dim">Receba a carta</p></div>
 </section>
 <div id="flyer" class="flyer"></div>
-<div id="letter" class="letter-overlay" aria-hidden="true"><article class="letter"><button id="close" class="close" type="button" aria-label="Fechar">×</button>
+<div id="letter" class="letter-overlay" aria-hidden="true"><article class="letter"><button id="close" class="close" type="button" aria-label="Fechar"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
 <div id="letterPages"></div></article></div>`;
 
 export async function mountDeliveryPreview(root, options) {
@@ -233,11 +233,11 @@ function refreshMapLayout() {
   if (!alive) return;
   try {
     map.invalidateSize({ animate: false, pan: false });
-    map.fitBounds(routeBounds, { padding: [72, 72], maxZoom: 14 });
+    map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
   } catch (e) {}
   ARC = null;
 }
-map.fitBounds(routeBounds, { padding: [72, 72], maxZoom: 14 });
+map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
 
 const mapCanvas = $('mapfx'), mapEl = root.querySelector('.map-card');
 let map3dOk = true;
@@ -809,7 +809,44 @@ $('stage').addEventListener('click', (ev) => {
   if (performance.now() - stageTapAt < 800) return;
   stageTap(ev);
 });
+// Leva o cartão do envelope inteiro para a vista (abaixo do cabeçalho) e espera a rolagem parar.
+function bringEnvIntoView() {
+  const card = $('envc').closest('.env-card') || $('envc');
+  const header = document.querySelector('.site-header');
+  const top0 = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+  const r = card.getBoundingClientRect();
+  const vh = (window.visualViewport && window.visualViewport.height) || innerHeight;
+  const lo = r.bottom - vh + 12, hi = r.top - top0 - 12; // faixa de deltas que deixa o cartão todo visível
+  let delta = lo <= hi ? (0 < lo ? lo : 0 > hi ? hi : 0) : hi;
+  if (Math.abs(delta) < 4) return Promise.resolve();
+  window.scrollTo({ top: Math.max(0, scrollY + delta), behavior: reduced ? 'auto' : 'smooth' });
+  return new Promise((resolve) => {
+    let last = -1, still = 0; const t0 = performance.now();
+    const tick = () => {
+      if (!alive) return resolve();
+      const y = Math.round(scrollY);
+      still = y === last ? still + 1 : 0; last = y;
+      if (still >= 6 || performance.now() - t0 > 1500) return resolve();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+function whenEnvVisible() {
+  const card = $('envc').closest('.env-card') || $('envc');
+  return new Promise((resolve) => {
+    if (typeof IntersectionObserver === 'undefined') return resolve();
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.intersectionRatio >= 0.8)) { io.disconnect(); resolve(); } }, { threshold: [0, 0.8, 1] });
+    io.observe(card);
+    setTimeout(() => { io.disconnect(); resolve(); }, 2500);
+  });
+}
+let autoOpenEnv = false;
 function flyEnvelope() {
+  bringEnvIntoView().then(() => { if (alive) flyEnvelopeNow(); });
+}
+function flyEnvelopeNow() {
+  autoOpenEnv = true;
   const p = penv.visible ? penv.getWorldPosition(new THREE.Vector3()) : carryPos(new THREE.Vector3()); p.project(scam);
   const r = $('stage').getBoundingClientRect(), e = $('envc').getBoundingClientRect();
   const x0 = r.left + (p.x * 0.5 + 0.5) * r.width - 45, y0 = r.top + (-p.y * 0.5 + 0.5) * r.height - 30;
@@ -890,6 +927,8 @@ const heartMat = new THREE.MeshStandardMaterial({ color: 0xd9506f, roughness: 0.
 // embossed heart: low relief INSIDE the circle (max radius ~0.11 < disc 0.2), sitting on the disc face (z 0.05)
 const heart = new THREE.Mesh(new THREE.ExtrudeGeometry(hs, { depth: 0.006, bevelEnabled: true, bevelSize: 0.01, bevelThickness: 0.01, bevelSegments: 4, curveSegments: 24 }), heartMat); heart.scale.set(0.72, 0.72, 1); heart.position.set(0, 0.012, 0.046); seal.add(heart);
 const hit = new THREE.Mesh(new THREE.SphereGeometry(0.32), new THREE.MeshBasicMaterial({ visible: false })); seal.add(hit);
+let realSheet = false;
+let sheetReady = Promise.resolve(false);
 const letterCanvas = document.createElement('canvas');
 letterCanvas.width = 768;
 letterCanvas.height = 1024;
@@ -932,7 +971,7 @@ function paintLetter() {
     const img = new Image();
     img.decoding = 'async';
     img.onload = () => {
-      if (!alive) return;
+      if (!alive || realSheet) return;
       try {
         g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
         g.fillStyle = 'rgba(251,246,240,0.14)';
@@ -950,9 +989,41 @@ function paintLetter() {
 }
 paintLetter();
 const letterMat = new THREE.MeshBasicMaterial({ map: letterTex, toneMapped: false });
-const letter = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.95, 0.008), letterMat);
+const letter = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.96, 0.008), letterMat);
 letter.position.set(0, -0.02, D / 2 + 0.03);
 env.add(letter);
+  // Folha de verdade: a 1ª página da carta (papel + textos + adesivos), em 3:4.
+  if (options.paintSheet) {
+    const off = document.createElement('canvas');
+    off.width = letterCanvas.width;
+    off.height = letterCanvas.height;
+    sheetReady = Promise.race([Promise.resolve(options.paintSheet(off)), new Promise((r) => setTimeout(() => r(false), 3500))]);
+    sheetReady.then((ok) => {
+      if (!ok || !alive) return;
+      try {
+        off.getContext('2d').getImageData(0, 0, 1, 1); // canvas "sujo" (CORS) não vira textura
+        const g = letterCanvas.getContext('2d');
+        g.clearRect(0, 0, letterCanvas.width, letterCanvas.height);
+        g.drawImage(off, 0, 0);
+        realSheet = true;
+        letterTex.needsUpdate = true;
+      } catch (e) { /* fica a folha genérica */ }
+    }, () => {});
+  }
+  // Frente do envelope: Para (destaque) e De (menor).
+  if (options.paintNames) {
+    const nc = document.createElement('canvas');
+    nc.width = 1024;
+    nc.height = 280;
+    options.paintNames(nc);
+    const nt = new THREE.CanvasTexture(nc);
+    nt.colorSpace = THREE.SRGBColorSpace;
+    nt.anisotropy = 4;
+    const names = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.25), new THREE.MeshBasicMaterial({ map: nt, transparent: true, toneMapped: false, depthWrite: false }));
+    names.position.set(0, -0.375, D / 2 + 0.05 + 0.032);
+    env.add(names);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!alive) return; options.paintNames(nc); nt.needsUpdate = true; });
+  }
 const easeOutBack = (u) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2); };
 const easeOutCubic = (u) => 1 - Math.pow(1 - u, 3);
 const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
@@ -960,7 +1031,11 @@ let envState = 'none', floatAmt = 1;
 function showEnvelope() {
   paintLetter();
   env.visible = true; envState = 'revealing';
-  tween(reduced ? 1 : 1100, (k, u) => { const b = easeOutBack(u); env.scale.setScalar(Math.max(0.01, b)); env.rotation.y = (1 - easeOutCubic(u)) * -2.2; env.position.y = (1 - easeOutCubic(u)) * -0.6; }, () => { envState = 'closed'; });
+  tween(reduced ? 1 : 1100, (k, u) => { const b = easeOutBack(u); env.scale.setScalar(Math.max(0.01, b)); env.rotation.y = (1 - easeOutCubic(u)) * -2.2; env.position.y = (1 - easeOutCubic(u)) * -0.6; }, () => {
+    envState = 'closed';
+    // Veio do toque no animal: abre sozinho quando o envelope está inteiro na tela.
+    if (autoOpenEnv) { autoOpenEnv = false; Promise.all([whenEnvVisible(), sheetReady]).then(() => { if (alive && envState === 'closed') setTimeout(() => { if (alive && envState === 'closed') openEnv(); }, 250); }); }
+  });
   $('envTitle').textContent = 'Uma carta para você'; $('envHint').textContent = 'Toque no selo para abrir'; $('envHint').classList.remove('dim');
 }
 function envTap(ev) {

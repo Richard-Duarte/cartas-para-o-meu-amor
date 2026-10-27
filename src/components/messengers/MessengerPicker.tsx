@@ -1,12 +1,13 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { SCHEDULE_FEE_BRL } from "@/lib/delivery";
 import {
   MESSENGERS,
   formatEta,
   messengerPhoto,
+  messengerPoster,
   messengerPreview,
   type MessengerId,
 } from "@/lib/messengers";
@@ -55,12 +56,55 @@ function PreviewClip({ id, name }: { id: MessengerId; name: string }) {
       muted
       loop
       playsInline
-      poster={messengerPhoto(id)}
+      poster={messengerPoster(id)}
       aria-label={name}
       className="h-full w-full object-contain"
     >
       <source src={messengerPreview(id)} type="video/mp4" />
     </video>
+  );
+}
+
+/** Animal animado dentro do cartão escolhido (celular/tablet). Só o escolhido carrega vídeo. */
+function InlineLive({ id, name, still }: { id: MessengerId; name: string; still: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    void el.play().catch(() => {});
+    // Fora da tela: pausa (economiza bateria/4G); volta a tocar quando aparece.
+    if (typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => {
+      if (e?.isIntersecting) void el.play().catch(() => {});
+      else el.pause();
+    });
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      el.pause();
+      el.removeAttribute("src");
+      el.load();
+    };
+  }, [id]);
+  return (
+    <span className="messenger-picker-live" aria-hidden="true">
+      {still ? (
+        <img src={messengerPhoto(id)} alt="" className="messenger-picker-live-media" />
+      ) : (
+        <video
+          ref={ref}
+          className="messenger-picker-live-media"
+          src={messengerPreview(id)}
+          poster={messengerPhoto(id)}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-label={name}
+        />
+      )}
+    </span>
   );
 }
 
@@ -100,6 +144,31 @@ export function MessengerPicker({
   const fee = SCHEDULE_FEE_BRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const hasEta = MESSENGERS.some((m) => Boolean(arriveLabelById?.[m.id]));
   const wide = useWide();
+  const reduce = useReducedMotion() ?? false;
+  const cardRefs = useRef<Partial<Record<MessengerId, HTMLButtonElement | null>>>({});
+  const firstValue = useRef(value);
+
+  // Cartão escolhido sempre à vista e acima da barra fixa de baixo.
+  useEffect(() => {
+    if (wide || value === firstValue.current) return;
+    firstValue.current = "" as MessengerId;
+    const t = window.setTimeout(() => {
+      const el = cardRefs.current[value];
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const css = getComputedStyle(document.documentElement).getPropertyValue("--app-bar-space");
+      const bar = Number.parseFloat(css) || 96;
+      const header = document.querySelector<HTMLElement>(".site-header");
+      const top = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const overBottom = r.bottom - (vh - bar - 12);
+      const overTop = top + 12 - r.top;
+      const behavior: ScrollBehavior = reduce ? "auto" : "smooth";
+      if (overTop > 0) window.scrollBy({ top: -overTop, behavior });
+      else if (overBottom > 0) window.scrollBy({ top: Math.min(overBottom, r.top - top - 12), behavior });
+    }, reduce ? 0 : 380);
+    return () => window.clearTimeout(t);
+  }, [value, wide, reduce]);
 
   return (
     <div className="messenger-picker">
@@ -121,8 +190,13 @@ export function MessengerPicker({
           const hours = hoursById?.[m.id];
           const fits = Boolean(eta && eta.startsWith("Chega"));
           return (
-            <button
+            <motion.button
               key={m.id}
+              ref={(el: HTMLButtonElement | null) => {
+                cardRefs.current[m.id] = el;
+              }}
+              layout={!wide && !reduce ? "position" : false}
+              transition={{ layout: { duration: 0.35, ease } }}
               type="button"
               disabled={blocked}
               aria-pressed={active}
@@ -149,7 +223,21 @@ export function MessengerPicker({
                   </span>
                 ) : null}
               </span>
-            </button>
+              <AnimatePresence initial={false}>
+                {active && !wide ? (
+                  <motion.span
+                    key="live"
+                    className="messenger-picker-live-wrap"
+                    initial={reduce ? false : { height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={reduce ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                    transition={{ duration: reduce ? 0 : 0.35, ease }}
+                  >
+                    <InlineLive id={m.id} name={m.name} still={reduce} />
+                  </motion.span>
+                ) : null}
+              </AnimatePresence>
+            </motion.button>
           );
         })}
       </div>

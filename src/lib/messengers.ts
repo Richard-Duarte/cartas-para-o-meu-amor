@@ -24,11 +24,16 @@ export type Messenger = {
   previewSrc?: string;
   mapSrc?: string;
   arriveSrc?: string;
+  /** Como viaja: "ar" (voa) ou "terra" (anda). Muda o vocabulário dos endereços. */
+  mode?: TravelMode;
 };
+
+export type TravelMode = "ar" | "terra";
 
 export const MESSENGERS: Messenger[] = [
   {
     id: "plane",
+    mode: "ar",
     name: "Avião",
     tagline: "Cruzeiro direto.",
     flavor: "A carta atravessa o céu em linha quase reta.",
@@ -41,6 +46,7 @@ export const MESSENGERS: Messenger[] = [
   },
   {
     id: "pigeon",
+    mode: "ar",
     name: "Pombo-correio",
     tagline: "O clássico alado.",
     flavor: "Rápido, fiel, um pouco dramático no pouso.",
@@ -53,6 +59,7 @@ export const MESSENGERS: Messenger[] = [
   },
   {
     id: "stork",
+    mode: "ar",
     name: "Cegonha",
     tagline: "Leva com cuidado.",
     flavor: "Voo alto e cerimonioso. Entrega como um presente.",
@@ -65,6 +72,7 @@ export const MESSENGERS: Messenger[] = [
   },
   {
     id: "swan",
+    mode: "ar",
     name: "Cisne",
     tagline: "Elegante demais.",
     flavor: "Desliza como se o mapa fosse um lago.",
@@ -77,6 +85,7 @@ export const MESSENGERS: Messenger[] = [
   },
   {
     id: "horse",
+    mode: "terra",
     name: "Cavalo",
     tagline: "Galope constante.",
     flavor: "Estrada, poeira dourada, chegada altiva.",
@@ -89,6 +98,7 @@ export const MESSENGERS: Messenger[] = [
   },
   {
     id: "donkey",
+    mode: "terra",
     name: "Jegue",
     tagline: "Devagar e teimoso.",
     flavor: "Não tem pressa. A espera faz parte da carta.",
@@ -101,6 +111,7 @@ export const MESSENGERS: Messenger[] = [
   },
   {
     id: "turtle",
+    mode: "terra",
     name: "Tartaruga",
     tagline: "A mais lenta. A mais lembrada.",
     flavor: "Quem escolhe a tartaruga quer que a saudade dure.",
@@ -189,7 +200,20 @@ export function formatEta(hours: number) {
 
 export const MESSENGER_CYCLE: MessengerId[] = MESSENGERS.map((m) => m.id);
 
+/** Foto padrão antiga (fundo branco); vira a versão recortada, sem fundo. */
+const LEGACY_PHOTO = /^\/messengers\/previews\/([a-z]+)\.jpg$/;
+
+/** Foto do mensageiro sem fundo (PNG/WebP com transparência), para assentar no creme dos cartões. */
 export function messengerPhoto(id: MessengerId) {
+  const m = MESSENGERS.find((x) => x.id === id);
+  const src = m?.photoSrc;
+  if (!src || LEGACY_PHOTO.test(src)) return `/messengers/cutout/${id}.webp`;
+  // Foto enviada pelo admin: usa como veio.
+  return src;
+}
+
+/** Capa do vídeo de prévia: o primeiro quadro original, que tem o mesmo fundo do vídeo. */
+export function messengerPoster(id: MessengerId) {
   const m = MESSENGERS.find((x) => x.id === id);
   return m?.photoSrc || `/messengers/previews/${id}.jpg`;
 }
@@ -217,3 +241,32 @@ export const FLIES: Record<string, boolean> = {
   donkey: false,
   turtle: false,
 };
+
+/** Voa ou anda? Usa o campo do mensageiro; sem ele (catálogo antigo), a tabela FLIES. */
+export function messengerMode(id: MessengerId): TravelMode {
+  const m = MESSENGERS.find((x) => x.id === id);
+  if (m?.mode) return m.mode;
+  return FLIES[id] === false ? "terra" : "ar";
+}
+
+export type AddressWording = {
+  heading: string;
+  to: { label: string; hint: string };
+  from: { label: string; hint: string };
+};
+
+/** Textos dos endereços conforme o mensageiro: quem voa pousa; quem anda entrega. */
+export function addressWording(id: MessengerId): AddressWording {
+  if (messengerMode(id) === "terra") {
+    return {
+      heading: "De onde entrega. De onde sai.",
+      to: { label: "De onde entrega", hint: "Onde a carta é entregue" },
+      from: { label: "De onde sai", hint: "De onde o mensageiro parte" },
+    };
+  }
+  return {
+    heading: "Onde pousa. De onde sai.",
+    to: { label: "Destino", hint: "Onde a carta chega" },
+    from: { label: "Origem", hint: "De onde o mensageiro sai" },
+  };
+}

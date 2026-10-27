@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { EnvelopeLetter } from "@/components/delivery/EnvelopeLetter";
 import { letterOverlay } from "@/components/delivery/journey";
-import { shareUrl, type Letter } from "@/lib/letters";
+import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { pagesPlainText } from "@/lib/pages";
 
 type Props = {
@@ -47,7 +47,7 @@ export function SendCeremony({ letter }: Props) {
       <EnvelopeLetter
         mode="close"
         designId={letter.designId ?? "classico"}
-        fromName={letter.fromName}
+        fromName={shownFromName(letter, "public")}
         toName={letter.toName}
         body={letter.body || pagesPlainText(letter.pages ?? [])}
         pages={letter.pages}

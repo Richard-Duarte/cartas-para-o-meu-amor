@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getDesign, type DesignId } from "@/lib/designs";
 import { downloadLetterPng } from "@/lib/download-letter";
-import { blockFontSize, type LetterPage } from "@/lib/pages";
+import { blockFontSize, fitMaxWidth, type LetterPage } from "@/lib/pages";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -102,6 +102,7 @@ export function LetterDocument({
           <article
             key={page?.id ?? "body"}
             data-letter-page={i + 1}
+            aria-label={sheets.length > 1 ? `Página ${i + 1} de ${sheets.length}` : undefined}
             className={cn("letter-sheet", design.ink === "light" && "is-light")}
             style={{
               fontFamily: design.fontFamily,
@@ -110,12 +111,7 @@ export function LetterDocument({
           >
             <div className="letter-sheet-inner">
               {date && i === 0 ? <p className="letter-sheet-date">{date}</p> : null}
-              <p className="letter-sheet-meta">
-                De {from}
-                <span> · </span>
-                Para {to}
-                {sheets.length > 1 ? <span> · Página {i + 1}</span> : null}
-              </p>
+              {/* De/Para ficam no envelope; sem número de página nem nome do papel na carta. */}
               {page ? (
                 <div className="letter-sheet-stage">
                   {page.blocks.map((b) =>
@@ -144,8 +140,9 @@ export function LetterDocument({
                         style={{
                           left: `${b.x}%`,
                           top: `${b.y}%`,
-                          width: `${b.w}%`,
-                          minHeight: `${b.h}%`,
+                          ...(b.fit
+                            ? { width: "max-content", maxWidth: `${fitMaxWidth(b)}%`, padding: "0.2em 0.35em" }
+                            : { width: `${b.w}%`, minHeight: `${b.h}%` }),
                           // Relativo à largura da folha: fica onde foi colocado em qualquer tela.
                           fontSize: blockFontSize(b.size),
                           fontFamily: b.fontFamily || design.fontFamily,
@@ -176,7 +173,6 @@ export function LetterDocument({
                   <em>{from}</em>
                 </p>
               ) : null}
-              <p className="letter-sheet-mark">{design.name}</p>
             </div>
           </article>
         ))}

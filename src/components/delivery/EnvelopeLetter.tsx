@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LetterDocument } from "@/components/letters/LetterDocument";
 import { getDesign, type DesignId } from "@/lib/designs";
+import { letterSheetPainter, paintEnvelopeNames, whenStageSettled } from "@/lib/letter-raster";
 import type { LetterPage } from "@/lib/pages";
 import "./delivery.css";
 
@@ -50,6 +51,11 @@ export function EnvelopeLetter(props: Props) {
           title: propsRef.current.mode === "close" ? "O envelope fecha" : "A carta",
           hint: propsRef.current.mode === "close" ? "Toque no selo para ler de novo" : "Toque no selo para abrir",
           designSrc: design.src,
+          startWhen:
+            propsRef.current.mode === "close" ? () => whenStageSettled(host.querySelector<HTMLElement>(".envelope-only") ?? host.querySelector<HTMLElement>(".stage")) : undefined,
+          paintSheet: letterSheetPainter(propsRef.current.designId, propsRef.current.pages?.[0]),
+          paintNames: (c: HTMLCanvasElement) =>
+            paintEnvelopeNames(c, propsRef.current.toName?.trim() || "Meu amor", propsRef.current.fromName?.trim() || ""),
           getGreeting: () => {
             const name = propsRef.current.toName?.trim().replace(/,$/, "") || "Meu amor";
             return `${name},`;

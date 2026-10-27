@@ -725,3 +725,94 @@
   text-underline-offset: 3px;
   cursor: pointer;
 }
+
+/* Botão fechar: X em SVG, centrado de verdade, alvo de 44px. */
+.delivery-preview .close,
+.delivery-preview .letter:has(.letter-read) .close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  line-height: 1;
+  font-size: 0;
+}
+.delivery-preview .letter:has(.letter-read) .close {
+  margin: 6px 6px -50px auto;
+}
+.delivery-preview .close svg {
+  display: block;
+  flex: none;
+}
+
+/* Progresso fixo NO mapa: cartão translúcido compacto no topo do mapa (a atribuição do
+   Leaflet fica embaixo à direita, o som fica fora do mapa). Só o cartão recebe toques. */
+.delivery-preview .map-card .map-ui {
+  top: 10px;
+  bottom: auto;
+  right: 10px;
+  left: 10px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: stretch;
+  pointer-events: none;
+}
+.delivery-preview .map-card .map-ui > * {
+  pointer-events: auto;
+}
+.delivery-preview .map-card .eta {
+  flex: 1 1 auto;
+  padding: 8px 12px 9px;
+  border: 1px solid rgb(26 20 16 / 0.08);
+  border-radius: 12px;
+  background: rgb(251 246 240 / 0.86);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  backdrop-filter: blur(8px) saturate(1.2);
+  box-shadow: 0 6px 18px rgb(26 20 16 / 0.12);
+  color: #1a1410;
+  font-size: 14px;
+  line-height: 1.25;
+}
+.delivery-preview .map-card .eta > span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.delivery-preview .map-card .bar {
+  height: 4px;
+  margin-top: 6px;
+}
+.delivery-preview .map-card .btn {
+  flex: 0 0 auto;
+  align-self: center;
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+  box-shadow: 0 6px 16px rgb(232 90 122 / 0.28);
+  white-space: nowrap;
+}
+.delivery-preview .map-card .btn[hidden] {
+  display: none;
+}
+.delivery-preview .map-card .map-retry {
+  pointer-events: auto;
+}
+@media (max-width: 480px) {
+  .delivery-preview .map-card .eta,
+  .delivery-preview .map-card .btn {
+    flex: initial;
+  }
+  .delivery-preview .map-card .eta {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+  }
+  .delivery-preview .map-card .btn {
+    padding: 0 12px;
+    font-size: 13px;
+  }
+}
+/* Pinos não ficam escondidos atrás do cartão: o mapa ganha folga em cima (ver fitBounds). */

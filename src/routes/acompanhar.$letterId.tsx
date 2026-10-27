@@ -172,11 +172,20 @@ function TrackView({
         />
 
         <section className="track-after" aria-label="Detalhes e compartilhar">
+          {/* Rota de cima para baixo: sai (ponto) → linha → entrega (pino). Mesma ordem do passo 5. */}
+          <ol className="track-route" aria-label="Rota da carta">
+            <li className="track-route-stop is-from">
+              <span className="track-route-mark" aria-hidden="true" />
+              <span className="track-route-label">De onde sai</span>
+              <span className="track-route-addr">{meta.from}</span>
+            </li>
+            <li className="track-route-stop is-to">
+              <span className="track-route-mark" aria-hidden="true" />
+              <span className="track-route-label">De onde entrega</span>
+              <span className="track-route-addr">{meta.to}</span>
+            </li>
+          </ol>
           <p className="track-meta">
-            {meta.from}
-            {" → "}
-            {meta.to}
-            {" · "}
             {meta.animal}
             {meta.price ? ` · ${meta.price}` : ""}
           </p>

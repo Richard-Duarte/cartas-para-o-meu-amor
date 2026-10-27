@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LetterDocument } from "@/components/letters/LetterDocument";
+import { letterSheetPainter, paintEnvelopeNames } from "@/lib/letter-raster";
 import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { reloadOnceForStaleChunks } from "@/lib/chunk-reload";
 import { getDesign } from "@/lib/designs";
@@ -134,6 +135,13 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           from: place.from,
           to: place.to,
           designSrc: design.src,
+          paintSheet: letterSheetPainter(letterRef.current.designId ?? "classico", letterRef.current.pages?.[0]),
+          paintNames: (c: HTMLCanvasElement) =>
+            paintEnvelopeNames(
+              c,
+              letterRef.current.toName?.trim() || "Meu amor",
+              shownFromName(letterRef.current, "public")?.trim() || "",
+            ),
           getJourney: () => journeySnapshot(letterRef.current),
           getLetter: () => letterOverlay(letterRef.current),
           onDelivered: () => deliveredRef.current?.(),

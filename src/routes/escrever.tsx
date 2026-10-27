@@ -26,13 +26,15 @@ import { geocodeAddress } from "@/lib/server/shop";
 import { cn } from "@/lib/utils";
 import {
   MESSENGERS,
+  addressWording,
   estimateDelivery,
   type Geo,
   type MessengerId,
 } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
+import { scrollToSection } from "@/lib/scroll-to-section";
 
-type WriteSearch = { papel?: string; ref?: string; anonimo?: string };
+type WriteSearch = { papel?: string; ref?: string; anonimo?: string; passo?: number; ajustar?: string; voltar?: string };
 
 export const Route = createFileRoute("/escrever")({
   component: WritePage,
@@ -40,6 +42,11 @@ export const Route = createFileRoute("/escrever")({
     papel: typeof s.papel === "string" ? s.papel : undefined,
     ref: typeof s.ref === "string" ? s.ref : undefined,
     anonimo: s.anonimo === "1" ? "1" : undefined,
+    // "Ajustar" no carrinho: volta direto ao passo, com tudo preservado, e o
+    // "Continuar" leva de novo ao pagamento.
+    passo: [2, 3, 4].includes(Number(s.passo)) ? Number(s.passo) : undefined,
+    ajustar: s.ajustar === "papel" ? "papel" : undefined,
+    voltar: s.voltar === "pagar" ? "pagar" : undefined,
   }),
 });
 
@@ -147,8 +154,13 @@ function WritePage() {
         setFromGeo(draft.fromGeo);
         setToGeo(draft.toGeo);
         setAffiliateCode(search.ref ?? draft.affiliateCode);
-        setAnonymous(search.anonimo === "1");
-        setScheduled(false);
+        const resuming = Boolean(search.passo);
+        setAnonymous(search.anonimo === "1" || (resuming && Boolean(draft.anonymous)));
+        setScheduled(resuming ? Boolean(draft.scheduled) : false);
+        if (search.passo) {
+          firstStep.current = true;
+          setStep(search.passo);
+        }
         setArriveOn(draft.arriveOn ?? "");
       } else if (fromUrl) {
         setDesignId(fromUrl.id);
@@ -159,7 +171,8 @@ function WritePage() {
       if (!draft && search.anonimo === "1") setAnonymous(true);
       setReady(true);
     });
-  }, [search.papel, search.ref, search.anonimo]);
+  }, [search.papel, search.ref, search.anonimo, search.passo]);
+  const backToPay = search.voltar === "pagar";
 
   const draft: LetterDraft = {
     fromName: fromName.trim() || "Você",
@@ -223,6 +236,9 @@ function WritePage() {
   }, [routeFrom, routeTo, scheduled, arriveOn]);
 
   const cart = buildCart(designId, messengerId, { anonymous, scheduled });
+  const wording = addressWording(messengerId);
+  const fromRef = useRef<HTMLDivElement>(null);
+  const envioRef = useRef<HTMLDivElement>(null);
   const canWrite = pagesPlainText(pages).length > 1;
   const canNames = fromName.trim().length > 1 && toName.trim().length > 1;
   const canAddress = Boolean(fromAddress.cep && toAddress.cep && fromAddress.city && toAddress.city);
@@ -440,7 +456,8 @@ function WritePage() {
             onFromName={setFromName}
             onToName={setToName}
             canContinue={canWrite}
-            onContinue={() => go(3)}
+            onContinue={() => (backToPay ? void goPay() : go(3))}
+            openPapers={search.ajustar === "papel"}
             onBack={() => go(1)}
             stepLabel="Passo 2 de 5"
           />
@@ -483,10 +500,10 @@ function WritePage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => go(4)}
+                    onClick={() => (backToPay && canDeliver ? void goPay() : go(4))}
                     className="min-h-11 rounded-full bg-rose px-8 text-paper"
                   >
-                    Endereço de entrega
+                    {backToPay && canDeliver ? "Voltar ao resumo" : "Endereço de entrega"}
                   </button>
                 </div>
               </>
@@ -496,16 +513,32 @@ function WritePage() {
               <>
                 <div>
                   <p className="text-sm uppercase tracking-widest text-muted">Entrega</p>
-                  <h2 className="mt-1 font-display text-3xl">Onde pousa. De onde sai.</h2>
+                  <h2 className="mt-1 font-display text-3xl">{wording.heading}</h2>
                   <p className="mt-2 max-w-xl text-muted">
                     Digite o CEP ou a rua. O correio completa o resto.
                   </p>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
-                  <AddressFields label="Destino" hint="Onde a carta chega" value={toAddress} onChange={setToAddress} />
-                  <AddressFields label="Origem" hint="De onde o mensageiro sai" value={fromAddress} onChange={setFromAddress} />
+                  <AddressFields
+                    label={wording.to.label}
+                    hint={wording.to.hint}
+                    value={toAddress}
+                    onChange={setToAddress}
+                    onConfirm={() => scrollToSection(fromRef.current, true)}
+                  />
+                  <div ref={fromRef} className="scroll-target">
+                    <AddressFields
+                      label={wording.from.label}
+                      hint={wording.from.hint}
+                      value={fromAddress}
+                      onChange={setFromAddress}
+                      onConfirm={() => scrollToSection(envioRef.current, false)}
+                    />
+                  </div>
                 </div>
-                <DeliveryChoices {...deliveryProps} />
+                <div ref={envioRef} className="scroll-target">
+                  <DeliveryChoices {...deliveryProps} />
+                </div>
                 <ArrivalEstimate
                   status={arrivalStatus}
                   from={fromGeo}
@@ -561,8 +594,12 @@ function WritePage() {
           <strong>{formatBrl(cart.total)}</strong>
         </div>
         {step === 3 ? (
-          <button type="button" className="app-actionbar-go" onClick={() => go(4)}>
-            Endereço de entrega
+          <button
+            type="button"
+            className="app-actionbar-go"
+            onClick={() => (backToPay && canDeliver ? void goPay() : go(4))}
+          >
+            {backToPay && canDeliver ? "Voltar ao resumo" : "Endereço de entrega"}
           </button>
         ) : (
           <button

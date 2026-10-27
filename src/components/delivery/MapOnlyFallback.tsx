@@ -79,12 +79,12 @@ export function MapOnlyFallback({ letter, loadFailed = false }: Props) {
           if (dead) return;
           try {
             m.invalidateSize({ animate: false });
-            m.fitBounds(bounds, { padding: [72, 72], maxZoom: 14 });
+            m.fitBounds(bounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
           } catch {
             /* mapa já removido */
           }
         };
-        m.fitBounds(bounds, { padding: [72, 72], maxZoom: 14 });
+        m.fitBounds(bounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
         requestAnimationFrame(refresh);
         window.setTimeout(refresh, 120);
         window.setTimeout(refresh, 400);

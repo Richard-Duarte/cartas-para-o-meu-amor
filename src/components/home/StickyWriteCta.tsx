@@ -38,10 +38,11 @@ export function StickyWriteCta() {
         <motion.div
           key="sticky-write"
           className="home-sticky-cta"
-          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 24 }}
+          // Entra e sai deslizando devagar (sem "pulo"); com movimento reduzido, só esmaece.
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 24 }}
-          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 18 }}
+          transition={{ duration: reduce ? 0.2 : 0.45, ease: [0.22, 1, 0.36, 1] }}
         >
           <Link to="/escrever" className="home-sticky-cta-btn">
             Escrever uma carta

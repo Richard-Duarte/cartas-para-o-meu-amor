@@ -1,5 +1,5 @@
 import { addressLine } from "@/lib/address";
-import { formatArrival } from "@/lib/delivery";
+import { formatArrivalCompact } from "@/lib/delivery";
 import { letterProgress, shownFromName, type Letter } from "@/lib/letters";
 import { FLIES, getCity, getMessenger, messengerModelId, type Geo } from "@/lib/messengers";
 
@@ -47,9 +47,9 @@ export function journeySnapshot(letter: Letter, now = Date.now()): JourneySnapsh
   const pct = Math.round(stats.progress * 100);
   let label: string;
   if (stats.arrived) label = `Chegou em ${to.label}`;
-  else if (stats.waiting) label = `Ainda não saiu · sai ${formatArrival(new Date(stats.departAt))}`;
+  else if (stats.waiting) label = `Ainda não saiu · sai ${formatArrivalCompact(new Date(stats.departAt))}`;
   else
-    label = `${flying ? "Em voo" : "A caminho"} · ${pct}% · chega ${formatArrival(new Date(stats.arriveAt))}`;
+    label = `${flying ? "Em voo" : "A caminho"} · ${pct}% · chega ${formatArrivalCompact(new Date(stats.arriveAt))}`;
   return { progress: stats.progress, arrived: stats.arrived, waiting: stats.waiting, label };
 }
 
