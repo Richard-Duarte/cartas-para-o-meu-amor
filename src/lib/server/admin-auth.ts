@@ -55,9 +55,15 @@ async function ensureAdminRow() {
   try { await sql`alter table affiliate_events add column if not exists commission_brl integer not null default 0`; } catch { /* skip */ }
   const rows = await sql<{ id: string }>`select id from admin_users limit 1`;
   if (rows.length) return sql;
+  // Sem senha padrão no código: o usuário "admin" só é criado (banco novo) se
+  // ADMIN_LEGACY_PASSWORD estiver definida. Sem ela, o login por usuário/senha
+  // fica desligado e o acesso é só pelo Google da marca (ADMIN_EMAILS).
+  const seed = process.env.ADMIN_LEGACY_PASSWORD;
+  if (!seed || seed.length < 8) return sql;
   await sql`
     insert into admin_users (id, username, password_hash)
-    values ('root', 'admin', ${await hashPassword("1234")})
+    values ('root', 'admin', ${await hashPassword(seed)})
+    on conflict (id) do nothing
   `;
   return sql;
 }
@@ -178,7 +184,7 @@ export const adminSession = createServerFn({ method: "GET" }).handler(async () =
 });
 
 export const changeAdminPassword = createServerFn({ method: "POST" })
-  .validator(z.object({ current: z.string(), next: z.string().min(4) }))
+  .validator(z.object({ current: z.string(), next: z.string().min(8) }))
   .handler(async ({ data }) => {
     const sql = await requireAdminSession();
     const rows = await sql<{ password_hash: string }>`
@@ -192,6 +198,9 @@ export const changeAdminPassword = createServerFn({ method: "POST" })
       set password_hash = ${await hashPassword(data.next)}, updated_at = now()
       where username = 'admin'
     `;
+    // Trocar a senha derruba as outras sessões de usuário/senha (mantém só a atual).
+    const token = await readToken();
+    await sql`delete from admin_sessions where token <> ${token}`;
     return { ok: true as const };
   });
 

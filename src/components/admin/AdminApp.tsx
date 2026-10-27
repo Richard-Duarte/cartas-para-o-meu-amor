@@ -711,7 +711,7 @@ function PasswordPanel() {
         </label>
         <label>
           Nova senha
-          <input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={4} required />
+          <input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required />
         </label>
         <button className="pay-submit" type="submit">Alterar senha</button>
         {msg ? <p className="text-sm text-muted">{msg}</p> : null}
