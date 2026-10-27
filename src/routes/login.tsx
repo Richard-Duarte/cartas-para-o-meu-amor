@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { authClient, authEnabled } from "@/lib/auth/client";
 import { SocialSignInButtons } from "@/components/auth/SocialButtons";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { queueEvent } from "@/lib/tracking";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>): { next?: string } => {
@@ -48,7 +49,11 @@ function Login() {
         : await authClient.signIn.email({ email, password });
     setBusy(false);
     if (err) setError(authErrorPt(err.message) ?? "Não foi possível entrar");
-    else window.location.href = after;
+    else {
+      // Cadastro novo por e-mail: o evento sai na próxima página (o redirect cortaria o envio).
+      if (next === "up") queueEvent("CompleteRegistration", { method: "email" });
+      window.location.href = after;
+    }
   }
 
   return (

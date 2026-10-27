@@ -23,6 +23,7 @@ import { formatArrival, planArrival } from "@/lib/delivery";
 import { getMessenger, demoDurationMs, messengerPhoto } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
 import { prefetchTracking } from "@/lib/prefetch-tracking";
+import { readAttribution, track, trackPurchase } from "@/lib/tracking";
 import { applyCoupon as checkCoupon, checkoutLetter, myProfile, spendCredit } from "@/lib/server/shop";
 
 export const Route = createFileRoute("/pagar")({
@@ -63,10 +64,22 @@ function PayPage() {
     });
   }, [draft, couponInfo, credit, useCredit]);
 
+  // InitiateCheckout: 1x por carrinho aberto (sem conteúdo da carta, só mensageiro e valor).
+  const checkoutKey = draft && cart ? `${draft.messengerId}:${draft.designId}` : "";
+  useEffect(() => {
+    if (!draft || !cart) return;
+    const m = getMessenger(draft.messengerId);
+    track("InitiateCheckout", { id: m.id, name: m.name, value: cart.total }, { extra: { num_items: 1 } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkoutKey]);
+
   async function pay(method: string) {
     if (!draft || !cart) return;
     setBusy(true);
     setError("");
+    const trackedMessenger = getMessenger(draft.messengerId);
+    const product = { id: trackedMessenger.id, name: trackedMessenger.name, value: cart.total };
+    track("AddPaymentInfo", product, { extra: { payment_type: method } });
     const addressless = draftAddressless(draft);
     prefetchTracking({
       messengerId: draft.messengerId,
@@ -121,6 +134,7 @@ function PayPage() {
             recipientEmail: draft.recipientEmail,
             senderPhone: draft.senderPhone,
             origin: window.location.origin,
+            attribution: readAttribution(),
           },
         }),
         new Promise<never>((_, reject) =>
@@ -128,6 +142,9 @@ function PayPage() {
         ),
       ]);
       id = saved.id;
+      // Purchase só com pagamento real (VITE_PAYMENTS_LIVE=true) e carta confirmada no servidor;
+      // hoje o PIX/cartão é de teste, então não dispara. event_id = o mesmo do envio server-side.
+      trackPurchase(saved.id, product);
       linkSent = saved.linkSent;
       notice = saved.notice;
       serverPlan = { departAt: saved.departAt, arriveAt: saved.arriveAt, toName: saved.toName };

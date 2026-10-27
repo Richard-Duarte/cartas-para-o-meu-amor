@@ -5,6 +5,8 @@ import { PUBLIC_TRACKING } from "@/lib/public-tracking";
 import { getSql } from "@/lib/db";
 import { approachNoticeAt, cleanEmail, formatArrival, planArrival, whatsAppNumber } from "@/lib/delivery";
 import { requireAdminSession } from "@/lib/server/admin-auth";
+import { attributionSchema } from "@/lib/attribution-schema";
+import { requestContext, saveAttribution, sendServerPurchase } from "@/lib/server/attribution";
 import { ensureNoticeTables, recordAnonymousView } from "@/lib/server/notifications";
 import {
   dispatchDueNotices,
@@ -197,6 +199,8 @@ export const checkoutLetter = createServerFn({ method: "POST" })
       origin: z.string().optional(),
       /** Resposta: o destino (endereço, conta e contato) vem do servidor, nunca do navegador. */
       replyToLetterId: z.string().max(16).optional(),
+      /** Origem do anúncio (UTM/fbclid/ttclid). Opcional: clientes antigos não mandam. */
+      attribution: attributionSchema,
     }),
   )
   .handler(async ({ context, data }) => {
@@ -309,6 +313,29 @@ export const checkoutLetter = createServerFn({ method: "POST" })
       insert into orders (id, user_id, letter_id, total_brl, method)
       values (${crypto.randomUUID().slice(0, 10)}, ${context.userId}, ${id}, ${data.paidBrl}, ${data.method})
     `;
+    // Anúncios: atribuição (tabela separada) + Purchase server-side. Nunca derrubam o checkout.
+    await saveAttribution(sql, id, context.userId, data.attribution);
+    // Purchase server-side só com pagamento real (PAYMENTS_LIVE=true). Hoje o /pagar é de teste.
+    if (process.env.PAYMENTS_LIVE === "true") {
+      try {
+        const rc = await requestContext();
+        const m = await sql<{ name: string }>`select name from messengers where id = ${data.messengerId} limit 1`.catch(() => []);
+        await sendServerPurchase({
+          letterId: id,
+          messengerId: data.messengerId,
+          messengerName: m[0]?.name ?? data.messengerId,
+          valueBrl: data.paidBrl,
+          email: senderEmail || undefined,
+          externalId: context.userId,
+          sourceUrl: origin ? `${origin}/pagar` : rc.referer,
+          ip: rc.ip,
+          userAgent: rc.userAgent,
+          attribution: data.attribution,
+        });
+      } catch (err) {
+        console.warn("[capi] falhou", err instanceof Error ? err.message : err);
+      }
+    }
     if (data.couponCode) {
       await sql`update coupons set uses = uses + 1 where upper(code) = ${data.couponCode.toUpperCase()}`;
     }

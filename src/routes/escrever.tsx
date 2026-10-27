@@ -30,10 +30,12 @@ import {
   MESSENGERS,
   addressWording,
   estimateDelivery,
+  getMessenger,
   type Geo,
   type MessengerId,
 } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
+import { trackViewMessenger } from "@/lib/tracking";
 import { scrollToSection } from "@/lib/scroll-to-section";
 
 type WriteSearch = { papel?: string; ref?: string; anonimo?: string; passo?: number; ajustar?: string; voltar?: string; responder?: string };
@@ -123,6 +125,12 @@ function WritePage() {
   /** Endereço (chave) que já tem rota calculada, e se ela saiu aproximada ou falhou. */
   const [geoKey, setGeoKey] = useState("");
   const [geoApproxKey, setGeoApproxKey] = useState("");
+  // ViewContent: mensageiro visto/escolhido no passo 3 (1x por mensageiro por sessão).
+  useEffect(() => {
+    if (step !== 3) return;
+    const m = getMessenger(messengerId);
+    trackViewMessenger({ id: m.id, name: m.name, value: m.basePriceBrl });
+  }, [step, messengerId]);
   const [geoErrorKey, setGeoErrorKey] = useState("");
   const [paying, setPaying] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyContext | undefined>();
