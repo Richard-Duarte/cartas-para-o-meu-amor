@@ -39,6 +39,7 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
+import { directSocialProviders } from "./direct-providers.server";
 import { pgliteDialect } from "./pglite-dialect";
 import {
   GROK_ISSUER_DEFAULT,
@@ -205,6 +206,9 @@ export const auth = betterAuth({
   // local loopback variants, or clients get "Invalid origin".
   trustedOrigins,
 
+  // Login direto com Google / X (só quando as envs existem; ver direct-providers.server.ts).
+  socialProviders: directSocialProviders,
+
   // Encrypt broker-issued OAuth tokens at rest, and treat the broker's upstreams
   // as trusted first-party identities. The broker owns identity and X emails are
   // synthetic/unverified, so WITHOUT this a login can fail with
@@ -218,6 +222,9 @@ export const auth = betterAuth({
       trustedProviders: [
         ...GROK_PROVIDERS.map((p) => p.providerId),
         GATE_PROVIDER_ID,
+        // Google só devolve e-mail verificado: liga ao usuário que já existe com o mesmo e-mail.
+        // X liga apenas quando o X confirma o e-mail (emailVerified=true vindo do provider).
+        "google",
       ],
       // X's synthetic email is never "verified", so don't gate linking on the
       // local user's email-verified state.

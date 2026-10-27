@@ -1,4 +1,22 @@
-import { GROK_PROVIDERS, signIn } from "@/lib/auth/client";
+import { authClient, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
+import { directAuthProviders } from "@/lib/auth/providers-config";
+
+// Login direto (Google/X com credenciais próprias) quando o servidor tem as envs;
+// senão, o mesmo broker de antes. Consulta uma vez por página.
+let directPromise: Promise<{ google: boolean; twitter: boolean }> | null = null;
+function directConfig() {
+  directPromise ??= directAuthProviders().catch(() => ({ google: false, twitter: false }));
+  return directPromise;
+}
+async function startSignIn(providerId: string, idp: string, callbackURL: string) {
+  const direct = await directConfig();
+  if ((idp === "google" && direct.google) || (idp === "twitter" && direct.twitter)) {
+    const res = await authClient.signIn.social({ provider: idp as "google" | "twitter", callbackURL });
+    if (res?.error) throw new Error(res.error.message || "Não foi possível entrar");
+    return;
+  }
+  await signIn(providerId, { callbackURL });
+}
 
 function GoogleMark() {
   return (
@@ -49,7 +67,7 @@ export function SocialSignInButtons({
           type="button"
           className="flex min-h-11 w-full items-center justify-center gap-3 rounded-full border border-line bg-paper px-4 text-ink"
           onClick={() => {
-            void signIn(p.providerId, { callbackURL }).catch((err: unknown) => {
+            void startSignIn(p.providerId, p.idp, callbackURL).catch((err: unknown) => {
               const message = err instanceof Error ? err.message : "Não foi possível entrar";
               onError?.(message);
             });
