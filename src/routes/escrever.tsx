@@ -131,6 +131,13 @@ function WritePage() {
   const firstStep = useRef(true);
   const reduceMotion = useReducedMotion();
 
+  // "Escolher o papel" (botão do passo 1 ou "Ajustar" do papel no carrinho) sempre abre o
+  // seletor de papel, mesmo que o seletor já tenha sido visto (cartas-papel-visto).
+  const [forcePapers, setForcePapers] = useState(() => search.ajustar === "papel");
+  useEffect(() => {
+    if (search.ajustar === "papel") setForcePapers(true);
+  }, [search.ajustar]);
+
   function go(next: number) {
     direction.current = next >= step ? 1 : -1;
     setStep(next);
@@ -506,7 +513,9 @@ function WritePage() {
             className="pay-card-form mt-8"
             onSubmit={(e) => {
               e.preventDefault();
-              if (canNames) go(2);
+              if (!canNames) return;
+              setForcePapers(true);
+              go(2);
             }}
           >
             <label>
@@ -565,7 +574,11 @@ function WritePage() {
             onToName={setToName}
             canContinue={canWrite}
             onContinue={() => (backToPay ? void goPay() : go(3))}
-            openPapers={search.ajustar === "papel"}
+            openPapers={forcePapers}
+            onPapersOpened={() => {
+              // Consome o pedido: voltar ao passo 2 depois (ex.: pelos passos) não reabre sozinho.
+              setForcePapers(false);
+            }}
             onBack={() => go(1)}
             stepLabel="Passo 2 de 5"
           />
