@@ -126,7 +126,7 @@ const ANIMALS = {
   plane: { n: 'O aviãozinho', v: 'voa', land: 'O aviãozinho pousou', fly: true, sp: 1.1 },
   stork: { n: 'A cegonha', v: 'voa', land: 'A cegonha pousou', fly: true, sp: 1 },
   swan: { n: 'O cisne', v: 'voa', land: 'O cisne pousou', fly: true, sp: 0.95 },
-  horse: { n: 'O pônei', v: 'trota', land: 'O pônei chegou', fly: false, sp: 0.85 },
+  horse: { n: 'O cavalo', v: 'trota', land: 'O cavalo chegou', fly: false, sp: 0.85 },
   donkey: { n: 'O burrinho', v: 'caminha', land: 'O burrinho chegou', fly: false, sp: 0.75 },
   turtle: { n: 'A tartaruga', v: 'caminha devagar', land: 'A tartaruga chegou', fly: false, sp: 0.5 },
 };
