@@ -10,7 +10,7 @@ import { CartSummary } from "@/components/cart/CartSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { MessengerPicker } from "@/components/messengers/MessengerPicker";
 import { MeasuredBar } from "@/components/ui/MeasuredBar";
-import { emptyAddress, type Address } from "@/lib/address";
+import { addressLine, emptyAddress, type Address } from "@/lib/address";
 import {
   buildCart,
   draftAddressless,
@@ -164,19 +164,23 @@ function WritePage() {
             toCity: ctx.toCity,
             hasAddress: ctx.hasAddress,
             approxGeo: ctx.approxGeo,
+            anonymous: Boolean(ctx.anonymous),
+            fromAddress: ctx.fromAddress,
+            fromGeo: ctx.fromGeo,
           };
           setReplyTo(reply);
           setToName(ctx.toLabel);
           setToAddress({ ...emptyAddress(), city: ctx.toCity });
           setToGeo(ctx.approxGeo);
+          // Endereços invertidos: sai de onde a carta original chegou (o seu endereço).
+          setFromAddress(ctx.fromAddress ?? emptyAddress());
+          setFromGeo(ctx.fromGeo);
           if (keep) {
             setFromName(keep.fromName);
             setPages(keep.pages?.length ? keep.pages : emptyDraft().pages);
             setDesignId(keep.designId);
             setMessengerId(keep.messengerId);
-            setFromAddress(keep.fromAddress ?? emptyAddress());
-            setFromGeo(keep.fromGeo);
-            setAnonymous(Boolean(keep.anonymous));
+            setAnonymous(Boolean(keep.anonymous || ctx.anonymous));
           }
           if (search.passo) {
             firstStep.current = true;
@@ -246,6 +250,11 @@ function WritePage() {
     replyTo,
   };
   const addressless = draftAddressless({ anonymous, replyTo });
+  // Resposta a carta anônima: sempre anônima (sem escolha, sem endereço, 2h).
+  const anonForced = Boolean(replyTo?.anonymous);
+  useEffect(() => {
+    if (anonForced && !anonymous) setAnonymous(true);
+  }, [anonForced, anonymous]);
 
   useEffect(() => {
     if (!ready) return;
@@ -307,7 +316,7 @@ function WritePage() {
   const canAddress = addressless
     ? true
     : replyTo
-      ? Boolean(fromAddress.cep && fromAddress.city)
+      ? true
       : Boolean(fromAddress.cep && toAddress.cep && fromAddress.city && toAddress.city);
   const addressKey = canAddress
     ? [
@@ -360,6 +369,14 @@ function WritePage() {
 
   useEffect(() => {
     if (!canAddress || addressless) return;
+    if (replyTo) {
+      // Resposta com nome: rota invertida da carta original, sem digitar nem geocodificar.
+      setFromGeo(replyTo.fromGeo ?? FALLBACK_FROM);
+      setToGeo(replyTo.approxGeo ?? FALLBACK_TO);
+      setGeoErrorKey("");
+      setGeoKey(addressKey);
+      return;
+    }
     let cancel = false;
     const key = addressKey;
     const timer = window.setTimeout(() => {
@@ -367,7 +384,7 @@ function WritePage() {
         try {
           const [fromHit, toHit] = await Promise.all([
             geocodeAddress(geoQuery(fromAddress)),
-            replyTo ? Promise.resolve(replyTo.approxGeo ?? FALLBACK_TO) : geocodeAddress(geoQuery(toAddress)),
+            geocodeAddress(geoQuery(toAddress)),
           ]);
           if (cancel) return;
           setFromGeo(fromHit);
@@ -416,7 +433,10 @@ function WritePage() {
       next.scheduled = false;
     }
     try {
-      if (!addressless && !fresh && fromAddress.city && toAddress.city) {
+      if (replyTo && !addressless) {
+        next.fromGeo = replyTo.fromGeo ?? FALLBACK_FROM;
+        next.toGeo = replyTo.approxGeo ?? FALLBACK_TO;
+      } else if (!addressless && !fresh && fromAddress.city && toAddress.city) {
         const [fromHit, toHit] = await withTimeout(
           Promise.all([
             geocodeAddress(geoQuery(fromAddress)),
@@ -602,18 +622,20 @@ function WritePage() {
                 <div>
                   <p className="text-sm uppercase tracking-widest text-muted">Entrega</p>
                   <h2 className="mt-1 font-display text-3xl">
-                    {addressless ? "Sem endereço. Chega em 2h." : wording.heading}
+                    {addressless ? (anonForced ? "Resposta anônima. Chega em 2h." : "Anônima. Chega em 2h.") : wording.heading}
                   </h2>
                   <p className="mt-2 max-w-xl text-muted">
                     {addressless
-                      ? "Sem endereço, qualquer mensageiro chega em 2h. A carta entra pela conta e pelo link de quem recebe."
+                      ? anonForced
+                        ? "Quem escreveu para você ficou anônimo, então a sua resposta também vai anônima. Qualquer mensageiro chega em 2h, pela conta e pelo link."
+                        : "Carta anônima: qualquer mensageiro chega em 2h. Ela entra pela conta e pelo link de quem recebe."
                       : replyTo
-                        ? "O destino já está guardado e protegido. Falta só de onde a sua carta sai."
+                        ? "A rota é a da carta que você recebeu, ao contrário. Não precisa digitar nenhum endereço."
                         : "Digite o CEP ou a rua. O correio completa o resto."}
                   </p>
                 </div>
                 {/* Anônima não leva endereço: a escolha vem antes dos endereços. */}
-                <AnonymityChoice anonymous={anonymous} onAnonymous={deliveryProps.onAnonymous} />
+                {anonForced ? null : <AnonymityChoice anonymous={anonymous} onAnonymous={deliveryProps.onAnonymous} />}
                 {addressless ? (
                   <div className="addr-none" role="note">
                     <span className="addr-none-icon" aria-hidden="true">✉</span>
@@ -622,35 +644,36 @@ function WritePage() {
                         {replyTo ? `Para ${replyTo.toLabel}` : "Carta anônima"}
                       </p>
                       <p>
-                        {replyTo && !anonymous
-                          ? "Endereço protegido · entrega pela conta de quem recebe."
-                          : "Sem endereço de origem nem de destino · ninguém vê de onde saiu."}
+                        Ninguém vê de onde saiu · entrega pela conta de quem recebe.
                       </p>
                       <p className="addr-none-eta">Chega em 2h</p>
                     </div>
                   </div>
                 ) : (
-                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
-                    {replyTo ? (
-                      <div className="addr-none" role="note">
-                        <span className="addr-none-icon" aria-hidden="true">⌂</span>
-                        <div>
-                          <p className="addr-none-title">{wording.to.label}</p>
-                          <p>
-                            {replyTo.toLabel} · Endereço protegido
-                            {replyTo.toCity ? ` · ${replyTo.toCity}` : ""}
-                          </p>
-                        </div>
+                  replyTo ? (
+                    // Resposta com nome: rota invertida, nada para digitar.
+                    <dl className="checkout-addr reply-route" aria-label="Rota da resposta">
+                      <div>
+                        <dt>De onde sai:</dt>
+                        <dd>{addressLine(fromAddress) || "o endereço onde a carta chegou para você"}</dd>
                       </div>
-                    ) : (
-                      <AddressFields
-                        label={wording.to.label}
-                        hint={wording.to.hint}
-                        value={toAddress}
-                        onChange={setToAddress}
-                        onConfirm={() => scrollToSection(fromRef.current, true)}
-                      />
-                    )}
+                      <div>
+                        <dt>De onde entrega:</dt>
+                        <dd>
+                          {replyTo.toLabel}
+                          {replyTo.toCity ? `, ${replyTo.toCity}` : ""} · endereço protegido
+                        </dd>
+                      </div>
+                    </dl>
+                  ) : (
+                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
+                    <AddressFields
+                      label={wording.to.label}
+                      hint={wording.to.hint}
+                      value={toAddress}
+                      onChange={setToAddress}
+                      onConfirm={() => scrollToSection(fromRef.current, true)}
+                    />
                     <div ref={fromRef} className="scroll-target">
                       <AddressFields
                         label={wording.from.label}
@@ -661,6 +684,7 @@ function WritePage() {
                       />
                     </div>
                   </div>
+                  )
                 )}
                 <div ref={envioRef} className="scroll-target">
                   <DeliveryChoices {...deliveryProps} />

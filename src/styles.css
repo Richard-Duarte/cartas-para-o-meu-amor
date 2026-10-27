@@ -7162,3 +7162,11 @@ img.messenger-picker-live-media {
 }
 .thread-list a[aria-current="page"] { border-color: #e85a7a; background: rgb(253 236 240 / 0.8); }
 .thread-list small { color: var(--muted-foreground, #8a6a72); }
+.checkout-anon {
+  margin: 0.6rem 0 0;
+  padding: 0.7rem 0.95rem;
+  border-radius: 0.9rem;
+  background: rgb(253 236 240 / 0.7);
+  border: 1px dashed rgb(232 90 122 / 0.45);
+  font-size: 0.95rem;
+}

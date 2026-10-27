@@ -51,7 +51,7 @@ export function AnonymityChoice(props: { anonymous: boolean; onAnonymous: (value
         onClick={() => props.onAnonymous(true)}
       >
         <strong>Anônimo · {formatBrl(getAnonymousFee())}</strong>
-        <span>Sem nome e sem endereço. Chega em 2h.</span>
+        <span>Sem o seu nome. Chega em 2h.</span>
       </button>
     </div>
   );
@@ -93,7 +93,7 @@ export function DeliveryChoices(props: Props) {
   return (
     <div className="delivery-block">
       {props.addressless ? (
-        <p className="delivery-type-title">Sem endereço · qualquer mensageiro chega em 2h</p>
+        <p className="delivery-type-title">Anônima · qualquer mensageiro chega em 2h</p>
       ) : (
         <>
       <h3 className="delivery-type-title">Selecione o tipo de envio</h3>

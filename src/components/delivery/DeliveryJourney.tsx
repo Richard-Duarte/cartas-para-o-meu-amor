@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { LetterDocument } from "@/components/letters/LetterDocument";
+import { LetterDocument, ReplyButton } from "@/components/letters/LetterDocument";
 import { letterSheetPainter, paintEnvelopeNames } from "@/lib/letter-raster";
 import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { reloadOnceForStaleChunks } from "@/lib/chunk-reload";
@@ -60,6 +60,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   const [mapOnly, setMapOnly] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [pagesEl, setPagesEl] = useState<HTMLElement | null>(null);
+  const [overlayEl, setOverlayEl] = useState<HTMLElement | null>(null);
   const ends = letterEndpoints(letter);
   const animalId = messengerModelId(letter.messengerId);
   const mountKey = [
@@ -159,6 +160,8 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
         openReadRef.current = () => host.__openRead?.();
         const pages = host.querySelector("#letterPages");
         if (pages instanceof HTMLElement) setPagesEl(pages);
+        const overlay = host.querySelector("#letter");
+        if (overlay instanceof HTMLElement) setOverlayEl(overlay);
         if (pendingOpen.current) {
           pendingOpen.current = false;
           host.__openRead?.();
@@ -195,6 +198,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
       host.remove();
       openReadRef.current = () => {};
       setPagesEl(null);
+      setOverlayEl(null);
     };
   }, [mountKey]);
 
@@ -226,9 +230,23 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
               allowDownload={allowDownload}
               shareHref={shareUrl(letter.id)}
               shareText="Uma carta está a caminho. Acompanhe:"
-              replyHref={replyHref}
             />,
             pagesEl,
+          )
+        : null}
+      {/* Tela cheia da carta: botão fixo embaixo (só para quem recebeu). Sai da tela cheia e abre a resposta. */}
+      {replyHref && overlayEl
+        ? createPortal(
+            <ReplyButton
+              dock
+              href={replyHref}
+              onClick={(e) => {
+                e.preventDefault();
+                overlayEl.querySelector<HTMLButtonElement>("#close")?.click();
+                window.setTimeout(() => window.location.assign(replyHref), 260);
+              }}
+            />,
+            overlayEl,
           )
         : null}
     </div>

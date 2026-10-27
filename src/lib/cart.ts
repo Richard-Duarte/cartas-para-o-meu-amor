@@ -37,19 +37,25 @@ export type LetterDraft = {
 
 export type ReplyContext = {
   letterId: string;
-  /** Nome para mostrar ("Remetente anônimo" quando a carta era anônima). */
+  /** Nome para mostrar ("Alguém especial" quando a carta era anônima). */
   toLabel: string;
   /** Cidade de destino, no máximo. Vazio quando não há endereço. */
   toCity: string;
   /** A outra pessoa tem endereço (carta não anônima com endereço). */
   hasAddress: boolean;
+  /** A carta original era anônima: a resposta é sempre anônima (sem endereço, 2h). */
+  anonymous?: boolean;
+  /** Origem da resposta com nome = destino da carta original (o endereço de quem responde). */
+  fromAddress?: Address;
+  fromGeo?: Geo;
   /** Ponto aproximado (nível cidade) só para estimar a viagem. */
   approxGeo?: Geo;
 };
 
-/** Sem endereço: anônima, ou resposta para quem não tem endereço. */
+/** Sem endereço: só a carta anônima (inclui toda resposta a carta anônima). */
 export function draftAddressless(d: Pick<LetterDraft, "anonymous" | "replyTo">) {
-  return Boolean(d.anonymous || (d.replyTo && !d.replyTo.hasAddress));
+  // Anônima ⇔ sem endereço. Não existe "sem endereço com nome".
+  return Boolean(d.anonymous || d.replyTo?.anonymous);
 }
 
 const DRAFT_KEY = "cartas-para-o-meu-amor:draft:v2";

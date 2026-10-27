@@ -135,7 +135,7 @@ export function letterFromRecord(row: LetterRecord): Letter {
     demoDurationMs: row.demo_duration_ms || 20000,
     senderUserId: row.user_id || undefined,
     recipientUserId: row.recipient_user_id,
-    addressless: Boolean(row.addressless ?? (row.anonymous || !row.to_geo_json)),
+    addressless: Boolean(row.addressless ?? row.anonymous),
     replyToLetterId: row.reply_to_letter_id ?? null,
     threadId: row.thread_id ?? null,
   };
@@ -195,7 +195,7 @@ export function shownFromName(
   viewer: "sender" | "public",
 ) {
   if (!letter.anonymous) return letter.fromName;
-  return viewer === "sender" ? "Você, sem nome" : "Alguém";
+  return viewer === "sender" ? "Você, sem nome" : "Alguém especial";
 }
 
 export function seedDemoLetter(opts?: { delivered?: boolean; messengerId?: string }): Letter {

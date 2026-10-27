@@ -224,18 +224,23 @@ export const checkoutLetter = createServerFn({ method: "POST" })
       recipientUserId = parent.user_id;
       recipientEmail = parent.sender_email;
       recipientPhone = parent.sender_phone;
+      // Regra: anônima ⇔ sem endereço. Resposta a carta anônima é sempre anônima.
+      if (parent.anonymous && !anonymous) throw new Error("Resposta a uma carta anônima é sempre anônima.");
       toName = parent.anonymous ? "Alguém especial" : parent.from_name;
-      const parentHasAddress = !parent.anonymous && Boolean(parseGeo(parent.from_geo_json));
-      if (parentHasAddress && !anonymous) {
-        toAddressJson = parent.from_address_json;
-        toGeoJson = parent.from_geo_json;
-      } else {
+      if (anonymous) {
         toAddressJson = "{}";
         toGeoJson = "";
+      } else {
+        // Resposta com nome: endereços invertidos da carta original, sempre no servidor.
+        // origem da resposta = destino da original (quem responde); destino = origem da original.
+        fromAddressJson = parent.to_address_json || "{}";
+        fromGeoJson = parseGeo(parent.to_geo_json) ? parent.to_geo_json : "";
+        toAddressJson = parent.from_address_json || "{}";
+        toGeoJson = parseGeo(parent.from_geo_json) ? parent.from_geo_json : "";
       }
     }
-    // Sem endereço (anônima, ou o outro lado não tem endereço): nada de rota nem coordenadas.
-    const addressless = anonymous || !parseGeo(toGeoJson);
+    // Anônima nunca guarda endereço nem coordenada (de origem ou destino) e chega em 2h.
+    const addressless = anonymous;
     if (addressless) {
       fromAddressJson = "{}";
       fromGeoJson = "";
@@ -704,6 +709,8 @@ type ParentRow = {
   anonymous: boolean | null;
   from_address_json: string;
   from_geo_json: string;
+  to_address_json: string;
+  to_geo_json: string;
   sender_email: string | null;
   sender_phone: string | null;
   thread_id: string | null;
@@ -713,12 +720,31 @@ type ParentRow = {
 async function replyParent(sql: Awaited<ReturnType<typeof getSql>>, letterId: string, userId: string) {
   const rows = await sql<ParentRow & { recipient_user_id: string | null }>`
     select id, user_id, recipient_user_id, from_name, anonymous, from_address_json, from_geo_json,
-      sender_email, sender_phone, thread_id
+      to_address_json, to_geo_json, sender_email, sender_phone, thread_id
     from letters where id = ${letterId} limit 1
   `;
   const row = rows[0];
   if (!row || row.recipient_user_id !== userId || row.user_id === userId) return null;
   return row;
+}
+
+function ownAddress(raw: string) {
+  try {
+    const a = JSON.parse(raw || "{}") as Record<string, unknown> | null;
+    if (!a || typeof a !== "object") return undefined;
+    const pick = (k: string) => (typeof a[k] === "string" ? (a[k] as string).slice(0, 160) : "");
+    return {
+      cep: pick("cep"),
+      street: pick("street"),
+      number: pick("number"),
+      complement: pick("complement"),
+      neighborhood: pick("neighborhood"),
+      city: pick("city"),
+      state: pick("state"),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /** Nível cidade (~11 km): serve para estimar a viagem e desenhar o mapa sem revelar o endereço. */
@@ -928,7 +954,12 @@ export const replyContext = createServerFn({ method: "POST" })
     return {
       ok: true as const,
       letterId: parent.id,
-      toLabel: anonymous ? "Remetente anônimo" : parent.from_name,
+      toLabel: anonymous ? "Alguém especial" : parent.from_name,
+      /** Carta original anônima → a resposta é obrigatoriamente anônima. */
+      anonymous,
+      /** Origem da resposta = destino da carta original: é o endereço de quem responde. */
+      fromAddress: anonymous ? undefined : ownAddress(parent.to_address_json),
+      fromGeo: anonymous ? undefined : (parseGeo(parent.to_geo_json) ?? undefined),
       toCity: city,
       hasAddress: Boolean(geo),
       approxGeo: approx,

@@ -102,10 +102,11 @@ function PayPage() {
             pagesJson: JSON.stringify(draft.pages),
             templateId: draft.designId,
             messengerId: draft.messengerId,
-            fromAddressJson: addressless ? "{}" : JSON.stringify(draft.fromAddress),
+            // Resposta: o servidor inverte os endereços da carta original.
+            fromAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.fromAddress),
             // Resposta: o destino é preenchido no servidor (aqui só vai vazio).
             toAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.toAddress),
-            fromGeoJson: addressless ? "" : JSON.stringify(draft.fromGeo ?? {}),
+            fromGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.fromGeo ?? {}),
             toGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.toGeo ?? {}),
             replyToLetterId: draft.replyTo?.letterId,
             paidBrl: cart.total,
@@ -237,22 +238,26 @@ function PayPage() {
         <div>
           <p className="text-xs uppercase tracking-widest text-rose">Passo 5</p>
           <h1 className="mt-2 font-logo text-4xl italic leading-tight sm:text-5xl">O lacre antes da viagem.</h1>
+          {addressless ? (
+            <p className="checkout-anon max-w-xl">
+              Carta anônima{draft.replyTo ? ` para ${draft.replyTo.toLabel}` : ""} · chega em 2h · pela conta e pelo link
+            </p>
+          ) : (
           <dl className="checkout-addr max-w-xl">
             <div>
               <dt>De onde sai:</dt>
-              <dd>{addressless ? "sem endereço" : addressLine(draft.fromAddress) || "falta o endereço"}</dd>
+              <dd>{addressLine(draft.fromAddress) || "falta o endereço"}</dd>
             </div>
             <div>
               <dt>De onde entrega:</dt>
               <dd>
                 {draft.replyTo
-                  ? `${draft.replyTo.toLabel} · Endereço protegido${!addressless && draft.replyTo.toCity ? ` · ${draft.replyTo.toCity}` : ""}`
-                  : addressless
-                    ? "sem endereço · pela conta e pelo link"
-                    : addressLine(draft.toAddress) || "falta o endereço"}
+                  ? `${draft.replyTo.toLabel} · Endereço protegido${draft.replyTo.toCity ? ` · ${draft.replyTo.toCity}` : ""}`
+                  : addressLine(draft.toAddress) || "falta o endereço"}
               </dd>
             </div>
           </dl>
+          )}
           <p className="mt-2 max-w-xl">
             {getMessenger(draft.messengerId).name} {arrivalText}.{" "}
             {draft.anonymous ? "O nome não vai na carta." : "O nome vai na carta."}{" "}

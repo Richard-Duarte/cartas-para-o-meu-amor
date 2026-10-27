@@ -43,8 +43,8 @@ export function trackMeta(letter: Letter) {
   // O servidor só manda cidade (ou nada) do lado que não é seu: mostra o que tiver.
   const place = (a: Letter["fromAddress"], cityId: string) =>
     a?.street ? addressLine(a) : a?.city ? [a.city, a.state].filter(Boolean).join(" — ") : getCity(cityId).name;
-  const from = letter.addressless ? "Sem endereço" : place(letter.fromAddress, letter.fromCityId);
-  const to = letter.addressless ? "Sem endereço · pela conta de quem recebe" : place(letter.toAddress, letter.toCityId);
+  const from = letter.addressless ? "Anônima" : place(letter.fromAddress, letter.fromCityId);
+  const to = letter.addressless ? "Pela conta de quem recebe" : place(letter.toAddress, letter.toCityId);
   const price =
     letter.paidBrl != null
       ? `lacre de ${letter.paidBrl.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`

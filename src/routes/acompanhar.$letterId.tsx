@@ -214,8 +214,8 @@ function TrackView({
             <div className="addr-none track-addr-none" role="note">
               <span className="addr-none-icon" aria-hidden="true">✉</span>
               <div>
-                <p className="addr-none-title">Sem endereço · entrega pela conta de quem recebe</p>
-                <p className="addr-none-eta">Viagem de 2h, sem mapa e sem coordenadas.</p>
+                <p className="addr-none-title">Carta anônima · entrega pela conta de quem recebe</p>
+                <p className="addr-none-eta">Viagem de 2h.</p>
               </div>
             </div>
           ) : (

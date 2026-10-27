@@ -8,7 +8,7 @@ function pinLabels(letter: {
   anonymous?: boolean;
 }) {
   const fromName = letter.anonymous
-    ? "Alguém"
+    ? "Alguém especial"
     : letter.fromName?.trim() || "Origem";
   const toName = letter.toName?.trim().replace(/,$/, "") || "Destino";
   return { from: fromName, to: toName };
@@ -23,7 +23,7 @@ describe("map pin labels", () => {
 
   it("respeita envio anônimo na origem", () => {
     const labels = pinLabels({ fromName: "Ana", toName: "Pedro", anonymous: true });
-    assert.equal(labels.from, "Alguém");
+    assert.equal(labels.from, "Alguém especial");
     assert.equal(labels.to, "Pedro");
   });
 });

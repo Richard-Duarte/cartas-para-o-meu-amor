@@ -1,3 +1,4 @@
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { getDesign, type DesignId } from "@/lib/designs";
 import { downloadLetterPng } from "@/lib/download-letter";
@@ -216,10 +217,21 @@ export function LetterDocument({
 }
 
 /** Botão rosa com brilho e faíscas ✨ (só transform/opacity; parado com movimento reduzido). */
-export function ReplyButton({ href, label = "Enviar resposta" }: { href: string; label?: string }) {
+export function ReplyButton({
+  href,
+  label = "Enviar resposta",
+  onClick,
+  dock = false,
+}: {
+  href: string;
+  label?: string;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  /** Fixo embaixo, no centro, na carta em tela cheia. */
+  dock?: boolean;
+}) {
   return (
-    <div className="reply-cta-wrap">
-      <a className="reply-cta" href={href} data-testid="reply-cta">
+    <div className={dock ? "reply-cta-wrap is-dock" : "reply-cta-wrap"}>
+      <a className="reply-cta" href={href} data-testid="reply-cta" onClick={onClick}>
         <span className="reply-cta-shine" aria-hidden="true" />
         <span className="reply-cta-label">{label}</span>
         <span className="reply-cta-sparks" aria-hidden="true">
@@ -229,7 +241,7 @@ export function ReplyButton({ href, label = "Enviar resposta" }: { href: string;
           <i>✨</i>
         </span>
       </a>
-      <p className="reply-cta-note">Você escolhe se vai com seu nome ou anônima.</p>
+      {dock ? null : <p className="reply-cta-note">Você escolhe se vai com seu nome ou anônima.</p>}
     </div>
   );
 }
