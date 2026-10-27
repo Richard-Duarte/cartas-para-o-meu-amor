@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatBrl } from "@/lib/cart";
 import { CHANNEL_LABEL, PLATFORM_LABEL } from "@/lib/acquisition";
 import { LetterDocument } from "@/components/letters/LetterDocument";
@@ -166,7 +166,8 @@ export function AdminUsers({ focusUserId, onFocused }: { focusUserId?: string | 
 function UserPage({ userId, onBack }: { userId: string; onBack: () => void }) {
   const [d, setD] = useState<Detail | null>(null);
   const [error, setError] = useState("");
-  const [viewing, setViewing] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<{ id: string; download: boolean } | null>(null);
+  const closeViewing = useCallback(() => setViewing(null), []);
   const [dialog, setDialog] = useState<"block" | "unblock" | null>(null);
   const [zipState, setZipState] = useState("");
 
@@ -322,19 +323,24 @@ function UserPage({ userId, onBack }: { userId: string; onBack: () => void }) {
             <table className="dash-table hist-table">
               <thead>
                 <tr>
-                  <th aria-label="Abrir" />
                   <th>Tipo</th>
                   <th>De → Para</th>
                   <th>Status</th>
                   <th>Mensageiro</th>
                   <th>Data</th>
                   <th>Pagamento</th>
-                  <th aria-label="Baixar" />
+                  <th>Carta</th>
                 </tr>
               </thead>
               <tbody>
                 {d.letters.map((l) => (
-                  <HistoryRow key={l.id} l={l} onOpen={() => setViewing(l.id)} onJson={() => void downloadJson(l.id)} />
+                  <HistoryRow
+                    key={l.id}
+                    l={l}
+                    onOpen={() => setViewing({ id: l.id, download: false })}
+                    onImage={() => setViewing({ id: l.id, download: true })}
+                    onJson={() => downloadJson(l.id)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -372,7 +378,9 @@ function UserPage({ userId, onBack }: { userId: string; onBack: () => void }) {
         </section>
       ) : null}
 
-      {viewing ? <LetterModal letterId={viewing} userId={userId} onClose={() => setViewing(null)} /> : null}
+      {viewing ? (
+        <LetterModal key={`${viewing.id}-${viewing.download}`} letterId={viewing.id} userId={userId} autoDownload={viewing.download} onClose={closeViewing} />
+      ) : null}
       {dialog === "block" ? (
         <ReasonDialog
           title="Bloquear usuário"
@@ -414,17 +422,45 @@ function esc(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 }
 
-function HistoryRow({ l, onOpen, onJson }: { l: HistRow; onOpen: () => void; onJson: () => void }) {
+function EnvelopeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <rect x="3" y="5.5" width="18" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M3.5 6.5 12 13l8.5-6.5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function HistoryRow({ l, onOpen, onImage, onJson }: { l: HistRow; onOpen: () => void; onImage: () => void; onJson: () => Promise<void> }) {
+  const [menu, setMenu] = useState(false);
+  const [msg, setMsg] = useState("");
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: Event) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
+    document.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
+
+  const who = `${l.from_name || "—"} para ${l.to_name || "—"}`;
   return (
     <tr>
-      <td className="hist-open">
-        <button type="button" className="letter-icon-btn" onClick={onOpen} aria-label="Abrir carta" title="Abrir carta" data-testid="open-letter">
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <rect x="3" y="5.5" width="18" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <path d="M3.5 6.5 12 13l8.5-6.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-          </svg>
-        </button>
-      </td>
       <td className="hist-tags">
         <span className={cn("tag", l.direction === "recebida" && "is-soft")}>{l.direction === "enviada" ? "Enviada" : "Recebida"}</span>
         {l.anonymous ? <span className="tag is-ink">Anônima</span> : null}
@@ -438,10 +474,61 @@ function HistoryRow({ l, onOpen, onJson }: { l: HistRow; onOpen: () => void; onJ
       <td data-label="Mensageiro">{getMessenger(l.messenger_id).name}</td>
       <td data-label="Data">{fmtDate(l.started_at)}</td>
       <td data-label="Pagamento">{payStatus(l.order_total, l.order_method)}</td>
-      <td className="hist-json">
-        <button type="button" className="link-btn" onClick={onJson} title="Baixar dados (JSON)">
-          JSON
-        </button>
+      <td className="hist-actions">
+        <div className="hist-actions-row">
+          <button type="button" className="hist-btn is-primary" onClick={onOpen} aria-label={`Ver carta de ${who}`} data-testid="open-letter">
+            <EnvelopeIcon />
+            Ver carta
+          </button>
+          <div className="hist-split" ref={boxRef}>
+            <button type="button" className="hist-btn" onClick={onImage} aria-label={`Baixar carta de ${who} como imagem`} data-testid="download-letter">
+              <DownloadIcon />
+              Baixar
+            </button>
+            <button
+              type="button"
+              className="hist-btn hist-split-toggle"
+              onClick={() => setMenu((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              aria-label="Mais opções de download"
+              data-testid="download-menu"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            {menu ? (
+              <div className="hist-menu" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(false);
+                    onImage();
+                  }}
+                >
+                  Imagem (PNG)
+                  <small>Como quem recebe vê</small>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="download-json"
+                  onClick={() => {
+                    setMenu(false);
+                    setMsg("");
+                    onJson().catch(() => setMsg("Não foi possível baixar."));
+                  }}
+                >
+                  Dados (JSON)
+                  <small>Texto, remetente, datas e comentários</small>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        {msg ? <small className="text-rose">{msg}</small> : null}
       </td>
     </tr>
   );
@@ -449,14 +536,26 @@ function HistoryRow({ l, onOpen, onJson }: { l: HistRow; onOpen: () => void; onJ
 
 /* ------------------------------------------------------------------ carta em tela cheia */
 
-function LetterModal({ letterId, userId, onClose }: { letterId: string; userId: string; onClose: () => void }) {
+function LetterModal({
+  letterId,
+  userId,
+  onClose,
+  autoDownload = false,
+}: {
+  letterId: string;
+  userId: string;
+  onClose: () => void;
+  /** Aberto pelo botão "Baixar" da lista: mostra a carta e já baixa a imagem. */
+  autoDownload?: boolean;
+}) {
   const [full, setFull] = useState<LetterFull | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const docRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    void adminLetterDetail({ data: { letterId, purpose: "ver", userId } })
+    // "Baixar" registra baixar_imagem; "Ver carta" registra ver.
+    void adminLetterDetail({ data: { letterId, purpose: autoDownload ? "baixar_imagem" : "ver", userId } })
       .then(setFull)
       .catch(() => setError("Não foi possível abrir a carta."));
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -467,22 +566,31 @@ function LetterModal({ letterId, userId, onClose }: { letterId: string; userId: 
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [letterId, userId, onClose]);
+  }, [letterId, userId, onClose, autoDownload]);
 
   const l = full?.letter as Record<string, unknown> | undefined;
   const pages = l ? parsePages(l.pages_json) : [];
 
-  async function png() {
+  async function png(alreadyLogged = false) {
     if (!docRef.current || !l) return;
     setBusy("Preparando…");
     try {
-      await adminLetterDetail({ data: { letterId, purpose: "baixar_imagem", userId } });
+      if (!alreadyLogged) await adminLetterDetail({ data: { letterId, purpose: "baixar_imagem", userId } });
       await downloadLetterPng(docRef.current, `${String(l.to_name)}-${letterId}`);
       setBusy("");
     } catch {
       setBusy("Não deu para gerar a imagem.");
     }
   }
+  const autoDone = useRef(false);
+  useEffect(() => {
+    if (!autoDownload || !l || autoDone.current) return;
+    autoDone.current = true;
+    // espera a carta desenhar antes de gerar a imagem
+    requestAnimationFrame(() => requestAnimationFrame(() => void png(true)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- roda uma vez quando a carta chega
+  }, [autoDownload, l]);
+
   async function json() {
     const data = await adminLetterDetail({ data: { letterId, purpose: "baixar_json", userId } });
     saveBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `carta-${letterId}.json`);
