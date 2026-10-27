@@ -42,6 +42,71 @@ function geoKey(n: number) {
   return Number.isFinite(n) ? n.toFixed(5) : "x";
 }
 
+
+/**
+ * O cartão de progresso (e "Simular chegada") fica dentro do mapa, mas quando o mapa passa por baixo
+ * do menu ele desce para ficar logo abaixo do menu (altura real medida, segue o menu quando ele
+ * esconde/aparece). Nunca sai do mapa e nunca fica por cima do menu.
+ */
+function useStickyMapUi(slot: React.RefObject<HTMLDivElement | null>, deps: unknown[]) {
+  useEffect(() => {
+    const root = slot.current;
+    if (!root || typeof window === "undefined") return;
+    let raf = 0;
+    let onScreen = true;
+    let last = -1;
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;top:0;left:0;height:env(safe-area-inset-top,0px);width:0;visibility:hidden;pointer-events:none";
+    document.body.appendChild(probe);
+    const tick = () => {
+      raf = 0;
+      const card = root.querySelector<HTMLElement>(".map-card");
+      const ui = card?.querySelector<HTMLElement>(".map-ui");
+      if (card && ui) {
+        const header = document.querySelector<HTMLElement>(".site-header");
+        let top = probe.offsetHeight;
+        if (header) {
+          const r = header.getBoundingClientRect();
+          const cs = getComputedStyle(header);
+          if (cs.visibility !== "hidden" && Number(cs.opacity) > 0.05 && r.height > 0) top = Math.max(top, r.bottom);
+        }
+        const c = card.getBoundingClientRect();
+        const gap = 8;
+        const baseTop = ui.offsetTop; // 10px do topo do mapa
+        const room = Math.max(0, c.height - baseTop - ui.offsetHeight - 28); // não cobre a atribuição
+        const dy = Math.round(Math.min(room, Math.max(0, top + gap - (c.top + baseTop))));
+        if (dy !== last) {
+          last = dy;
+          card.style.setProperty("--map-ui-dy", `${dy}px`);
+        }
+      }
+      if (onScreen) raf = requestAnimationFrame(tick);
+    };
+    const io =
+      typeof IntersectionObserver === "function"
+        ? new IntersectionObserver((es) => {
+            onScreen = es.some((e) => e.isIntersecting);
+            if (onScreen && !raf) raf = requestAnimationFrame(tick);
+          })
+        : null;
+    const watch = () => {
+      const card = root.querySelector(".map-card");
+      if (card && io) io.observe(card);
+    };
+    watch();
+    const mo = new MutationObserver(watch);
+    mo.observe(root, { childList: true, subtree: true });
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      io?.disconnect();
+      mo.disconnect();
+      probe.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+}
+
 export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function DeliveryJourney(
   { letter, allowDownload = false, onDelivered, onOpened, replyHref },
   ref,
@@ -58,6 +123,9 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [mapOnly, setMapOnly] = useState(false);
+  const fallbackRef = useRef<HTMLDivElement>(null);
+  useStickyMapUi(slotRef, [ready, mapOnly]);
+  useStickyMapUi(fallbackRef, [mapOnly]);
   const [loadFailed, setLoadFailed] = useState(false);
   const [pagesEl, setPagesEl] = useState<HTMLElement | null>(null);
   const [overlayEl, setOverlayEl] = useState<HTMLElement | null>(null);
@@ -222,7 +290,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
 
   if (mapOnly) {
     return (
-      <div className="delivery-slot" aria-label="Viagem do mensageiro">
+      <div ref={fallbackRef} className="delivery-slot" aria-label="Viagem do mensageiro">
         <MapOnlyFallback letter={letter} loadFailed={loadFailed} />
       </div>
     );
