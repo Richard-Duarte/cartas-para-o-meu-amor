@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { googleAdminStatus } from "@/lib/server/admin-auth";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { RedirectToSignIn } from "@/lib/auth/gates";
@@ -18,7 +19,14 @@ import {
   requestPayout,
 } from "@/lib/server/shop";
 
-export const Route = createFileRoute("/conta")({ component: AccountPage });
+export const Route = createFileRoute("/conta")({
+  // Admin pelo Google usa o Painel Admin, não a área comum (decidido no servidor).
+  beforeLoad: async () => {
+    const { admin } = await googleAdminStatus();
+    if (admin) throw redirect({ href: "/admin" });
+  },
+  component: AccountPage,
+});
 
 function AccountPage() {
   const { user, isPending } = useCurrentUserState();

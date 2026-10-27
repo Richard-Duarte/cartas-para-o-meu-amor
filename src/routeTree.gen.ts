@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AcompanharRouteImport } from './routes/acompanhar'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ContaRouteImport } from './routes/conta'
+import { Route as EntrandoRouteImport } from './routes/entrando'
 import { Route as EscreverRouteImport } from './routes/escrever'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PagarRouteImport } from './routes/pagar'
@@ -42,6 +43,11 @@ const AdminRoute = AdminRouteImport.update({
 const ContaRoute = ContaRouteImport.update({
   id: '/conta',
   path: '/conta',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntrandoRoute = EntrandoRouteImport.update({
+  id: '/entrando',
+  path: '/entrando',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EscreverRoute = EscreverRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/acompanhar': typeof AcompanharRouteWithChildren
   '/admin': typeof AdminRoute
   '/conta': typeof ContaRoute
+  '/entrando': typeof EntrandoRoute
   '/escrever': typeof EscreverRoute
   '/login': typeof LoginRoute
   '/pagar': typeof PagarRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/conta': typeof ContaRoute
+  '/entrando': typeof EntrandoRoute
   '/escrever': typeof EscreverRoute
   '/login': typeof LoginRoute
   '/pagar': typeof PagarRoute
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/acompanhar': typeof AcompanharRouteWithChildren
   '/admin': typeof AdminRoute
   '/conta': typeof ContaRoute
+  '/entrando': typeof EntrandoRoute
   '/escrever': typeof EscreverRoute
   '/login': typeof LoginRoute
   '/pagar': typeof PagarRoute
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/acompanhar'
     | '/admin'
     | '/conta'
+    | '/entrando'
     | '/escrever'
     | '/login'
     | '/pagar'
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/conta'
+    | '/entrando'
     | '/escrever'
     | '/login'
     | '/pagar'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/acompanhar'
     | '/admin'
     | '/conta'
+    | '/entrando'
     | '/escrever'
     | '/login'
     | '/pagar'
@@ -198,6 +210,7 @@ export interface RootRouteChildren {
   AcompanharRoute: typeof AcompanharRouteWithChildren
   AdminRoute: typeof AdminRoute
   ContaRoute: typeof ContaRoute
+  EntrandoRoute: typeof EntrandoRoute
   EscreverRoute: typeof EscreverRoute
   LoginRoute: typeof LoginRoute
   PagarRoute: typeof PagarRoute
@@ -236,6 +249,13 @@ declare module '@tanstack/react-router' {
       path: '/conta'
       fullPath: '/conta'
       preLoaderRoute: typeof ContaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entrando': {
+      id: '/entrando'
+      path: '/entrando'
+      fullPath: '/entrando'
+      preLoaderRoute: typeof EntrandoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/escrever': {
@@ -330,6 +350,7 @@ const rootRouteChildren: RootRouteChildren = {
   AcompanharRoute: AcompanharRouteWithChildren,
   AdminRoute: AdminRoute,
   ContaRoute: ContaRoute,
+  EntrandoRoute: EntrandoRoute,
   EscreverRoute: EscreverRoute,
   LoginRoute: LoginRoute,
   PagarRoute: PagarRoute,
