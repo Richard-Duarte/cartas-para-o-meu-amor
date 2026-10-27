@@ -45,11 +45,8 @@ export function trackMeta(letter: Letter) {
     a?.street ? addressLine(a) : a?.city ? [a.city, a.state].filter(Boolean).join(" — ") : getCity(cityId).name;
   const from = letter.addressless ? "Anônima" : place(letter.fromAddress, letter.fromCityId);
   const to = letter.addressless ? "Pela conta de quem recebe" : place(letter.toAddress, letter.toCityId);
-  const price =
-    letter.paidBrl != null
-      ? `lacre de ${letter.paidBrl.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
-      : "";
-  return { from, to, animal: getMessenger(letter.messengerId).name, price };
+  // Preço não aparece na tela de acompanhar (para ninguém).
+  return { from, to, animal: getMessenger(letter.messengerId).name };
 }
 
 export function journeySnapshot(letter: Letter, now = Date.now()): JourneySnapshot {

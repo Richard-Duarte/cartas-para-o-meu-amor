@@ -85,7 +85,7 @@ export function prefetchTracking(opts: { messengerId: MessengerId; from?: Geo; t
           l.setResponseType(type);
           l.load(url, () => resolve(), undefined, () => resolve());
         });
-      await load(`/models/${aid}.glb`, "arraybuffer");
+      await load(`/models/${aid}.glb?v=2`, "arraybuffer");
       await Promise.all([
         load("/draco/draco_wasm_wrapper.js", "text"),
         load("/draco/draco_decoder.wasm", "arraybuffer"),
