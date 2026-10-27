@@ -1,17 +1,17 @@
 import { authClient, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { directAuthProviders } from "@/lib/auth/providers-config";
 
-// Login direto (Google/X com credenciais próprias) quando o servidor tem as envs;
+// Login direto (Google com credenciais próprias) quando o servidor tem as envs;
 // senão, o mesmo broker de antes. Consulta uma vez por página.
-let directPromise: Promise<{ google: boolean; twitter: boolean }> | null = null;
+let directPromise: Promise<{ google: boolean }> | null = null;
 function directConfig() {
-  directPromise ??= directAuthProviders().catch(() => ({ google: false, twitter: false }));
+  directPromise ??= directAuthProviders().catch(() => ({ google: false }));
   return directPromise;
 }
 async function startSignIn(providerId: string, idp: string, callbackURL: string) {
   const direct = await directConfig();
-  if ((idp === "google" && direct.google) || (idp === "twitter" && direct.twitter)) {
-    const res = await authClient.signIn.social({ provider: idp as "google" | "twitter", callbackURL });
+  if (idp === "google" && direct.google) {
+    const res = await authClient.signIn.social({ provider: "google", callbackURL });
     if (res?.error) throw new Error(res.error.message || "Não foi possível entrar");
     return;
   }
