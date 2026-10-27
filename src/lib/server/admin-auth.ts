@@ -78,15 +78,45 @@ async function writeToken(token: string, maxAge: number) {
   });
 }
 
+/** `ADMIN_EMAILS=a@x.com,b@y.com`: contas que viram admin quando entram com o Google. */
+function adminEmails(): string[] {
+  return (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * Admin pelo login Google: o usuário logado precisa ter o e-mail em ADMIN_EMAILS, e-mail
+ * verificado, conta Google ligada e nenhuma senha local (assim ninguém vira admin criando
+ * uma conta de e-mail/senha com o e-mail da marca antes dela entrar pelo Google).
+ */
+export async function googleAdminUserId(sql: Awaited<ReturnType<typeof getSql>>): Promise<string | null> {
+  const allow = adminEmails();
+  if (!allow.length) return null;
+  const { getSessionUser } = await import("@/lib/auth/verify.server");
+  const user = await getSessionUser().catch(() => null);
+  if (!user?.email || !allow.includes(user.email.trim().toLowerCase())) return null;
+  const rows = await sql<{ verified: boolean; google: boolean; password: boolean }>`
+    select coalesce(u."emailVerified", false) as verified,
+      exists (select 1 from "account" a where a."userId" = u.id and a."providerId" = 'google') as google,
+      exists (select 1 from "account" a where a."userId" = u.id and a."providerId" = 'credential') as password
+    from "user" u where u.id = ${user.id} limit 1`;
+  const r = rows[0];
+  return r && r.verified && r.google && !r.password ? user.id : null;
+}
+
 export async function requireAdminSession() {
   const sql = await ensureAdminRow();
   const token = await readToken();
-  if (!token) throw new Error("Forbidden");
-  const rows = await sql<{ token: string }>`
-    select token from admin_sessions where token = ${token} limit 1
-  `;
-  if (!rows.length) throw new Error("Forbidden");
-  return sql;
+  if (token) {
+    const rows = await sql<{ token: string }>`
+      select token from admin_sessions where token = ${token} limit 1
+    `;
+    if (rows.length) return sql;
+  }
+  if (await googleAdminUserId(sql)) return sql;
+  throw new Error("Forbidden");
 }
 
 export const adminLogin = createServerFn({ method: "POST" })

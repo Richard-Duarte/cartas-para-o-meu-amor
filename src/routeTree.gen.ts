@@ -16,6 +16,8 @@ import { Route as ContaRouteImport } from './routes/conta'
 import { Route as EscreverRouteImport } from './routes/escrever'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PagarRouteImport } from './routes/pagar'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
+import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AcompanharIndexRouteImport } from './routes/acompanhar.index'
 import { Route as AcompanharLetterIdRouteImport } from './routes/acompanhar.$letterId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -57,6 +59,16 @@ const PagarRoute = PagarRouteImport.update({
   path: '/pagar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AcompanharIndexRoute = AcompanharIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -91,6 +103,8 @@ export interface FileRoutesByFullPath {
   '/escrever': typeof EscreverRoute
   '/login': typeof LoginRoute
   '/pagar': typeof PagarRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
   '/acompanhar/$letterId': typeof AcompanharLetterIdRoute
   '/acompanhar/': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -104,6 +118,8 @@ export interface FileRoutesByTo {
   '/escrever': typeof EscreverRoute
   '/login': typeof LoginRoute
   '/pagar': typeof PagarRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
   '/acompanhar/$letterId': typeof AcompanharLetterIdRoute
   '/acompanhar': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -119,6 +135,8 @@ export interface FileRoutesById {
   '/escrever': typeof EscreverRoute
   '/login': typeof LoginRoute
   '/pagar': typeof PagarRoute
+  '/privacidade': typeof PrivacidadeRoute
+  '/termos': typeof TermosRoute
   '/acompanhar/$letterId': typeof AcompanharLetterIdRoute
   '/acompanhar/': typeof AcompanharIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -135,6 +153,8 @@ export interface FileRouteTypes {
     | '/escrever'
     | '/login'
     | '/pagar'
+    | '/privacidade'
+    | '/termos'
     | '/acompanhar/$letterId'
     | '/acompanhar/'
     | '/api/auth/$'
@@ -148,6 +168,8 @@ export interface FileRouteTypes {
     | '/escrever'
     | '/login'
     | '/pagar'
+    | '/privacidade'
+    | '/termos'
     | '/acompanhar/$letterId'
     | '/acompanhar'
     | '/api/auth/$'
@@ -162,6 +184,8 @@ export interface FileRouteTypes {
     | '/escrever'
     | '/login'
     | '/pagar'
+    | '/privacidade'
+    | '/termos'
     | '/acompanhar/$letterId'
     | '/acompanhar/'
     | '/api/auth/$'
@@ -177,6 +201,8 @@ export interface RootRouteChildren {
   EscreverRoute: typeof EscreverRoute
   LoginRoute: typeof LoginRoute
   PagarRoute: typeof PagarRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
+  TermosRoute: typeof TermosRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronNoticesRoute: typeof ApiCronNoticesRoute
   ApiMercadopagoWebhookRoute: typeof ApiMercadopagoWebhookRoute
@@ -231,6 +257,20 @@ declare module '@tanstack/react-router' {
       path: '/pagar'
       fullPath: '/pagar'
       preLoaderRoute: typeof PagarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/acompanhar/': {
@@ -293,6 +333,8 @@ const rootRouteChildren: RootRouteChildren = {
   EscreverRoute: EscreverRoute,
   LoginRoute: LoginRoute,
   PagarRoute: PagarRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
+  TermosRoute: TermosRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronNoticesRoute: ApiCronNoticesRoute,
   ApiMercadopagoWebhookRoute: ApiMercadopagoWebhookRoute,

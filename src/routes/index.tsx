@@ -6,7 +6,6 @@ import { MessengerShowcase } from "@/components/home/MessengerShowcase";
 import { RitualSteps } from "@/components/home/RitualSteps";
 import { StickyWriteCta } from "@/components/home/StickyWriteCta";
 import { StoryFilm } from "@/components/home/StoryFilm";
-import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { ClotheslineSection } from "@/components/letters/ClotheslineGallery";
 
@@ -41,7 +40,6 @@ function Home() {
           </Link>
         </section>
       </main>
-      <SiteFooter />
       <StickyWriteCta />
     </div>
   );

@@ -358,7 +358,7 @@ function ProfileSettings({
           onClick={() => fileRef.current?.click()}
           aria-label="Alterar foto de perfil"
         >
-          {photo ? <img src={photo} alt="" /> : <span>{initial}</span>}
+          {photo ? <img src={photo} alt="" referrerPolicy="no-referrer" /> : <span>{initial}</span>}
         </button>
         <div>
           <h2 className="font-display text-2xl">{name || "Sem nome"}</h2>

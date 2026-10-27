@@ -7181,3 +7181,38 @@ img.messenger-picker-live-media {
 .mp-pay .mp-brick { min-height: 120px; margin-top: 0.75rem; }
 .mp-pix { align-items: center; text-align: center; }
 .mp-pix-qr { width: min(220px, 70vw); height: auto; border-radius: 14px; background: #fff; padding: 8px; }
+
+.legal-page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 5rem 1.4rem 3rem;
+  line-height: 1.6;
+}
+.legal-page h1 {
+  font-family: var(--font-display, serif);
+  font-size: 2rem;
+  line-height: 1.15;
+}
+.legal-page h2 {
+  margin-top: 1.8rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.legal-page p,
+.legal-page ul {
+  margin-top: 0.7rem;
+}
+.legal-page ul {
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+.legal-page li + li {
+  margin-top: 0.4rem;
+}
+.legal-page a {
+  text-decoration: underline;
+}
+.legal-updated {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}

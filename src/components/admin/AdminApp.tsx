@@ -739,6 +739,9 @@ function AdminLogin({ onOk }: { onOk: () => void }) {
           {busy ? "Entrando…" : "Entrar"}
         </button>
       </form>
+      <p className="mt-6 text-sm text-muted">
+        Ou <a className="underline" href="/login?next=%2Fadmin">entre com o Google da marca</a> e volte aqui.
+      </p>
     </main>
   );
 }

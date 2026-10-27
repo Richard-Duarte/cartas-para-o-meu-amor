@@ -39,6 +39,7 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
+import { directSocialProviders, syncGooglePhoto } from "./direct-providers.server";
 import { serverlessDbUrl, SERVERLESS_POOL } from "../db-url";
 import { pgliteDialect } from "./pglite-dialect";
 import {
@@ -208,6 +209,20 @@ export const auth = betterAuth({
   // local loopback variants, or clients get "Invalid origin".
   trustedOrigins,
 
+  // Login direto com Google (só quando as envs existem; ver direct-providers.server.ts).
+  socialProviders: directSocialProviders,
+
+  // Foto herdada do Google (não sobrescreve foto enviada em /conta). Nunca bloqueia o login.
+  databaseHooks: {
+    session: {
+      create: {
+        after: async (session) => {
+          await syncGooglePhoto(session.userId).catch((e) => console.warn("[auth] foto google", e instanceof Error ? e.message : e));
+        },
+      },
+    },
+  },
+
   // Encrypt broker-issued OAuth tokens at rest, and treat the broker's upstreams
   // as trusted first-party identities. The broker owns identity and X emails are
   // synthetic/unverified, so WITHOUT this a login can fail with
@@ -221,6 +236,8 @@ export const auth = betterAuth({
       trustedProviders: [
         ...GROK_PROVIDERS.map((p) => p.providerId),
         GATE_PROVIDER_ID,
+        // Google só devolve e-mail verificado: liga ao usuário que já existe com o mesmo e-mail.
+        "google",
       ],
       // X's synthetic email is never "verified", so don't gate linking on the
       // local user's email-verified state.
