@@ -63,6 +63,7 @@ import {
 } from "@/lib/pages";
 import { STICKER_GROUPS, STICKERS } from "@/lib/stickers";
 import { cn } from "@/lib/utils";
+import { MeasuredBar } from "@/components/ui/MeasuredBar";
 
 type Panel = "design" | "text" | "stickers" | "font" | "size";
 
@@ -970,7 +971,13 @@ export function CanvaEditor({
         </aside>
 
         {selected ? (
-          <div className="canva-context" role="toolbar" aria-label="Editar o elemento selecionado">
+          <MeasuredBar
+            spaceVar="--canva-context-space"
+            mode="height"
+            className="canva-context"
+            role="toolbar"
+            aria-label="Editar o elemento selecionado"
+          >
             <div className="canva-context-scroll">
               <SelectionActions
                 block={selected}
@@ -1001,7 +1008,7 @@ export function CanvaEditor({
             <button type="button" className="canva-context-done" onClick={clearSelection} aria-label="Concluir edição">
               <Check size={18} />
             </button>
-          </div>
+          </MeasuredBar>
         ) : null}
 
         <div className="canva-bottom">

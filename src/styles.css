@@ -5915,6 +5915,7 @@ html {
   }
   .canva.has-selection .canva-workspace {
     padding-bottom: 6rem;
+    padding-bottom: calc(var(--canva-context-space, 4.75rem) + 1.25rem);
   }
   .canva-sheet {
     gap: 0.55rem;
@@ -6145,7 +6146,9 @@ html {
 
 /* —— escrever: barra de ação fixa (passos 3 e 4) —— */
 .write-shell-flow .write-main {
+  /* A barra mede a si mesma (MeasuredBar → --app-bar-space): o fim da página sempre sobe acima dela. */
   padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+  padding-bottom: max(calc(7rem + env(safe-area-inset-bottom)), calc(var(--app-bar-space, 0px) + 1.5rem));
 }
 
 .app-actionbar {
@@ -6456,4 +6459,42 @@ html {
   .home-sticky-cta-btn:active,
   .choice-card:active,
   .messenger-picker-card:active { transform: none; }
+}
+
+/* —— previsão de chegada: "Pombo-correio chega" em cima, data e hora numa linha só —— */
+.arrival-eta-main {
+  min-width: 0;
+  container-type: inline-size;
+}
+.arrival-eta-when:has(.arrival-eta-date) {
+  display: grid;
+  gap: 0.1rem;
+}
+.arrival-eta-who { display: block; }
+.arrival-eta-when .arrival-eta-date {
+  display: block;
+  overflow: hidden;
+  font-size: 1.05rem;
+  font-size: clamp(0.95rem, 6.3cqi, 1.45rem);
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.arrival-eta-list > li { min-width: 0; }
+.arrival-eta-row { min-width: 0; }
+.arrival-eta-row > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.arrival-eta-row > span.arrival-eta-row-when {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  column-gap: 0.28em;
+  min-width: 0;
+  white-space: normal;
+}
+.arrival-eta-nw { white-space: nowrap; }
+@media (max-width: 639px) {
+  .arrival-eta-row > span.arrival-eta-row-when { justify-content: flex-start; }
 }

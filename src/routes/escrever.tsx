@@ -9,6 +9,7 @@ import { deliveryCanContinue, DeliveryChoices } from "@/components/letters/Deliv
 import { CartSummary } from "@/components/cart/CartSummary";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { MessengerPicker } from "@/components/messengers/MessengerPicker";
+import { MeasuredBar } from "@/components/ui/MeasuredBar";
 import { emptyAddress, type Address } from "@/lib/address";
 import {
   buildCart,
@@ -546,7 +547,7 @@ function WritePage() {
       </main>
 
       {/* Barra de ação fixa no polegar (celular e tablet). */}
-      <div className="app-actionbar" role="region" aria-label="Continuar">
+      <MeasuredBar spaceVar="--app-bar-space" className="app-actionbar" role="region" aria-label="Continuar">
         <button
           type="button"
           className="app-actionbar-back"
@@ -575,7 +576,7 @@ function WritePage() {
             {paying ? "Calculando rota…" : "Ir para o pagamento"}
           </button>
         )}
-      </div>
+      </MeasuredBar>
     </div>
   );
 }
