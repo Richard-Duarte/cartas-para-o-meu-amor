@@ -2099,7 +2099,9 @@ function CanvasItem({
           {editing ? null : block.text || "Digite aqui"}
         </div>
       )}
-      {active && !editing ? (
+      {/* Puxadores também enquanto digita: no celular um toque já escreve, e dá para
+          redimensionar ou girar sem sair do texto. */}
+      {active ? (
         <>
           {RESIZE_HANDLES.map((h) => (
             <i
