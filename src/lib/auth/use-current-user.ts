@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { authClient, authEnabled } from "./client";
 
 /** Normalized user shape used across the app, auth on or off. */
@@ -59,18 +60,22 @@ export function useCurrentUserState(): CurrentUserState {
   // eslint-disable-next-line react-hooks/rules-of-hooks -- authEnabled is constant for the app's lifetime
   const { data, isPending } = authClient.useSession();
   const user = data?.user;
-  return {
-    user: user
-      ? {
-          id: user.id,
-          displayName: user.name ?? null,
-          primaryEmail: user.email ?? null,
-          profileImageUrl: user.image ?? null,
-          isDevFallback: false,
-        }
-      : null,
-    isPending,
-  };
+  const id = user?.id;
+  const name = user?.name ?? null;
+  const email = user?.email ?? null;
+  const image = user?.image ?? null;
+  // O MESMO objeto enquanto a conta não muda. Antes, um objeto novo a cada render
+  // fazia todo efeito com [user] rodar de novo → setState → render → … um laço de
+  // centenas de chamadas ao servidor por segundo (e conexões de banco esgotadas).
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- authEnabled is constant for the app's lifetime
+  const stableUser = useMemo<AppUser | null>(
+    () =>
+      id
+        ? { id, displayName: name, primaryEmail: email, profileImageUrl: image, isDevFallback: false }
+        : null,
+    [id, name, email, image],
+  );
+  return { user: stableUser, isPending };
 }
 
 /**

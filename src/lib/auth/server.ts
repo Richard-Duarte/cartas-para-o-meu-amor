@@ -34,13 +34,12 @@ import { bearer, genericOAuth } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
-import { Pool } from "pg";
+import { sharedPool } from "../shared-pool.server";
 import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
 import { directSocialProviders, syncGooglePhoto } from "./direct-providers.server";
-import { serverlessDbUrl, SERVERLESS_POOL } from "../db-url";
 import { pgliteDialect } from "./pglite-dialect";
 import {
   GROK_ISSUER_DEFAULT,
@@ -156,14 +155,10 @@ const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 // SAME DB as app data, including email/password users. Both use the Better Auth
 // schema from `migrations/auth/0001_auth.sql`, copied into `migrations/` when
 // the app turns sign-in on.
+// Um só pool por instância, o mesmo do app (`getSql`): ver shared-pool.server.ts.
 const database = databaseUrl
-  ? new Pool({
-      ...SERVERLESS_POOL,
-      connectionString: serverlessDbUrl(databaseUrl),
-      ssl: databaseUrl.includes("supabase") ? { rejectUnauthorized: false } : undefined,
-    })
+  ? sharedPool(databaseUrl)
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
-if (database instanceof Pool) database.on("error", (err) => console.warn("[auth] pool", err.message));
 
 const cookieSecure =
   Boolean(explicitBaseURL?.startsWith("https:")) || Boolean(env("VERCEL") || env("VERCEL_URL"));
@@ -211,6 +206,11 @@ export const auth = betterAuth({
 
   // Login direto com Google (só quando as envs existem; ver direct-providers.server.ts).
   socialProviders: directSocialProviders,
+
+  // Erro no retorno do Google (ex.: "state not found" quando o login começou em outra
+  // aba/app — comum no app instalado do iPhone — ou o link de retorno foi reaberto):
+  // volta para /login com uma mensagem em vez da página crua /api/auth/error.
+  onAPIError: { errorURL: "/login" },
 
   // Foto herdada do Google (não sobrescreve foto enviada em /conta). Nunca bloqueia o login.
   databaseHooks: {
