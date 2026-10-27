@@ -90,14 +90,29 @@ export function formatArrivalShort(date: Date) {
   return `${day} às ${time}`;
 }
 
+/** Carta sem endereço (anônima, ou para quem não tem endereço): chega sempre em 2h. */
+export const ADDRESSLESS_TRIP_MS = 2 * 60 * 60 * 1000;
+
 export function planArrival(opts: {
   messengerId: MessengerId;
   from: Geo;
   to: Geo;
   now?: Date;
   arriveOn?: string | null;
+  /** Sem endereço: 2h fixas, qualquer mensageiro, sem dia marcado. */
+  addressless?: boolean;
 }): ArrivalPlan {
   const now = opts.now ?? new Date();
+  if (opts.addressless) {
+    return {
+      hours: 2,
+      km: 0,
+      departAt: now,
+      arriveAt: new Date(now.getTime() + ADDRESSLESS_TRIP_MS),
+      instant: false,
+      fits: true,
+    };
+  }
   const est = estimateDelivery({
     messengerId: opts.messengerId,
     from: opts.from,
@@ -251,4 +266,15 @@ export function arrivingCopy(opts: {
       `Este aviso sai uma vez. Ninguém daqui pede senha, código ou pagamento.`,
     ].join("\n"),
   };
+}
+
+/** "1h 23min" / "12min" / "menos de 1min" até a chegada. */
+export function formatRemaining(ms: number) {
+  if (ms <= 0) return "agora";
+  const min = Math.ceil(ms / 60000);
+  if (min < 1) return "menos de 1min";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (!h) return `${m}min`;
+  return m ? `${h}h ${m}min` : `${h}h`;
 }

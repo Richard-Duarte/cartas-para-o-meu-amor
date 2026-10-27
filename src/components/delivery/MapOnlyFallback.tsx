@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Letter } from "@/lib/letters";
 import type { Geo } from "@/lib/messengers";
-import { letterEndpoints } from "./journey";
+import { journeyScene, journeySnapshot, letterEndpoints } from "./journey";
+import { mountJourneyScene } from "./journeyScene.js";
 import { routeCurve, StaticRouteMap } from "./StaticRouteMap";
 import "leaflet/dist/leaflet.css";
 import "./delivery.css";
@@ -31,7 +32,53 @@ function safeGeo(geo: Partial<Geo> | undefined, fallback: Geo): Geo {
 }
 
 /** Mapa sem WebGL — usado quando o mensageiro 3D falha no aparelho. */
-export function MapOnlyFallback({ letter, loadFailed = false }: Props) {
+export function MapOnlyFallback(props: Props) {
+  return journeyScene(props.letter) ? <SceneOnlyFallback {...props} /> : <LeafletFallback {...props} />;
+}
+
+/** Sem endereço e sem 3D: a mesma cena (céu/campo) parada, com o progresso marcado. */
+function SceneOnlyFallback({ letter, loadFailed = false }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const kind = journeyScene(letter) ?? "sky";
+  const ends = letterEndpoints(letter);
+  const snap = journeySnapshot(letter);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const api = mountJourneyScene(host, {
+      kind,
+      fromLabel: ends.from.label,
+      fromAnon: Boolean(ends.from.anonymous),
+      toLabel: ends.to.label,
+      reduced: true,
+      progress: snap.progress,
+    });
+    return () => api.dispose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, ends.from.label, ends.to.label, Math.round(snap.progress * 100)]);
+  return (
+    <div className="delivery-preview map-only-fallback">
+      <section className="card map-card is-scene">
+        <div ref={hostRef} id="map" className="map-only-host" />
+        <div className="map-ui">
+          <div className="eta">
+            <span>{snap.label}</span>
+            <div className="bar">
+              <i style={{ width: `${Math.round(snap.progress * 100)}%` }} />
+            </div>
+            {loadFailed ? (
+              <button type="button" className="map-retry" onClick={() => window.location.reload()}>
+                Tentar abrir o 3D de novo
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function LeafletFallback({ letter, loadFailed = false }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const ends = letterEndpoints(letter);
   const from = { ...safeGeo(ends.from, FALLBACK_FROM), label: ends.from.label };

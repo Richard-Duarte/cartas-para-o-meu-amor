@@ -10,7 +10,7 @@ type Sql = Awaited<ReturnType<typeof getSql>>;
 
 const KINDS = new Set<NoticeKind>(["view", "reply", "phone", "platform", "update"]);
 
-async function ensureNoticeTables(sql: Sql) {
+export async function ensureNoticeTables(sql: Sql) {
   await sql`
     create table if not exists notifications (
       id text primary key,

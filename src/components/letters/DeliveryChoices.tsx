@@ -27,7 +27,35 @@ type Props = {
   onScheduled: (value: boolean) => void;
   arriveOn: string;
   onArriveOn: (value: string) => void;
+  /** Sem endereço: 2h fixas, sem dia marcado. */
+  addressless?: boolean;
 };
+
+/** "Com o seu nome" ou "Anônimo". Anônima não usa endereço e chega em 2h. */
+export function AnonymityChoice(props: { anonymous: boolean; onAnonymous: (value: boolean) => void }) {
+  return (
+    <div className="choice-grid two">
+      <button
+        type="button"
+        className={cn("choice-card", !props.anonymous && "is-on")}
+        aria-pressed={!props.anonymous}
+        onClick={() => props.onAnonymous(false)}
+      >
+        <strong>Com o seu nome</strong>
+        <span>Quem recebe vê quem escreveu.</span>
+      </button>
+      <button
+        type="button"
+        className={cn("choice-card", props.anonymous && "is-on")}
+        aria-pressed={props.anonymous}
+        onClick={() => props.onAnonymous(true)}
+      >
+        <strong>Anônimo · {formatBrl(getAnonymousFee())}</strong>
+        <span>Sem nome e sem endereço. Chega em 2h.</span>
+      </button>
+    </div>
+  );
+}
 
 export function DeliveryChoices(props: Props) {
   const now = useMemo(() => new Date(), []);
@@ -40,6 +68,7 @@ export function DeliveryChoices(props: Props) {
     to: props.to,
     now,
     arriveOn: day,
+    addressless: props.addressless,
   });
   const ready = contactsReady();
 
@@ -53,12 +82,20 @@ export function DeliveryChoices(props: Props) {
       now,
       arriveOn: day,
     });
+    if (props.addressless) {
+      arriveLabelById[item.id] = "Chega em 2h";
+      continue;
+    }
     if (props.scheduled && day && !next.fits) blocked.add(item.id);
     arriveLabelById[item.id] = next.fits ? `Chega ${formatArrival(next.arriveAt)}` : "Não chega nesse dia";
   }
 
   return (
     <div className="delivery-block">
+      {props.addressless ? (
+        <p className="delivery-type-title">Sem endereço · qualquer mensageiro chega em 2h</p>
+      ) : (
+        <>
       <h3 className="delivery-type-title">Selecione o tipo de envio</h3>
 
       <div className="choice-grid two">
@@ -106,24 +143,8 @@ export function DeliveryChoices(props: Props) {
         </>
       ) : null}
 
-      <div className="choice-grid two">
-        <button
-          type="button"
-          className={cn("choice-card", !props.anonymous && "is-on")}
-          onClick={() => props.onAnonymous(false)}
-        >
-          <strong>Com o seu nome</strong>
-          <span>Quem recebe vê quem escreveu.</span>
-        </button>
-        <button
-          type="button"
-          className={cn("choice-card", props.anonymous && "is-on")}
-          onClick={() => props.onAnonymous(true)}
-        >
-          <strong>Anônimo · {formatBrl(getAnonymousFee())}</strong>
-          <span>Quem abre entra na conta e não vê o seu nome.</span>
-        </button>
-      </div>
+        </>
+      )}
 
       <p className="arrival-note">
         {plan.instant
@@ -144,7 +165,8 @@ export function deliveryCanContinue(opts: Props) {
     messengerId: opts.messengerId,
     from: opts.from,
     to: opts.to,
-    arriveOn: opts.scheduled ? opts.arriveOn || earliestDay(opts.from, opts.to) : null,
+    arriveOn: opts.scheduled && !opts.addressless ? opts.arriveOn || earliestDay(opts.from, opts.to) : null,
+    addressless: opts.addressless,
   });
   return plan.fits && contactsReady();
 }

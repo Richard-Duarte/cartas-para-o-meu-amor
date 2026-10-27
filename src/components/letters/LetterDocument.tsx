@@ -17,6 +17,8 @@ type Props = {
   allowDownload?: boolean;
   shareHref?: string;
   shareText?: string;
+  /** Quem recebeu pode responder (anônimo ou não). */
+  replyHref?: string;
 };
 
 export function LetterDocument({
@@ -32,6 +34,7 @@ export function LetterDocument({
   allowDownload = false,
   shareHref,
   shareText = "Uma carta está a caminho.",
+  replyHref,
 }: Props) {
   const packRef = useRef<HTMLDivElement>(null);
   const design = getDesign(designId);
@@ -177,6 +180,7 @@ export function LetterDocument({
           </article>
         ))}
       </div>
+      {replyHref ? <ReplyButton href={replyHref} /> : null}
       {showActions ? (
         <div className="share-bar letter-actions">
           {allowDownload ? (
@@ -207,6 +211,25 @@ export function LetterDocument({
         </div>
       ) : null}
       {downloadError ? <p className="letter-action-error">{downloadError}</p> : null}
+    </div>
+  );
+}
+
+/** Botão rosa com brilho e faíscas ✨ (só transform/opacity; parado com movimento reduzido). */
+export function ReplyButton({ href, label = "Enviar resposta" }: { href: string; label?: string }) {
+  return (
+    <div className="reply-cta-wrap">
+      <a className="reply-cta" href={href} data-testid="reply-cta">
+        <span className="reply-cta-shine" aria-hidden="true" />
+        <span className="reply-cta-label">{label}</span>
+        <span className="reply-cta-sparks" aria-hidden="true">
+          <i>✨</i>
+          <i>✨</i>
+          <i>✨</i>
+          <i>✨</i>
+        </span>
+      </a>
+      <p className="reply-cta-note">Você escolhe se vai com seu nome ou anônima.</p>
     </div>
   );
 }

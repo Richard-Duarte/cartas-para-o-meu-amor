@@ -1,7 +1,7 @@
 import { addressLine } from "@/lib/address";
-import { formatArrivalCompact } from "@/lib/delivery";
+import { formatArrivalCompact, formatRemaining } from "@/lib/delivery";
 import { letterProgress, shownFromName, type Letter } from "@/lib/letters";
-import { FLIES, getCity, getMessenger, messengerModelId, type Geo } from "@/lib/messengers";
+import { FLIES, getCity, getMessenger, messengerMode, messengerModelId, type Geo } from "@/lib/messengers";
 
 export type JourneySnapshot = {
   progress: number;
@@ -11,7 +11,7 @@ export type JourneySnapshot = {
 };
 
 export function letterEndpoints(letter: Letter): {
-  from: Geo & { label: string };
+  from: Geo & { label: string; anonymous?: boolean };
   to: Geo & { label: string };
 } {
   const fromCity = getCity(letter.fromCityId);
@@ -20,19 +20,31 @@ export function letterEndpoints(letter: Letter): {
   const to = letter.toGeo ?? toCity.geo;
   const fromName = shownFromName(letter, "public").trim() || letter.fromName?.trim() || "Origem";
   const toName = letter.toName?.trim().replace(/,$/, "") || "Destino";
+  if (letter.addressless) {
+    // Sem endereço: só rótulos para a cena; as coordenadas não são usadas.
+    return {
+      from: { ...fromCity.geo, label: letter.anonymous ? "Alguém especial" : fromName, anonymous: Boolean(letter.anonymous) },
+      to: { ...toCity.geo, label: toName },
+    };
+  }
   return {
     from: { ...from, label: fromName },
     to: { ...to, label: toName },
   };
 }
 
+/** Cena da viagem sem endereço: céu para quem voa, estrada no campo para quem anda. */
+export function journeyScene(letter: Letter): "sky" | "campo" | null {
+  if (!letter.addressless) return null;
+  return messengerMode(letter.messengerId) === "terra" ? "campo" : "sky";
+}
+
 export function trackMeta(letter: Letter) {
-  const from = letter.fromAddress?.street
-    ? addressLine(letter.fromAddress)
-    : getCity(letter.fromCityId).name;
-  const to = letter.toAddress?.street
-    ? addressLine(letter.toAddress)
-    : getCity(letter.toCityId).name;
+  // O servidor só manda cidade (ou nada) do lado que não é seu: mostra o que tiver.
+  const place = (a: Letter["fromAddress"], cityId: string) =>
+    a?.street ? addressLine(a) : a?.city ? [a.city, a.state].filter(Boolean).join(" — ") : getCity(cityId).name;
+  const from = letter.addressless ? "Sem endereço" : place(letter.fromAddress, letter.fromCityId);
+  const to = letter.addressless ? "Sem endereço · pela conta de quem recebe" : place(letter.toAddress, letter.toCityId);
   const price =
     letter.paidBrl != null
       ? `lacre de ${letter.paidBrl.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
@@ -48,6 +60,8 @@ export function journeySnapshot(letter: Letter, now = Date.now()): JourneySnapsh
   let label: string;
   if (stats.arrived) label = `Chegou em ${to.label}`;
   else if (stats.waiting) label = `Ainda não saiu · sai ${formatArrivalCompact(new Date(stats.departAt))}`;
+  else if (letter.addressless)
+    label = `${flying ? "Em voo" : "A caminho"} · ${pct}% · chega em ${formatRemaining(stats.arriveAt - now)}`;
   else
     label = `${flying ? "Em voo" : "A caminho"} · ${pct}% · chega ${formatArrivalCompact(new Date(stats.arriveAt))}`;
   return { progress: stats.progress, arrived: stats.arrived, waiting: stats.waiting, label };
@@ -66,14 +80,14 @@ export function letterOverlay(letter: Letter) {
       : letter.drawingDataUrl
         ? ["Um desenho para você."]
         : ["…"];
-  const place = letter.toAddress?.city || getCity(letter.toCityId).name;
+  const place = letter.addressless ? "" : letter.toAddress?.city || getCity(letter.toCityId).name;
   const when = new Date(letter.startedAt).toLocaleDateString("pt-BR", {
     day: "numeric",
     month: "long",
   });
   const name = letter.toName?.trim().replace(/,$/, "") || "Meu amor";
   return {
-    date: `${place}, ${when}`,
+    date: place ? `${place}, ${when}` : when,
     greeting: `${name},`,
     paragraphs,
     sign: shownFromName(letter, "public"),

@@ -45,6 +45,10 @@ export type Letter = {
   demoDurationMs: number;
   senderUserId?: string;
   recipientUserId?: string | null;
+  /** Sem endereço: viagem de 2h pelo céu (voa) ou pelo campo (terra), sem mapa. */
+  addressless?: boolean;
+  replyToLetterId?: string | null;
+  threadId?: string | null;
 };
 
 export type LetterRecord = {
@@ -72,6 +76,9 @@ export type LetterRecord = {
   sender_phone?: string | null;
   started_at: string;
   demo_duration_ms: number;
+  addressless?: boolean | null;
+  reply_to_letter_id?: string | null;
+  thread_id?: string | null;
 };
 
 const KEY = "cartas-para-o-meu-amor:letters:v1";
@@ -126,8 +133,11 @@ export function letterFromRecord(row: LetterRecord): Letter {
     senderPhone: row.sender_phone ?? undefined,
     startedAt: new Date(row.started_at).getTime() || Date.now(),
     demoDurationMs: row.demo_duration_ms || 20000,
-    senderUserId: row.user_id,
+    senderUserId: row.user_id || undefined,
     recipientUserId: row.recipient_user_id,
+    addressless: Boolean(row.addressless ?? (row.anonymous || !row.to_geo_json)),
+    replyToLetterId: row.reply_to_letter_id ?? null,
+    threadId: row.thread_id ?? null,
   };
 }
 
@@ -161,7 +171,7 @@ export function letterProgress(letter: Letter, now = Date.now()) {
     to,
   });
   const departAt = letter.departAt ?? letter.startedAt;
-  const arriveAt = letter.arriveAt ?? letter.startedAt + real.durationMs;
+  const arriveAt = letter.arriveAt ?? letter.startedAt + (letter.addressless ? 2 * 60 * 60 * 1000 : real.durationMs);
   const hasClock = letter.arriveAt != null && letter.departAt != null;
   const progress = hasClock
     ? now <= departAt

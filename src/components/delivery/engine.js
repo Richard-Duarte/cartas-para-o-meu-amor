@@ -4,7 +4,7 @@
 // (pigeon, plane, stork, swan, horse, donkey, turtle + *_eyes.json e *_gait.json).
 // Só o animal desta carta é baixado.
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import { mountJourneyScene } from './journeyScene.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -29,6 +29,9 @@ const SHELL = `
 export async function mountDeliveryPreview(root, options) {
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = (id) => root.querySelector('#' + id);
+// Sem endereço: cena ilustrada no lugar do mapa (sem Leaflet, sem tiles, sem coordenadas).
+const SCENE = options.scene === 'sky' || options.scene === 'campo' ? options.scene : null;
+const L = SCENE ? null : (await import('leaflet')).default;
 const off = [];
 const listen = (target, type, fn, opts) => { target.addEventListener(type, fn, opts); off.push(() => target.removeEventListener(type, fn, opts)); };
 let alive = true;
@@ -213,32 +216,41 @@ const bow = Math.max(span * 0.18, 0.08);
 const CTRL = [(routeFrom[0] + routeTo[0]) / 2 + (-(routeTo[1] - routeFrom[1]) / span) * bow, (routeFrom[1] + routeTo[1]) / 2 + ((routeTo[0] - routeFrom[0]) / span) * bow];
 const bez = (t) => [0, 1].map((k) => (1 - t) ** 2 * routeFrom[k] + 2 * (1 - t) * t * CTRL[k] + t * t * routeTo[k]);
 const route = Array.from({ length: 80 }, (_, i) => bez(i / 79));
-const map = L.map($('map'), { zoomControl: false, attributionControl: true, scrollWheelZoom: false });
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap', maxZoom: 16 }).addTo(map);
-L.polyline(route, { color: '#e85a7a', weight: 3, dashArray: '6 9', opacity: 0.8 }).addTo(map);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const pin = (ll, t) => {
-  const icon = L.divIcon({
-    className: 'delivery-pin-wrap',
-    html: `<span class="delivery-pin"><span class="delivery-pin-name">${esc(t)}</span><span class="delivery-pin-dot" aria-hidden="true"></span></span>`,
-    iconSize: [0, 0],
-    iconAnchor: [0, 0],
-  });
-  return L.marker(ll, { icon, interactive: false, keyboard: false }).addTo(map);
-};
-pin(fromLL, options.from.label || 'Origem');
-pin(toLL, options.to.label || 'Destino');
-const routeBounds = L.latLngBounds([fromLL, toLL, ...route]);
+let map = null, sceneApi = null, routeBounds = null;
+if (SCENE) {
+  sceneApi = mountJourneyScene($('map'), { kind: SCENE, fromLabel: options.from.label, fromAnon: Boolean(options.from.anonymous), toLabel: options.to.label, reduced, frame: root.querySelector('.map-card') });
+  root.querySelector('.map-card').classList.add('is-scene');
+} else {
+  map = L.map($('map'), { zoomControl: false, attributionControl: true, scrollWheelZoom: false });
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap', maxZoom: 16 }).addTo(map);
+  L.polyline(route, { color: '#e85a7a', weight: 3, dashArray: '6 9', opacity: 0.8 }).addTo(map);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const pin = (ll, t) => {
+    const icon = L.divIcon({
+      className: 'delivery-pin-wrap',
+      html: `<span class="delivery-pin"><span class="delivery-pin-name">${esc(t)}</span><span class="delivery-pin-dot" aria-hidden="true"></span></span>`,
+      iconSize: [0, 0],
+      iconAnchor: [0, 0],
+    });
+    return L.marker(ll, { icon, interactive: false, keyboard: false }).addTo(map);
+  };
+  pin(fromLL, options.from.label || 'Origem');
+  pin(toLL, options.to.label || 'Destino');
+  routeBounds = L.latLngBounds([fromLL, toLL, ...route]);
+  var refreshLeaflet = function () {
+    if (!alive) return;
+    try {
+      map.invalidateSize({ animate: false, pan: false });
+      map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
+    } catch (e) {}
+  };
+  map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
+}
 function refreshMapLayout() {
   if (!alive) return;
-  try {
-    map.invalidateSize({ animate: false, pan: false });
-    map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
-  } catch (e) {}
+  if (!SCENE && typeof refreshLeaflet === 'function') refreshLeaflet();
   ARC = null;
 }
-map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
-
 const mapCanvas = $('mapfx'), mapEl = root.querySelector('.map-card');
 let map3dOk = true;
 let mr, ms, mc, flyer, yawG, bankG, aTravel, aGlide;
@@ -279,7 +291,7 @@ function screenToWorld(px, py) {
   const v = new THREE.Vector3(); ray.ray.intersectPlane(plane, v); return v;
 }
 // sub-pixel container point (Leaflet's latLngToContainerPoint rounds to whole pixels -> visible stepping)
-const pt = (t) => { const ll = bez(Math.min(1, Math.max(0, t))); return map.project(L.latLng(ll[0], ll[1])).subtract(map.getPixelOrigin()).add(map._getMapPanePos()); };
+const pt = (t) => { if (sceneApi) return sceneApi.point(t); const ll = bez(Math.min(1, Math.max(0, t))); return map.project(L.latLng(ll[0], ll[1])).subtract(map.getPixelOrigin()).add(map._getMapPanePos()); };
 // arc-length table (screen px) so the speed along the curve is uniform, plus an eased velocity profile
 let ARC = null;
 function buildArc() { const n = 240; const P = [], L = [0]; for (let i = 0; i <= n; i++) P.push(pt(i / n)); for (let i = 1; i <= n; i++) L.push(L[i - 1] + Math.hypot(P[i].x - P[i - 1].x, P[i].y - P[i - 1].y)); ARC = { n, L, len: L[n] }; }
@@ -1144,7 +1156,8 @@ function advance(dt) {
       synced = true;
     }
     $('prog').style.width = (progress * 100).toFixed(1) + '%';
-    if (progress >= 1) $('eta').textContent = `Chegou em ${options.to.label || 'o destino'}`;
+    if (sceneApi) sceneApi.setProgress(progress);
+    if (progress >= 1) $('eta').textContent = (SCENE ? `Chegou para ${options.to.label || 'você'}` : `Chegou em ${options.to.label || 'o destino'}`);
     else if (skipping) $('eta').textContent = `${AN.fly ? "Em voo" : "A caminho"} · ${Math.round(progress * 100)}% do caminho`;
     else $('eta').textContent = (options.getJourney && options.getJourney().label) || '';
     if (map3dOk && mc && aTravel) {
@@ -1195,8 +1208,8 @@ const boot = options.getJourney ? options.getJourney() : { progress: 0, arrived:
 if (boot.arrived || boot.progress >= 1) {
   progress = 1; arrived = true; synced = true;
   yawG.visible = false; if (mapBundle) mapBundle.visible = false;
-  $('skip').hidden = true; $('prog').style.width = '100%';
-  $('eta').textContent = `Chegou em ${options.to.label || 'o destino'}`;
+  $('skip').hidden = true; $('prog').style.width = '100%'; if (sceneApi) { sceneApi.setProgress(1); sceneApi.settle(); }
+  $('eta').textContent = (SCENE ? `Chegou para ${options.to.label || 'você'}` : `Chegou em ${options.to.label || 'o destino'}`);
   startArrival({ quiet: true });
   if (boot.arrived) tellDelivered();
 }
@@ -1278,7 +1291,8 @@ return () => {
   off.forEach((fn) => fn());
   try { if (mapRo) mapRo.disconnect(); } catch (e) {}
   try { orbit.dispose(); } catch (e) {}
-  try { map.remove(); } catch (e) {}
+  try { if (map) map.remove(); } catch (e) {}
+  try { if (sceneApi) sceneApi.dispose(); } catch (e) {}
   loseAllRenderers();
   try { draco.dispose(); } catch (e) {}
   Object.values(SND).forEach((a) => { try { a.pause(); a.removeAttribute('src'); a.load(); } catch (e) {} });

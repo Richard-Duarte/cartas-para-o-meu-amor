@@ -31,7 +31,26 @@ export type LetterDraft = {
   senderPhone?: string;
   scheduled?: boolean;
   arriveOn?: string;
+  /** Resposta: id da carta respondida e o que o servidor deixou mostrar do outro lado. */
+  replyTo?: ReplyContext;
 };
+
+export type ReplyContext = {
+  letterId: string;
+  /** Nome para mostrar ("Remetente anônimo" quando a carta era anônima). */
+  toLabel: string;
+  /** Cidade de destino, no máximo. Vazio quando não há endereço. */
+  toCity: string;
+  /** A outra pessoa tem endereço (carta não anônima com endereço). */
+  hasAddress: boolean;
+  /** Ponto aproximado (nível cidade) só para estimar a viagem. */
+  approxGeo?: Geo;
+};
+
+/** Sem endereço: anônima, ou resposta para quem não tem endereço. */
+export function draftAddressless(d: Pick<LetterDraft, "anonymous" | "replyTo">) {
+  return Boolean(d.anonymous || (d.replyTo && !d.replyTo.hasAddress));
+}
 
 const DRAFT_KEY = "cartas-para-o-meu-amor:draft:v2";
 

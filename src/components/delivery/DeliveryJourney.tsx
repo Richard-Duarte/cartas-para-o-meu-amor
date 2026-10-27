@@ -6,7 +6,7 @@ import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { reloadOnceForStaleChunks } from "@/lib/chunk-reload";
 import { getDesign } from "@/lib/designs";
 import { messengerModelId } from "@/lib/messengers";
-import { journeySnapshot, letterEndpoints, letterOverlay } from "./journey";
+import { journeyScene, journeySnapshot, letterEndpoints, letterOverlay } from "./journey";
 import { MapOnlyFallback } from "./MapOnlyFallback";
 import "./delivery.css";
 
@@ -28,6 +28,8 @@ type Props = {
   allowDownload?: boolean;
   onDelivered?: () => void;
   onOpened?: () => void;
+  /** Link "Enviar resposta" mostrado na carta aberta (só para quem recebeu). */
+  replyHref?: string;
 };
 
 export type DeliveryJourneyHandle = {
@@ -41,7 +43,7 @@ function geoKey(n: number) {
 }
 
 export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function DeliveryJourney(
-  { letter, allowDownload = false, onDelivered, onOpened },
+  { letter, allowDownload = false, onDelivered, onOpened, replyHref },
   ref,
 ) {
   const slotRef = useRef<HTMLDivElement>(null);
@@ -134,6 +136,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           animalId: messengerModelId(letterRef.current.messengerId),
           from: place.from,
           to: place.to,
+          scene: journeyScene(letterRef.current),
           designSrc: design.src,
           paintSheet: letterSheetPainter(letterRef.current.designId ?? "classico", letterRef.current.pages?.[0]),
           paintNames: (c: HTMLCanvasElement) =>
@@ -223,6 +226,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
               allowDownload={allowDownload}
               shareHref={shareUrl(letter.id)}
               shareText="Uma carta está a caminho. Acompanhe:"
+              replyHref={replyHref}
             />,
             pagesEl,
           )
