@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AnonymousSection } from "@/components/home/AnonymousSection";
 import { CinematicHero } from "@/components/home/CinematicHero";
+import { InstallAppSection } from "@/components/home/InstallAppSection";
 import { MessengerMarquee } from "@/components/home/MessengerMarquee";
 import { MessengerShowcase } from "@/components/home/MessengerShowcase";
 import { RitualSteps } from "@/components/home/RitualSteps";
@@ -28,6 +29,7 @@ function Home() {
         </div>
         <AnonymousSection />
         <ClotheslineSection className="border-y border-line bg-paper/50" />
+        <InstallAppSection />
         <section className="closing-cta">
           <p className="section-kicker">Agora</p>
           <h2>A saudade tem endereço. A carta também.</h2>

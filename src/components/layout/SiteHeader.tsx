@@ -281,6 +281,9 @@ export function SiteHeader({ className }: Props) {
         <Link to="/acompanhar" style={{ "--i": 2 } as CSSProperties} onClick={() => setOpen(false)}>
           Acompanhar
         </Link>
+        <Link to="/" hash="app" style={{ "--i": 2 } as CSSProperties} onClick={() => setOpen(false)}>
+          Baixe o app
+        </Link>
         {!writing ? (
           <Link to="/escrever" style={{ "--i": 3 } as CSSProperties} onClick={() => setOpen(false)}>
             Escrever

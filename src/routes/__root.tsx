@@ -6,10 +6,29 @@ import { KeyboardLift } from "@/components/layout/KeyboardLift";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { bootCatalog } from "@/lib/catalog";
 import { shareMeta } from "@/lib/share-meta";
+import { bootPwa } from "@/lib/pwa";
 import { installChunkReload } from "@/lib/chunk-reload";
 import { pingVisit } from "@/lib/server/shop";
 import { bootTracking, trackPageView, TRACKING_ENABLED } from "@/lib/tracking";
 import appCss from "../styles.css?url";
+
+// Telas de abertura do app no iPhone/iPad (apple-touch-startup-image), só retrato.
+const IOS_SPLASH: Array<[number, number, number, string]> = [
+  [430, 932, 3, "/splash/splash-1290x2796-v2.png"],
+  [440, 956, 3, "/splash/splash-1320x2868-v2.png"],
+  [402, 874, 3, "/splash/splash-1206x2622-v2.png"],
+  [393, 852, 3, "/splash/splash-1179x2556-v2.png"],
+  [390, 844, 3, "/splash/splash-1170x2532-v2.png"],
+  [428, 926, 3, "/splash/splash-1284x2778-v2.png"],
+  [375, 812, 3, "/splash/splash-1125x2436-v2.png"],
+  [414, 896, 3, "/splash/splash-1242x2688-v2.png"],
+  [414, 896, 2, "/splash/splash-828x1792-v2.png"],
+  [375, 667, 2, "/splash/splash-750x1334-v2.png"],
+  [820, 1180, 2, "/splash/splash-1640x2360-v2.png"],
+  [834, 1194, 2, "/splash/splash-1668x2388-v2.png"],
+  [768, 1024, 2, "/splash/splash-1536x2048-v2.png"],
+  [1024, 1366, 2, "/splash/splash-2048x2732-v2.png"],
+];
 
 const APP_NAME = "Carta para o meu amor";
 
@@ -20,6 +39,8 @@ function Boot() {
   }, []);
   // Aba aberta antes de um deploy: arquivos antigos somem e o import dinâmico falha.
   useEffect(() => installChunkReload(), []);
+  // App instalável (Android/iOS): service worker + convite de instalação.
+  useEffect(() => bootPwa(), []);
   // Pixels (Meta/TikTok) só com VITE_META_PIXEL_ID / VITE_TIKTOK_PIXEL_ID; sem eles, nada carrega.
   const router = useRouter();
   useEffect(() => {
@@ -52,7 +73,7 @@ export const Route = createRootRoute({
       // Na tela de início abre como app (sem a barra do navegador).
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-title", content: "Cartas" },
+      { name: "apple-mobile-web-app-title", content: "Carta" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "format-detection", content: "telephone=no" },
       ...shareMeta(),
@@ -65,6 +86,11 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest?v=2" },
       { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon-v2.png" },
+      ...IOS_SPLASH.map(([w, h, d, href]) => ({
+        rel: "apple-touch-startup-image",
+        href,
+        media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${d}) and (orientation: portrait)`,
+      })),
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
