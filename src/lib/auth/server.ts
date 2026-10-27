@@ -39,6 +39,7 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
+import { serverlessDbUrl, SERVERLESS_POOL } from "../db-url";
 import { pgliteDialect } from "./pglite-dialect";
 import {
   GROK_ISSUER_DEFAULT,
@@ -156,10 +157,12 @@ const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 // the app turns sign-in on.
 const database = databaseUrl
   ? new Pool({
-      connectionString: databaseUrl,
+      ...SERVERLESS_POOL,
+      connectionString: serverlessDbUrl(databaseUrl),
       ssl: databaseUrl.includes("supabase") ? { rejectUnauthorized: false } : undefined,
     })
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
+if (database instanceof Pool) database.on("error", (err) => console.warn("[auth] pool", err.message));
 
 const cookieSecure =
   Boolean(explicitBaseURL?.startsWith("https:")) || Boolean(env("VERCEL") || env("VERCEL_URL"));
