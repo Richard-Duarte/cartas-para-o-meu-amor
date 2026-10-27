@@ -6,9 +6,11 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { queueEvent } from "@/lib/tracking";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (s: Record<string, unknown>): { next?: string } => {
-    if (typeof s.next === "string" && s.next.startsWith("/")) return { next: s.next };
-    return {};
+  validateSearch: (s: Record<string, unknown>): { next?: string; error?: string } => {
+    const out: { next?: string; error?: string } = {};
+    if (typeof s.next === "string" && s.next.startsWith("/") && !s.next.startsWith("//")) out.next = s.next;
+    if (typeof s.error === "string" && s.error) out.error = s.error.slice(0, 60);
+    return out;
   },
   component: Login,
 });
@@ -29,12 +31,18 @@ function authErrorPt(message?: string | null) {
 }
 
 function Login() {
-  const { next } = Route.useSearch();
+  const { next, error: oauthError } = Route.useSearch();
   const after = next || "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"in" | "up">("in");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() =>
+    oauthError
+      ? /state/i.test(oauthError)
+        ? "O login com o Google não terminou (a página de retorno abriu em outra aba ou app). Toque em “Continuar com Google” de novo nesta mesma tela."
+        : "O login com o Google não terminou. Tente de novo."
+      : "",
+  );
   const [busy, setBusy] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 

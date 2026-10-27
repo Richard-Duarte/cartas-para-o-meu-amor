@@ -89,21 +89,13 @@ function createNeonSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
     // Regular Postgres driver: node-postgres (`pg`) — works directly with Neon's
     // pooled endpoint. One pool per process; warm serverless instances reuse it.
-    const { Pool, types } = await import("pg");
+    const { types } = await import("pg");
     types.setTypeParser(OID_INT8, Number);
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
-    const { serverlessDbUrl, SERVERLESS_POOL } = await import("./db-url");
-    const pool = new Pool({
-      ...SERVERLESS_POOL,
-      connectionString: serverlessDbUrl(databaseUrl),
-      // Supabase's pooler cert chain is not in Node's trust store.
-      ssl: databaseUrl?.includes("supabase")
-        ? { rejectUnauthorized: false }
-        : undefined,
-    });
-    // Conexão ociosa derrubada pelo pooler não pode derrubar a função.
-    pool.on("error", (err) => console.warn("[db] pool", err.message));
+    // Mesmo pool do Better Auth (ver shared-pool.server.ts).
+    const { sharedPool } = await import("./shared-pool.server");
+    const pool = sharedPool(databaseUrl as string);
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
