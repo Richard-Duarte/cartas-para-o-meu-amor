@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { earliestDay, formatArrivalCompact, formatArrivalShort, planArrival } from "@/lib/delivery";
-import { MESSENGERS, formatEta, getMessenger, type Geo, type MessengerId } from "@/lib/messengers";
+import { MESSENGERS, getMessenger, maxSpeedLabel, type Geo, type MessengerId } from "@/lib/messengers";
 import { cn } from "@/lib/utils";
 
 export type ArrivalStatus = "empty" | "loading" | "ready" | "approx" | "error";
@@ -86,7 +86,7 @@ export function ArrivalEstimate({ status, from, to, messengerId, onMessenger, sc
             )}
           </p>
           <p className="arrival-eta-meta">
-            {Math.round(current.plan.km).toLocaleString("pt-BR")} km · viagem de {formatEta(current.plan.hours)}
+            {Math.round(current.plan.km).toLocaleString("pt-BR")} km · velocidade {maxSpeedLabel(chosen.id)}
             {scheduled && current.plan.fits ? " · chegada no dia marcado" : ""}
           </p>
           {status === "approx" ? (

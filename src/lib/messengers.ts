@@ -124,6 +124,28 @@ export const MESSENGERS: Messenger[] = [
   },
 ];
 
+/**
+ * Velocidade MÁXIMA real de cada animal, só para exibir ("até 95 km/h"). Não entra na conta da
+ * viagem: a previsão continua usando `speedKmh` (ritmo de cruzeiro), e a anônima segue em 2h.
+ * Fontes em /workspace/marca/velocidades.md (Guinness, Nature, etc.).
+ */
+export const MAX_SPEED_KMH: Record<string, number> = {
+  plane: 900,
+  pigeon: 95,
+  stork: 80,
+  swan: 88,
+  horse: 70,
+  donkey: 40,
+  turtle: 1,
+};
+
+/** "até 95 km/h" (mensageiro sem número pesquisado usa a velocidade do catálogo). */
+export function maxSpeedLabel(id: MessengerId) {
+  const m = getMessenger(id);
+  const v = MAX_SPEED_KMH[m.id] ?? MAX_SPEED_KMH[m.token] ?? m.speedKmh;
+  return `até ${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km/h`;
+}
+
 export function getMessenger(id: MessengerId) {
   const key = String(id || "").trim();
   return (

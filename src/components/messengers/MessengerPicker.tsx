@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { SCHEDULE_FEE_BRL } from "@/lib/delivery";
 import {
   MESSENGERS,
-  formatEta,
+  maxSpeedLabel,
   messengerPhoto,
   messengerPoster,
   messengerPreview,
@@ -134,7 +134,7 @@ export function MessengerLivePreview({ id }: { id: MessengerId }) {
 export function MessengerPicker({
   value,
   onChange,
-  hoursById,
+  hoursById: _hoursById,
   arriveLabelById,
   etaApproximate,
   disabledIds,
@@ -187,7 +187,6 @@ export function MessengerPicker({
             currency: "BRL",
           });
           const eta = arriveLabelById?.[m.id];
-          const hours = hoursById?.[m.id];
           const fits = Boolean(eta && eta.startsWith("Chega"));
           return (
             <motion.button
@@ -214,12 +213,11 @@ export function MessengerPicker({
                 <span className="messenger-picker-meta">
                   {price}
                   {scheduled ? ` + ${fee}` : ""}
-                  {` · ${m.speedKmh} km/h`}
+                  {` · ${maxSpeedLabel(m.id)}`}
                 </span>
                 {eta ? (
                   <span className={cn("messenger-picker-eta", !fits && "is-off")}>
                     {fits && etaApproximate ? `≈ ${eta}` : eta}
-                    {fits && typeof hours === "number" ? ` · viagem de ${formatEta(hours)}` : ""}
                   </span>
                 ) : null}
               </span>

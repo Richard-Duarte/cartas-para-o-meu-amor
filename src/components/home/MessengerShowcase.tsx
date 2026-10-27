@@ -2,7 +2,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MESSENGERS, messengerPhoto } from "@/lib/messengers";
+import { MESSENGERS, maxSpeedLabel, messengerPhoto } from "@/lib/messengers";
 
 function TiltCard({
   name,
@@ -16,7 +16,7 @@ function TiltCard({
   tagline: string;
   flavor: string;
   price: number;
-  speed: number;
+  speed: string;
   src: string;
 }) {
   const ref = useRef<HTMLAnchorElement>(null);
@@ -51,7 +51,7 @@ function TiltCard({
         <p className="messenger-tilt-tag">{tagline}</p>
         <p className="messenger-tilt-flavor">{flavor}</p>
         <p className="messenger-tilt-meta">
-          {speed} km/h · R$ {price}
+          Velocidade: {speed} · R$ {price}
         </p>
       </div>
     </Link>
@@ -265,7 +265,7 @@ export function MessengerShowcase() {
                 tagline={m.tagline}
                 flavor={m.flavor}
                 price={m.basePriceBrl}
-                speed={m.speedKmh}
+                speed={maxSpeedLabel(m.id)}
                 src={messengerPhoto(m.id)}
               />
             </div>
