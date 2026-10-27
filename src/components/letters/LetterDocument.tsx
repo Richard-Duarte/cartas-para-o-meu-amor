@@ -1,7 +1,8 @@
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { getDesign, type DesignId } from "@/lib/designs";
 import { downloadLetterPng } from "@/lib/download-letter";
-import { blockFontSize, type LetterPage } from "@/lib/pages";
+import { blockFontSize, fitMaxWidth, type LetterPage } from "@/lib/pages";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -17,6 +18,8 @@ type Props = {
   allowDownload?: boolean;
   shareHref?: string;
   shareText?: string;
+  /** Quem recebeu pode responder (anônimo ou não). */
+  replyHref?: string;
 };
 
 export function LetterDocument({
@@ -32,6 +35,7 @@ export function LetterDocument({
   allowDownload = false,
   shareHref,
   shareText = "Uma carta está a caminho.",
+  replyHref,
 }: Props) {
   const packRef = useRef<HTMLDivElement>(null);
   const design = getDesign(designId);
@@ -102,6 +106,7 @@ export function LetterDocument({
           <article
             key={page?.id ?? "body"}
             data-letter-page={i + 1}
+            aria-label={sheets.length > 1 ? `Página ${i + 1} de ${sheets.length}` : undefined}
             className={cn("letter-sheet", design.ink === "light" && "is-light")}
             style={{
               fontFamily: design.fontFamily,
@@ -110,12 +115,7 @@ export function LetterDocument({
           >
             <div className="letter-sheet-inner">
               {date && i === 0 ? <p className="letter-sheet-date">{date}</p> : null}
-              <p className="letter-sheet-meta">
-                De {from}
-                <span> · </span>
-                Para {to}
-                {sheets.length > 1 ? <span> · Página {i + 1}</span> : null}
-              </p>
+              {/* De/Para ficam no envelope; sem número de página nem nome do papel na carta. */}
               {page ? (
                 <div className="letter-sheet-stage">
                   {page.blocks.map((b) =>
@@ -144,8 +144,9 @@ export function LetterDocument({
                         style={{
                           left: `${b.x}%`,
                           top: `${b.y}%`,
-                          width: `${b.w}%`,
-                          minHeight: `${b.h}%`,
+                          ...(b.fit
+                            ? { width: "max-content", maxWidth: `${fitMaxWidth(b)}%`, padding: "0.2em 0.35em" }
+                            : { width: `${b.w}%`, minHeight: `${b.h}%` }),
                           // Relativo à largura da folha: fica onde foi colocado em qualquer tela.
                           fontSize: blockFontSize(b.size),
                           fontFamily: b.fontFamily || design.fontFamily,
@@ -176,11 +177,11 @@ export function LetterDocument({
                   <em>{from}</em>
                 </p>
               ) : null}
-              <p className="letter-sheet-mark">{design.name}</p>
             </div>
           </article>
         ))}
       </div>
+      {replyHref ? <ReplyButton href={replyHref} /> : null}
       {showActions ? (
         <div className="share-bar letter-actions">
           {allowDownload ? (
@@ -211,6 +212,36 @@ export function LetterDocument({
         </div>
       ) : null}
       {downloadError ? <p className="letter-action-error">{downloadError}</p> : null}
+    </div>
+  );
+}
+
+/** Botão rosa com brilho e faíscas ✨ (só transform/opacity; parado com movimento reduzido). */
+export function ReplyButton({
+  href,
+  label = "Enviar resposta",
+  onClick,
+  dock = false,
+}: {
+  href: string;
+  label?: string;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  /** Fixo embaixo, no centro, na carta em tela cheia. */
+  dock?: boolean;
+}) {
+  return (
+    <div className={dock ? "reply-cta-wrap is-dock" : "reply-cta-wrap"}>
+      <a className="reply-cta" href={href} data-testid="reply-cta" onClick={onClick}>
+        <span className="reply-cta-shine" aria-hidden="true" />
+        <span className="reply-cta-label">{label}</span>
+        <span className="reply-cta-sparks" aria-hidden="true">
+          <i>✨</i>
+          <i>✨</i>
+          <i>✨</i>
+          <i>✨</i>
+        </span>
+      </a>
+      {dock ? null : <p className="reply-cta-note">Você escolhe se vai com seu nome ou anônima.</p>}
     </div>
   );
 }

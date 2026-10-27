@@ -14,10 +14,10 @@ import {
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
   Bold,
-  BringToFront,
   Check,
   ChevronLeft,
   Copy,
+  FlipHorizontal2,
   ImagePlus,
   Italic,
   LayoutTemplate,
@@ -28,7 +28,6 @@ import {
   PanelBottomOpen,
   Plus,
   RotateCcw,
-  SendToBack,
   Sticker,
   Trash2,
   Type,
@@ -46,6 +45,7 @@ import {
   canvasBackgroundClick,
   clampBlockPosition,
   duplicateBlock,
+  fitMaxWidth,
   headingBlock,
   newPage,
   pagesPlainText,
@@ -169,6 +169,8 @@ type Props = {
   onBack?: () => void;
   /** Ex.: "Passo 2 de 5". */
   stepLabel?: string;
+  /** Abre direto na escolha do papel (ex.: "Ajustar" no carrinho). */
+  openPapers?: boolean;
 };
 
 export function CanvaEditor({
@@ -184,6 +186,7 @@ export function CanvaEditor({
   canContinue,
   onBack,
   stepLabel,
+  openPapers = false,
 }: Props) {
   const design = getDesign(designId);
   const [panel, setPanel] = useState<Panel | null>("design");
@@ -202,6 +205,8 @@ export function CanvaEditor({
   const [pageI, setPageI] = useState(0);
   const [active, setActive] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  /** Página esperando confirmação para ser apagada (índice) ou nenhuma. */
+  const [confirmPage, setConfirmPage] = useState<number | null>(null);
   const [zoom, setZoom] = useState(100);
   const zoomRef = useRef(100);
   zoomRef.current = zoom;
@@ -424,6 +429,32 @@ export function CanvaEditor({
     if (!previewOpen && isMobileEditor()) setPanel((current) => (current === "text" ? null : current));
   }
 
+  /** Apaga a página (fica no desfazer). A última página nunca sai. */
+  function deletePage(index: number) {
+    if (pages.length <= 1 || !pages[index]) return;
+    const next = pages.filter((_, i) => i !== index);
+    commit(next);
+    const to = index > 0 ? index - 1 : 0;
+    setPageI(to);
+    setActive(null);
+    setEditing(false);
+    setGuides([]);
+    setConfirmPage(null);
+    const id = next[to]?.id;
+    window.setTimeout(() => {
+      if (id) (previewOpen ? fullSheetRefs : sheetRefs).current[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 60);
+  }
+
+  /** Página com conteúdo pede confirmação; página vazia sai direto. */
+  function askDeletePage(index: number) {
+    const target = pages[index];
+    if (!target || pages.length <= 1) return;
+    const hasContent = target.blocks.some((b) => b.kind === "sticker" || Boolean(b.src) || b.text.trim().length > 0);
+    if (hasContent) setConfirmPage(index);
+    else deletePage(index);
+  }
+
   function addPageAfter(index: number) {
     const p = newPage();
     const next = [...pages.slice(0, index + 1), p, ...pages.slice(index + 1)];
@@ -463,6 +494,11 @@ export function CanvaEditor({
   }
 
   useEffect(() => {
+    if (openPapers) {
+      setPanel("design");
+      if (isMobileEditor()) setPickerOpen(true);
+      return;
+    }
     if (isMobileEditor() && !pickerSeen()) {
       setPickerOpen(true);
       return;
@@ -496,12 +532,36 @@ export function CanvaEditor({
     setPanel("stickers");
   }
 
+  /**
+   * Toque fora do bloco (papel vazio, margens, fundo) desmarca. Conta só toque de verdade:
+   * se o dedo andou (rolagem) ou o navegador cancelou o ponteiro, nada muda. Arrastar,
+   * redimensionar e girar começam no bloco e nem passam por aqui.
+   */
+  const outsideTap = useRef<{ x: number; y: number; id: number } | null>(null);
+  function outsideDown(e: React.PointerEvent) {
+    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
+    outsideTap.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  }
+  function outsideUp(e: React.PointerEvent, isOutside: boolean) {
+    const start = outsideTap.current;
+    outsideTap.current = null;
+    if (!start || start.id !== e.pointerId || !isOutside) return;
+    if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) return;
+    clearSelection();
+  }
+  function outsideCancel() {
+    outsideTap.current = null;
+  }
+
   /** Abas da barra de baixo no celular: tocar de novo fecha a folha. */
   function togglePanel(next: Panel) {
     setPanel((current) => (current === next ? null : next));
   }
 
   function clearSelection() {
+    // Fecha o teclado do iPhone: tira o foco do texto que estava sendo digitado.
+    const focused = document.activeElement as HTMLElement | null;
+    if (focused?.isContentEditable) focused.blur();
     setActive(null);
     setEditing(false);
     setGuides([]);
@@ -873,16 +933,15 @@ export function CanvaEditor({
           className="canva-workspace"
           ref={workspace}
           onPointerDown={(e) => {
-            // Só o fundo vazio desmarca. Clique no papel, no texto ou nas
-            // ferramentas mantém o bloco ativo (só sai do modo digitar).
+            // Ferramentas dentro da área (ex.: "Nova página") só saem do modo digitar.
             if (!canvasBackgroundClick(e.target)) {
               setEditing(false);
               return;
             }
-            setActive(null);
-            setEditing(false);
-            setGuides([]);
+            outsideDown(e);
           }}
+          onPointerUp={(e) => outsideUp(e, canvasBackgroundClick(e.target))}
+          onPointerCancel={outsideCancel}
         >
           {pages.map((p, i) => (
             <div
@@ -905,11 +964,12 @@ export function CanvaEditor({
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   setPageI(i);
-                  // Clique no papel vazio: para de digitar, mas mantém o bloco
-                  // selecionado para continuar formatando / movendo.
+                  // Toque no papel vazio (sem arrastar) desmarca tudo e fecha o teclado.
                   if ((e.target as HTMLElement).closest(".canva-box")) return;
-                  setEditing(false);
+                  outsideDown(e);
                 }}
+                onPointerUp={(e) => outsideUp(e, !(e.target as HTMLElement).closest(".canva-box"))}
+                onPointerCancel={outsideCancel}
               >
                 {p.blocks.map((b) => (
                   <CanvasItem
@@ -946,9 +1006,21 @@ export function CanvaEditor({
                     ))
                   : null}
               </div>
-              <button type="button" className="canva-add-page" onClick={() => addPageAfter(i)}>
-                <Plus size={14} /> Nova página
-              </button>
+              <div className="canva-sheet-actions">
+                <button type="button" className="canva-add-page" onClick={() => addPageAfter(i)}>
+                  <Plus size={14} /> Nova página
+                </button>
+                {pages.length > 1 ? (
+                  <button
+                    type="button"
+                    className="canva-del-page"
+                    onClick={() => askDeletePage(i)}
+                    aria-label={`Apagar página ${i + 1}`}
+                  >
+                    <Trash2 size={15} /> Apagar página
+                  </button>
+                ) : null}
+              </div>
             </div>
           ))}
         </div>
@@ -968,6 +1040,17 @@ export function CanvaEditor({
           <button type="button" className="is-add" onClick={() => addPageAfter(pages.length - 1)} aria-label="Nova página">
             <Plus size={14} />
           </button>
+          {pages.length > 1 ? (
+            <button
+              type="button"
+              className="is-del"
+              onClick={() => askDeletePage(pageI)}
+              aria-label={`Apagar página ${pageI + 1}`}
+              title="Apagar esta página"
+            >
+              <Trash2 size={14} />
+            </button>
+          ) : null}
         </aside>
 
         {selected ? (
@@ -978,36 +1061,19 @@ export function CanvaEditor({
             role="toolbar"
             aria-label="Editar o elemento selecionado"
           >
-            <div className="canva-context-scroll">
-              <SelectionActions
-                block={selected}
-                onRemove={removeSelected}
-                onDuplicate={duplicateSelected}
-                onLayer={layerSelected}
-                onResetRotation={() => patchBlock(selected.id, { rotate: 0 })}
-              />
-              <Toolbar
-                block={selected}
-                fallbackFont={design.fontFamily}
-                fallbackColor={ink}
-                disabled={false}
-                onChange={applyType}
-                onAlignPage={(where) => selected && patchBlock(selected.id, alignOnPage(selected, where))}
-              />
-              <button
-                type="button"
-                className={cn("canva-snap-btn", snapOn && "is-on")}
-                aria-pressed={snapOn}
-                title="Guias magnéticas"
-                onClick={() => setSnapOn((v) => !v)}
-              >
-                <Magnet size={15} />
-                Ímã
-              </button>
-            </div>
-            <button type="button" className="canva-context-done" onClick={clearSelection} aria-label="Concluir edição">
-              <Check size={18} />
-            </button>
+            <ContextBar
+              key={selected.id}
+              block={selected}
+              fallbackColor={ink}
+              snapOn={snapOn}
+              onSnap={() => setSnapOn((v) => !v)}
+              onChange={applyType}
+              onAlignPage={(where) => patchBlock(selected.id, alignOnPage(selected, where))}
+              onResetRotation={() => patchBlock(selected.id, { rotate: 0 })}
+              onDuplicate={duplicateSelected}
+              onRemove={removeSelected}
+              onDone={clearSelection}
+            />
           </MeasuredBar>
         ) : null}
 
@@ -1110,10 +1176,10 @@ export function CanvaEditor({
                 ref={fullScroll}
                 onPointerDown={(e) => {
                   if (!canvasBackgroundClick(e.target)) return;
-                  setActive(null);
-                  setEditing(false);
-                  setGuides([]);
+                  outsideDown(e);
                 }}
+                onPointerUp={(e) => outsideUp(e, canvasBackgroundClick(e.target))}
+                onPointerCancel={outsideCancel}
               >
                 {pages.map((p, i) => (
                   <div
@@ -1135,8 +1201,10 @@ export function CanvaEditor({
                         e.stopPropagation();
                         setPageI(i);
                         if ((e.target as HTMLElement).closest(".canva-box")) return;
-                        setEditing(false);
+                        outsideDown(e);
                       }}
+                      onPointerUp={(e) => outsideUp(e, !(e.target as HTMLElement).closest(".canva-box"))}
+                      onPointerCancel={outsideCancel}
                     >
                       {p.blocks.map((b) => (
                         <CanvasItem
@@ -1173,6 +1241,18 @@ export function CanvaEditor({
                           ))
                         : null}
                     </div>
+                    {pages.length > 1 ? (
+                      <div className="canva-sheet-actions">
+                        <button
+                          type="button"
+                          className="canva-del-page"
+                          onClick={() => askDeletePage(i)}
+                          aria-label={`Apagar página ${i + 1}`}
+                        >
+                          <Trash2 size={15} /> Apagar página {i + 1}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
                 <button type="button" className="canva-add-page" onClick={() => addPageAfter(pages.length - 1)}>
@@ -1381,6 +1461,15 @@ export function CanvaEditor({
           </div>
         </div>
       ) : null}
+      {confirmPage !== null ? (
+        <ConfirmSheet
+          title="Apagar esta página?"
+          body="O que está nela some junto. Dá para desfazer logo depois."
+          confirmLabel="Apagar"
+          onConfirm={() => deletePage(confirmPage)}
+          onCancel={() => setConfirmPage(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1429,8 +1518,9 @@ function LetterThumb({
             style={{
               left: `${b.x}%`,
               top: `${b.y}%`,
-              width: `${b.w}%`,
-              height: `${b.h}%`,
+              ...(b.fit
+                ? { width: "max-content", maxWidth: `${fitMaxWidth(b)}%` }
+                : { width: `${b.w}%`, height: `${b.h}%` }),
               color: b.color || ink,
               fontFamily: b.fontFamily || font,
               fontWeight: b.weight,
@@ -1546,7 +1636,7 @@ function ColorWell({ value, onChange }: { value: string; onChange: (hex: string)
         className="canva-color"
         title="Cor da fonte"
         aria-label="Cor da fonte"
-        style={{ background: value || "#1a1410" }}
+        style={{ "--swatch": value || "#1a1410" } as React.CSSProperties}
         onClick={() => {
           const rect = btn.current?.getBoundingClientRect();
           if (rect) {
@@ -1802,41 +1892,240 @@ function Toolbar({
   );
 }
 
+type PageAlign = "left" | "center" | "right" | "top" | "middle" | "bottom";
+
+/**
+ * Barra de edição do celular: uma linha só, sem rolagem, que cabe a partir de 320px.
+ * Texto: Cor · Alinhar · Ímã · Duplicar · Apagar · ✓ (fonte, tamanho e estilo ficam na aba Fonte).
+ * Adesivo: Espelhar · Alinhar · Ímã · Duplicar · Apagar · ✓.
+ * "Alinhar" abre um painel pequeno acima da barra com o alinhamento do texto e na página.
+ */
+function ContextBar({
+  block,
+  fallbackColor,
+  snapOn,
+  onSnap,
+  onChange,
+  onAlignPage,
+  onResetRotation,
+  onDuplicate,
+  onRemove,
+  onDone,
+}: {
+  block: TextBlock;
+  fallbackColor: string;
+  snapOn: boolean;
+  onSnap: () => void;
+  onChange: (partial: Partial<TextBlock>) => void;
+  onAlignPage: (where: PageAlign) => void;
+  onResetRotation: () => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+  onDone: () => void;
+}) {
+  const [alignOpen, setAlignOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const isSticker = block.kind === "sticker";
+
+  useEffect(() => {
+    if (!alignOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!root.current?.contains(e.target as Node)) setAlignOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAlignOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [alignOpen]);
+
+  const pageAlign: { where: PageAlign; label: string; icon: React.ReactNode }[] = [
+    { where: "left", label: "Esquerda", icon: <AlignHorizontalJustifyStart size={18} /> },
+    { where: "center", label: "Centro", icon: <AlignHorizontalJustifyCenter size={18} /> },
+    { where: "right", label: "Direita", icon: <AlignHorizontalJustifyEnd size={18} /> },
+    { where: "top", label: "Topo", icon: <AlignVerticalJustifyStart size={18} /> },
+    { where: "middle", label: "Meio", icon: <AlignVerticalJustifyCenter size={18} /> },
+    { where: "bottom", label: "Base", icon: <AlignVerticalJustifyEnd size={18} /> },
+  ];
+  const textAlign: { value: TextBlock["align"]; label: string; icon: React.ReactNode }[] = [
+    { value: "left", label: "Esquerda", icon: <AlignLeft size={18} /> },
+    { value: "center", label: "Centro", icon: <AlignCenter size={18} /> },
+    { value: "right", label: "Direita", icon: <AlignRight size={18} /> },
+    { value: "justify", label: "Justificar", icon: <AlignJustify size={18} /> },
+  ];
+
+  return (
+    <div className="canva-ctx" ref={root}>
+      {alignOpen ? (
+        <div className="canva-ctx-pop" role="dialog" aria-label="Alinhar">
+          {!isSticker ? (
+            <>
+              <p className="canva-ctx-pop-title">Texto</p>
+              <div className="canva-ctx-pop-row">
+                {textAlign.map((a) => (
+                  <button
+                    key={a.value}
+                    type="button"
+                    className={cn("canva-ctx-btn", (block.align || "left") === a.value && "is-on")}
+                    aria-pressed={(block.align || "left") === a.value}
+                    onClick={() => onChange({ align: a.value })}
+                  >
+                    {a.icon}
+                    <span>{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+          <p className="canva-ctx-pop-title">Na página</p>
+          <div className="canva-ctx-pop-row is-six">
+            {pageAlign.map((a) => (
+              <button
+                key={a.where}
+                type="button"
+                className="canva-ctx-btn"
+                onClick={() => {
+                  onAlignPage(a.where);
+                  setAlignOpen(false);
+                }}
+              >
+                {a.icon}
+                <span>{a.label}</span>
+              </button>
+            ))}
+          </div>
+          {block.rotate ? (
+            <button
+              type="button"
+              className="canva-ctx-wide"
+              onClick={() => {
+                onResetRotation();
+                setAlignOpen(false);
+              }}
+            >
+              <RotateCcw size={16} /> Desfazer giro
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="canva-ctx-row">
+        {isSticker ? (
+          <button
+            type="button"
+            className={cn("canva-ctx-btn", block.flipX && "is-on")}
+            aria-pressed={Boolean(block.flipX)}
+            onClick={() => onChange({ flipX: !block.flipX })}
+          >
+            <FlipHorizontal2 size={18} />
+            <span>Espelhar</span>
+          </button>
+        ) : (
+          <div className="canva-ctx-color canva-toolbar">
+            <ColorWell value={block.color || fallbackColor} onChange={(color) => onChange({ color })} />
+            <span aria-hidden="true">Cor</span>
+          </div>
+        )}
+        <button
+          type="button"
+          className={cn("canva-ctx-btn", alignOpen && "is-on")}
+          aria-expanded={alignOpen}
+          onClick={() => setAlignOpen((v) => !v)}
+        >
+          <AlignHorizontalJustifyCenter size={18} />
+          <span>Alinhar</span>
+        </button>
+        <button
+          type="button"
+          className={cn("canva-ctx-btn", snapOn && "is-on")}
+          aria-pressed={snapOn}
+          title="Guias magnéticas"
+          onClick={onSnap}
+        >
+          <Magnet size={18} />
+          <span>Ímã</span>
+        </button>
+        <button type="button" className="canva-ctx-btn" onClick={onDuplicate}>
+          <Copy size={18} />
+          <span>Duplicar</span>
+        </button>
+        <button type="button" className="canva-ctx-btn is-danger" onClick={onRemove}>
+          <Trash2 size={18} />
+          <span>Apagar</span>
+        </button>
+        <button type="button" className="canva-context-done" onClick={onDone} aria-label="Concluir edição">
+          <Check size={20} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Confirmação no jeito de app: folha que sobe do rodapé (celular) ou caixa central. */
+function ConfirmSheet({
+  title,
+  body,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cancelRef.current?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="confirm-sheet-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="confirm-sheet" role="alertdialog" aria-modal="true" aria-labelledby="confirm-sheet-title">
+        <p id="confirm-sheet-title" className="confirm-sheet-title">
+          {title}
+        </p>
+        <p className="confirm-sheet-body">{body}</p>
+        <div className="confirm-sheet-actions">
+          <button type="button" ref={cancelRef} className="confirm-sheet-cancel" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button type="button" className="confirm-sheet-danger" onClick={onConfirm}>
+            <Trash2 size={16} /> {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function SelectionActions({
   block,
   onRemove,
   onDuplicate,
-  onLayer,
   onResetRotation,
 }: {
   block: TextBlock;
   onRemove: () => void;
   onDuplicate: () => void;
-  onLayer: (where: "front" | "back") => void;
+  /** Ordem das camadas saiu da barra (ícones confundiam); a prop fica por compatibilidade. */
+  onLayer?: (where: "front" | "back") => void;
   onResetRotation: () => void;
 }) {
   return (
     <div className="canva-sel-actions" role="group" aria-label="Elemento selecionado">
       <button type="button" className="canva-icon-btn" title="Duplicar" aria-label="Duplicar" onClick={onDuplicate}>
         <Copy size={14} />
-      </button>
-      <button
-        type="button"
-        className="canva-icon-btn"
-        title="Trazer para frente"
-        aria-label="Trazer para frente"
-        onClick={() => onLayer("front")}
-      >
-        <BringToFront size={14} />
-      </button>
-      <button
-        type="button"
-        className="canva-icon-btn"
-        title="Enviar para trás"
-        aria-label="Enviar para trás"
-        onClick={() => onLayer("back")}
-      >
-        <SendToBack size={14} />
       </button>
       {block.rotate ? (
         <button
@@ -1894,6 +2183,27 @@ function CanvasItem({
   const typed = useRef(false);
   const isSticker = block.kind === "sticker" || Boolean(block.src && !block.text && block.kind !== "text");
   const shown = live ? { ...block, ...live } : block;
+  // Texto novo se ajusta ao conteúdo; ao redimensionar à mão, vira caixa de largura fixa.
+  const fit = !isSticker && Boolean(block.fit) && !(live && "w" in live);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Guarda o tamanho real do texto ajustado (alinhar, ímã e arrastar usam w/h).
+  useEffect(() => {
+    const el = box.current;
+    if (!fit || !el || typeof ResizeObserver !== "function") return;
+    const ro = new ResizeObserver(() => {
+      const page = el.parentElement;
+      if (!page || !page.clientWidth || !page.clientHeight) return;
+      const w = (el.offsetWidth / page.clientWidth) * 100;
+      const h = (el.offsetHeight / page.clientHeight) * 100;
+      if (Math.abs(w - block.w) > 0.4 || Math.abs(h - block.h) > 0.4) {
+        onChangeRef.current({ w: Math.round(w * 10) / 10, h: Math.round(h * 10) / 10 }, false);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit, block.w, block.h]);
 
   useEffect(() => () => stopGesture.current?.(), []);
 
@@ -1990,7 +2300,7 @@ function CanvasItem({
       liveRef.current = null;
       setLive(null);
       if (moved && result) {
-        onChange(result);
+        onChange(block.fit && "w" in result ? { ...result, fit: false } : result);
         return;
       }
       // Toque sem arrastar: no celular já entra no modo digitar (um toque só); no mouse,
@@ -2045,13 +2355,18 @@ function CanvasItem({
         editing && "is-editing",
         isSticker ? "is-sticker" : "is-text",
         live && "is-dragging",
+        fit && "is-fit",
       )}
       style={{
         left: `${shown.x}%`,
         top: `${shown.y}%`,
-        width: `${shown.w}%`,
-        // Texto cresce com o conteúdo (h é o mínimo); adesivo tem caixa fixa.
-        ...(isSticker ? { height: `${shown.h}%` } : { minHeight: `${shown.h}%` }),
+        // Texto ajustado: largura do conteúdo até a margem da folha, altura automática.
+        // Texto antigo (sem "fit"): largura fixa e h como mínimo. Adesivo: caixa fixa.
+        ...(fit
+          ? { width: "max-content", maxWidth: `${fitMaxWidth(shown)}%` }
+          : isSticker
+            ? { width: `${shown.w}%`, height: `${shown.h}%` }
+            : { width: `${shown.w}%`, minHeight: `${shown.h}%` }),
         transform: shown.rotate ? `rotate(${shown.rotate}deg)` : undefined,
       }}
       onPointerDown={(e) => {

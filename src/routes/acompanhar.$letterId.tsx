@@ -8,7 +8,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { downloadLetterPng } from "@/lib/download-letter";
 import { getLetter, letterFromRecord, letterProgress, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { LetterReply } from "@/components/letters/LetterReply";
-import { openSharedLetter } from "@/lib/server/shop";
+import { letterThread, openSharedLetter } from "@/lib/server/shop";
 export const Route = createFileRoute("/acompanhar/$letterId")({
   component: TrackPage,
 });
@@ -28,8 +28,27 @@ function TrackPage() {
         if (!delivered && current?.id === "demo" && (!messengerId || current.messengerId === messengerId)) {
           return current;
         }
-        return seedDemoLetter({ delivered, messengerId });
+        const seeded = seedDemoLetter({ delivered, messengerId });
+        // Demo da viagem sem endereço (anônima): ?anonimo=1&progresso=0.5
+        if (params.get("anonimo") !== "1") return seeded;
+        const p = Math.max(0, Math.min(1, Number(params.get("progresso") ?? (delivered ? 1 : 0.02)) || 0));
+        const trip = 2 * 60 * 60 * 1000;
+        const departAt = Date.now() - p * trip;
+        return {
+          ...seeded,
+          anonymous: true,
+          addressless: true,
+          fromName: "",
+          fromAddress: undefined,
+          toAddress: undefined,
+          fromGeo: undefined,
+          toGeo: undefined,
+          startedAt: departAt,
+          departAt,
+          arriveAt: departAt + trip,
+        };
       });
+      if (params.get("resposta") === "1") setRole("recipient");
       return;
     }
     const local = getLetter(letterId);
@@ -110,6 +129,23 @@ function TrackView({
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
   const fromLabel = shownFromName(letter, role === "sender" ? "sender" : "public");
+  // Qualquer destinatário (inclusive de uma resposta) pode responder depois de abrir a carta.
+  const replyHref = role === "recipient" && showLetter ? `/escrever?responder=${encodeURIComponent(letter.id)}` : undefined;
+  const [thread, setThread] = useState<{ id: string; mine: boolean; label: string; startedAt: string }[]>([]);
+  const inThread = Boolean(letter.threadId || letter.replyToLetterId);
+
+  useEffect(() => {
+    if (letter.id === "demo" || role === "viewer") return;
+    let dead = false;
+    void letterThread({ data: letter.id })
+      .then((rows) => {
+        if (!dead && Array.isArray(rows)) setThread(rows);
+      })
+      .catch(() => {});
+    return () => {
+      dead = true;
+    };
+  }, [letter.id, role, inThread]);
 
   useEffect(() => {
     if (letterProgress(letter).arrived) return;
@@ -169,14 +205,34 @@ function TrackView({
           allowDownload={delivered}
           onDelivered={() => setNow(Date.now())}
           onOpened={() => setOpened(true)}
+          replyHref={replyHref}
         />
 
         <section className="track-after" aria-label="Detalhes e compartilhar">
+          {/* Rota de cima para baixo: sai (ponto) → linha → entrega (pino). Mesma ordem do passo 5. */}
+          {letter.addressless ? (
+            <div className="addr-none track-addr-none" role="note">
+              <span className="addr-none-icon" aria-hidden="true">✉</span>
+              <div>
+                <p className="addr-none-title">Carta anônima · entrega pela conta de quem recebe</p>
+                <p className="addr-none-eta">Viagem de 2h.</p>
+              </div>
+            </div>
+          ) : (
+          <ol className="track-route" aria-label="Rota da carta">
+            <li className="track-route-stop is-from">
+              <span className="track-route-mark" aria-hidden="true" />
+              <span className="track-route-label">De onde sai</span>
+              <span className="track-route-addr">{meta.from}</span>
+            </li>
+            <li className="track-route-stop is-to">
+              <span className="track-route-mark" aria-hidden="true" />
+              <span className="track-route-label">De onde entrega</span>
+              <span className="track-route-addr">{meta.to}</span>
+            </li>
+          </ol>
+          )}
           <p className="track-meta">
-            {meta.from}
-            {" → "}
-            {meta.to}
-            {" · "}
             {meta.animal}
             {meta.price ? ` · ${meta.price}` : ""}
           </p>
@@ -209,6 +265,23 @@ function TrackView({
           ) : null}
         </section>
 
+        {thread.length > 1 ? (
+          <section className="track-thread" aria-label="Conversa">
+            <h2 className="font-display text-xl">Conversa</h2>
+            <ol className="thread-list">
+              {thread.map((item) => (
+                <li key={item.id}>
+                  <a href={`/acompanhar/${encodeURIComponent(item.id)}`} aria-current={item.id === letter.id ? "page" : undefined}>
+                    <span>{item.mine ? "Você" : item.label}</span>
+                    <small>
+                      {new Date(item.startedAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
+                    </small>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
         {letter.id !== "demo" && role === "recipient" && !showLetter ? (
           <p className="reply-wait">O comentário abre quando você ler a carta.</p>
         ) : null}

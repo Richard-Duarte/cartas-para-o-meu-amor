@@ -1,17 +1,18 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CartSummary } from "@/components/cart/CartSummary";
 import { CheckoutForm } from "@/components/cart/CheckoutForm";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { EnvelopeLetter } from "@/components/delivery/EnvelopeLetter";
 import { SendCeremony } from "@/components/letters/SendCeremony";
-import { MessengerPicker } from "@/components/messengers/MessengerPicker";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { addressLine } from "@/lib/address";
 import {
   buildCart,
   clearDraft,
+  draftAddressless,
+  formatBrl,
   readDraft,
   writeDraft,
   type LetterDraft,
@@ -19,8 +20,9 @@ import {
 import { bootCatalog } from "@/lib/catalog";
 import { saveLetter, shownFromName, type Letter } from "@/lib/letters";
 import { formatArrival, planArrival } from "@/lib/delivery";
-import { getMessenger, demoDurationMs, type MessengerId } from "@/lib/messengers";
+import { getMessenger, demoDurationMs, messengerPhoto } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
+import { prefetchTracking } from "@/lib/prefetch-tracking";
 import { applyCoupon as checkCoupon, checkoutLetter, myProfile, spendCredit } from "@/lib/server/shop";
 
 export const Route = createFileRoute("/pagar")({
@@ -28,6 +30,7 @@ export const Route = createFileRoute("/pagar")({
 });
 
 function PayPage() {
+  const navigate = useNavigate();
   const { user, isPending } = useCurrentUserState();
   const [draft, setDraft] = useState<LetterDraft | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -64,6 +67,12 @@ function PayPage() {
     if (!draft || !cart) return;
     setBusy(true);
     setError("");
+    const addressless = draftAddressless(draft);
+    prefetchTracking({
+      messengerId: draft.messengerId,
+      from: addressless ? undefined : draft.fromGeo,
+      to: addressless ? undefined : draft.toGeo,
+    });
     await new Promise((r) => window.setTimeout(r, 900));
     const body = pagesPlainText(draft.pages) || "…";
     const from = draft.fromGeo ?? { lat: -23.55, lng: -46.63 };
@@ -72,9 +81,10 @@ function PayPage() {
       messengerId: draft.messengerId,
       from,
       to,
-      arriveOn: draft.scheduled ? draft.arriveOn || null : null,
+      arriveOn: draft.scheduled && !addressless ? draft.arriveOn || null : null,
+      addressless,
     });
-    if (draft.scheduled && !plan.fits) {
+    if (draft.scheduled && !addressless && !plan.fits) {
       setBusy(false);
       setError("Esse mensageiro não chega na data escolhida.");
       return;
@@ -82,6 +92,7 @@ function PayPage() {
     let id: string | undefined;
     let linkSent = false;
     let notice: Letter["notice"];
+    let serverPlan: { departAt: number; arriveAt: number; toName: string } | null = null;
     try {
       const saved = await Promise.race([
         checkoutLetter({
@@ -91,17 +102,20 @@ function PayPage() {
             pagesJson: JSON.stringify(draft.pages),
             templateId: draft.designId,
             messengerId: draft.messengerId,
-            fromAddressJson: JSON.stringify(draft.fromAddress),
-            toAddressJson: JSON.stringify(draft.toAddress),
-            fromGeoJson: JSON.stringify(draft.fromGeo ?? {}),
-            toGeoJson: JSON.stringify(draft.toGeo ?? {}),
+            // Resposta: o servidor inverte os endereços da carta original.
+            fromAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.fromAddress),
+            // Resposta: o destino é preenchido no servidor (aqui só vai vazio).
+            toAddressJson: addressless || draft.replyTo ? "{}" : JSON.stringify(draft.toAddress),
+            fromGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.fromGeo ?? {}),
+            toGeoJson: addressless || draft.replyTo ? "" : JSON.stringify(draft.toGeo ?? {}),
+            replyToLetterId: draft.replyTo?.letterId,
             paidBrl: cart.total,
             couponCode: couponInfo?.code,
             affiliateCode: draft.affiliateCode,
             demoDurationMs: demoDurationMs(getMessenger(draft.messengerId).speedKmh),
             method,
             anonymous: Boolean(draft.anonymous),
-            scheduled: Boolean(draft.scheduled),
+            scheduled: Boolean(draft.scheduled) && !addressless,
             arriveOn: draft.arriveOn,
             recipientPhone: draft.recipientPhone,
             recipientEmail: draft.recipientEmail,
@@ -116,6 +130,7 @@ function PayPage() {
       id = saved.id;
       linkSent = saved.linkSent;
       notice = saved.notice;
+      serverPlan = { departAt: saved.departAt, arriveAt: saved.arriveAt, toName: saved.toName };
       const spent = cart.lines.find((l) => l.id === "credit");
       if (spent && spent.priceBrl < 0) await spendCredit({ data: Math.abs(spent.priceBrl) });
     } catch (err) {
@@ -125,29 +140,37 @@ function PayPage() {
         setError("Esse mensageiro não chega na data escolhida.");
         return;
       }
+      if (draft.replyTo) {
+        // Resposta sem servidor não tem para onde ir: não finge que foi.
+        setBusy(false);
+        setError(message.includes("responder") ? message : "Não deu para enviar a resposta agora. Tente de novo.");
+        return;
+      }
     }
     const letter = saveLetter({
       id,
       fromName: draft.fromName,
-      toName: draft.toName,
+      toName: serverPlan?.toName || draft.replyTo?.toLabel || draft.toName,
       body,
       pages: draft.pages,
       designId: draft.designId,
       messengerId: draft.messengerId,
       fromCityId: "sp",
       toCityId: "rj",
-      fromAddress: draft.fromAddress,
-      toAddress: draft.toAddress,
-      fromGeo: draft.fromGeo,
-      toGeo: draft.toGeo,
+      fromAddress: addressless ? undefined : draft.fromAddress,
+      toAddress: addressless ? undefined : draft.replyTo ? { ...draft.toAddress, street: "" } : draft.toAddress,
+      fromGeo: addressless ? undefined : draft.fromGeo,
+      toGeo: addressless ? undefined : draft.toGeo,
+      addressless,
+      replyToLetterId: draft.replyTo?.letterId ?? null,
       paidBrl: cart.total,
       paidMethod: method,
       couponCode: couponInfo?.code,
       affiliateCode: draft.affiliateCode,
       anonymous: draft.anonymous,
       scheduled: draft.scheduled,
-      departAt: plan.departAt.getTime(),
-      arriveAt: plan.arriveAt.getTime(),
+      departAt: serverPlan?.departAt ?? plan.departAt.getTime(),
+      arriveAt: serverPlan?.arriveAt ?? plan.arriveAt.getTime(),
       recipientPhone: draft.recipientPhone,
       recipientEmail: draft.recipientEmail,
       senderPhone: draft.senderPhone,
@@ -158,6 +181,14 @@ function PayPage() {
     setBusy(false);
     setSent(letter);
   }
+
+  // Esquenta a tela de acompanhar (mapa + 3D) enquanto a pessoa paga; de novo ao enviar.
+  const prefetchKey = draft ? `${draft.messengerId}:${draft.fromGeo?.lat}:${draft.toGeo?.lat}` : "";
+  useEffect(() => {
+    if (!draft) return;
+    prefetchTracking({ messengerId: draft.messengerId, from: draft.fromGeo, to: draft.toGeo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefetchKey]);
 
   if (isPending || draft === undefined) {
     return (
@@ -190,12 +221,15 @@ function PayPage() {
     );
   }
 
+  const addressless = draftAddressless(draft);
   const arrival = planArrival({
     messengerId: draft.messengerId,
     from: draft.fromGeo ?? { lat: -23.55, lng: -46.63 },
     to: draft.toGeo ?? { lat: -22.9, lng: -43.17 },
-    arriveOn: draft.scheduled ? draft.arriveOn || null : null,
+    arriveOn: draft.scheduled && !addressless ? draft.arriveOn || null : null,
+    addressless,
   });
+  const arrivalText = addressless ? "chega em 2h" : `chega ${formatArrival(arrival.arriveAt)}`;
 
   return (
     <div className="min-h-dvh">
@@ -204,13 +238,28 @@ function PayPage() {
         <div>
           <p className="text-xs uppercase tracking-widest text-rose">Passo 5</p>
           <h1 className="mt-2 font-logo text-4xl italic leading-tight sm:text-5xl">O lacre antes da viagem.</h1>
-          <p className="mt-3 max-w-xl text-muted">
-            {addressLine(draft.fromAddress) || "Origem"}
-            <br />
-            {addressLine(draft.toAddress) || "Destino"}
-          </p>
+          {addressless ? (
+            <p className="checkout-anon max-w-xl">
+              Carta anônima{draft.replyTo ? ` para ${draft.replyTo.toLabel}` : ""} · chega em 2h · pela conta e pelo link
+            </p>
+          ) : (
+          <dl className="checkout-addr max-w-xl">
+            <div>
+              <dt>De onde sai:</dt>
+              <dd>{addressLine(draft.fromAddress) || "falta o endereço"}</dd>
+            </div>
+            <div>
+              <dt>De onde entrega:</dt>
+              <dd>
+                {draft.replyTo
+                  ? `${draft.replyTo.toLabel} · Endereço protegido${draft.replyTo.toCity ? ` · ${draft.replyTo.toCity}` : ""}`
+                  : addressLine(draft.toAddress) || "falta o endereço"}
+              </dd>
+            </div>
+          </dl>
+          )}
           <p className="mt-2 max-w-xl">
-            {getMessenger(draft.messengerId).name} chega {formatArrival(arrival.arriveAt)}.{" "}
+            {getMessenger(draft.messengerId).name} {arrivalText}.{" "}
             {draft.anonymous ? "O nome não vai na carta." : "O nome vai na carta."}{" "}
             {arrival.instant
               ? "Viagem curta: sem aviso de chegada."
@@ -231,22 +280,44 @@ function PayPage() {
           <div className="checkout-messenger">
             <p className="cart-kicker">Mensageiro</p>
             <h2 className="checkout-messenger-title">Quem leva a carta</h2>
-            <MessengerPicker
-              value={draft.messengerId as MessengerId}
-              onChange={(id) => {
-                const next = { ...draft, messengerId: id };
-                writeDraft(next);
-                setDraft(next);
-              }}
-              scheduled={draft.scheduled}
-            />
+            <div className="chosen-messenger">
+              <img src={messengerPhoto(draft.messengerId)} alt="" width={72} height={72} />
+              <div>
+                <h3>{getMessenger(draft.messengerId).name}</h3>
+                <p>
+                  <b>{formatBrl(getMessenger(draft.messengerId).basePriceBrl)}</b> · {arrivalText}
+                </p>
+              </div>
+              <Link to="/escrever" search={{ passo: 3, voltar: "pagar", responder: draft.replyTo?.letterId }} className="chosen-adjust">
+                Ajustar
+              </Link>
+            </div>
           </div>
-          <Link to="/escrever" className="mt-4 inline-block text-sm text-muted underline-offset-4 hover:underline">
+          <Link
+            to="/escrever"
+            search={{ passo: 4, voltar: "pagar", responder: draft.replyTo?.letterId }}
+            className="mt-4 inline-block text-sm text-muted underline-offset-4 hover:underline"
+          >
             Voltar e ajustar
           </Link>
         </div>
         <div className="checkout-pay">
-          <CartSummary lines={cart.lines} total={cart.total} />
+          <CartSummary
+            lines={cart.lines}
+            total={cart.total}
+            onAdjust={(kind) =>
+              void navigate({
+                to: "/escrever",
+                search:
+                  kind === "paper"
+                    ? { passo: 2, ajustar: "papel", voltar: "pagar", responder: draft.replyTo?.letterId }
+                    : { passo: 3, voltar: "pagar", responder: draft.replyTo?.letterId },
+              })
+            }
+            onBack={() =>
+              void navigate({ to: "/escrever", search: { passo: 4, voltar: "pagar", responder: draft.replyTo?.letterId } })
+            }
+          />
           <form
             className="coupon-row"
             onSubmit={(e) => {

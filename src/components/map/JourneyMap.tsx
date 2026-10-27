@@ -117,7 +117,7 @@ export function JourneyMap({ letter, onArrived }: Props) {
   const flying = FLIES[letter.messengerId];
   const current = positionOnRoute(from.geo, to.geo, stats.progress, flying);
   const faceRight = facingRight(from.geo, to.geo, stats.progress, flying);
-  const fromLabel = letter.anonymous ? "Alguém" : letter.fromName?.trim() || from.name;
+  const fromLabel = letter.anonymous ? "Alguém especial" : letter.fromName?.trim() || from.name;
   const toLabel = letter.toName?.trim() || to.name;
 
   useEffect(() => {
@@ -186,7 +186,7 @@ export function JourneyMap({ letter, onArrived }: Props) {
           <StreetMap
             from={from}
             to={to}
-            fromLabel={letter.anonymous ? "Alguém" : letter.fromName}
+            fromLabel={letter.anonymous ? "Alguém especial" : letter.fromName}
             toLabel={letter.toName}
             current={current}
             progress={stats.progress}

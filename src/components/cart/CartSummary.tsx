@@ -5,7 +5,14 @@ type Props = {
   total: number;
 };
 
-export function CartSummary({ lines, total }: Props) {
+type SummaryProps = Props & {
+  /** Botão "Ajustar" por item (papel / mensageiro): volta direto ao passo certo. */
+  onAdjust?: (kind: "paper" | "messenger") => void;
+  /** Botão "Voltar" (passo anterior). */
+  onBack?: () => void;
+};
+
+export function CartSummary({ lines, total, onAdjust, onBack }: SummaryProps) {
   return (
     <aside className="cart-card">
       <p className="cart-kicker">Seu lacre</p>
@@ -18,7 +25,19 @@ export function CartSummary({ lines, total }: Props) {
               <p>{line.title}</p>
               <span>{line.detail}</span>
             </div>
-            <strong>{formatBrl(line.priceBrl)}</strong>
+            <div className="cart-line-end">
+              <strong>{formatBrl(line.priceBrl)}</strong>
+              {onAdjust && (line.kind === "paper" || line.kind === "messenger") ? (
+                <button
+                  type="button"
+                  className="cart-adjust"
+                  onClick={() => onAdjust(line.kind as "paper" | "messenger")}
+                  aria-label={`Ajustar ${line.kind === "paper" ? "papel" : "mensageiro"}`}
+                >
+                  Ajustar
+                </button>
+              ) : null}
+            </div>
           </li>
         ))}
       </ul>
@@ -26,6 +45,11 @@ export function CartSummary({ lines, total }: Props) {
         <span>Total</span>
         <b>{formatBrl(total)}</b>
       </div>
+      {onBack ? (
+        <button type="button" className="cart-back" onClick={onBack}>
+          <span aria-hidden="true">‹</span> Voltar
+        </button>
+      ) : null}
     </aside>
   );
 }

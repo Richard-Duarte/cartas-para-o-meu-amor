@@ -12,7 +12,7 @@ const SHELL = `
 </section>
 <div id="letter" class="letter-overlay" aria-hidden="true">
   <article class="letter">
-    <button id="close" class="close" type="button" aria-label="Fechar">×</button>
+    <button id="close" class="close" type="button" aria-label="Fechar"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     <div id="letterPages"></div>
   </article>
 </div>`;
@@ -173,7 +173,9 @@ export function mountEnvelope(root, options = {}) {
   seal.add(new THREE.Mesh(new THREE.SphereGeometry(0.32), new THREE.MeshBasicMaterial({ visible: false })));
 
   const greet = (options.getGreeting ? options.getGreeting() : "Meu amor,").slice(0, 28);
-  const letterCanvas = document.createElement("canvas");
+  let realSheet = false;
+  let sheetReady = Promise.resolve(false);
+const letterCanvas = document.createElement("canvas");
   letterCanvas.width = 768;
   letterCanvas.height = 1024;
   const letterTex = new THREE.CanvasTexture(letterCanvas);
@@ -210,7 +212,7 @@ export function mountEnvelope(root, options = {}) {
       const img = new Image();
       img.decoding = "async";
       img.onload = () => {
-        if (!alive) return;
+        if (!alive || realSheet) return;
         try {
           g.drawImage(img, 0, 0, letterCanvas.width, letterCanvas.height);
           g.fillStyle = "rgba(251,246,240,0.14)";
@@ -228,11 +230,46 @@ export function mountEnvelope(root, options = {}) {
   };
   paintLetter();
   const letter = new THREE.Mesh(
-    new THREE.BoxGeometry(1.42, 0.95, 0.008),
+    new THREE.BoxGeometry(0.72, 0.96, 0.008),
     new THREE.MeshBasicMaterial({ map: letterTex, toneMapped: false }),
   );
   letter.position.set(0, -0.02, D / 2 + 0.03);
   env.add(letter);
+  // Folha de verdade: a 1ª página da carta (papel + textos + adesivos), em 3:4.
+  if (options.paintSheet) {
+    const off = document.createElement("canvas");
+    off.width = letterCanvas.width;
+    off.height = letterCanvas.height;
+    sheetReady = Promise.race([
+      Promise.resolve(options.paintSheet(off)),
+      new Promise((r) => setTimeout(() => r(false), 3500)),
+    ]);
+    sheetReady.then((ok) => {
+      if (!ok || !alive) return;
+      try {
+        off.getContext("2d").getImageData(0, 0, 1, 1); // canvas "sujo" (CORS) não vira textura
+        const g = letterCanvas.getContext("2d");
+        g.clearRect(0, 0, letterCanvas.width, letterCanvas.height);
+        g.drawImage(off, 0, 0);
+        realSheet = true;
+        letterTex.needsUpdate = true;
+      } catch (e) { /* fica a folha genérica */ }
+    }, () => {});
+  }
+  // Frente do envelope: Para (destaque) e De (menor).
+  if (options.paintNames) {
+    const nc = document.createElement("canvas");
+    nc.width = 1024;
+    nc.height = 280;
+    options.paintNames(nc);
+    const nt = new THREE.CanvasTexture(nc);
+    nt.colorSpace = THREE.SRGBColorSpace;
+    nt.anisotropy = 4;
+    const names = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.25), new THREE.MeshBasicMaterial({ map: nt, transparent: true, toneMapped: false, depthWrite: false }));
+    names.position.set(0, -0.375, D / 2 + 0.05 + 0.032);
+    env.add(names);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (!alive) return; options.paintNames(nc); nt.needsUpdate = true; });
+  }
 
   const easeOutBack = (u) => {
     const c1 = 1.70158;
@@ -401,7 +438,7 @@ export function mountEnvelope(root, options = {}) {
     o.setAttribute("aria-hidden", "true");
   }
 
-  function poseOpen() {
+  function poseOpen(withOverlay = true) {
     poseClosed();
     flapPivot.rotation.x = -Math.PI * 1.18;
     flapPivot.position.z = D / 2 + 0.004;
@@ -411,7 +448,7 @@ export function mountEnvelope(root, options = {}) {
     seal.visible = false;
     floatAmt = 0;
     envState = "open";
-    showOverlay(false);
+    if (withOverlay) showOverlay(false);
   }
 
   function envTap(ev) {
@@ -465,8 +502,14 @@ export function mountEnvelope(root, options = {}) {
     poseClosed();
     tellClosed();
   } else if (intro === "open-then-close") {
-    poseOpen();
-    timer = window.setTimeout(() => closeLetter(), 1100);
+    // A carta de verdade fica para fora; só guarda depois que a tela assentou
+    // (palco à vista, fontes e folha prontas).
+    poseOpen(false);
+    $("envHint").textContent = "Guardando a carta…";
+    Promise.all([sheetReady, options.startWhen ? options.startWhen() : Promise.resolve()]).then(() => {
+      if (!alive) return;
+      timer = window.setTimeout(() => closeEnv(), 180);
+    });
   } else {
     poseClosed();
     $("envHint").textContent = options.hint || "Toque no selo para abrir";

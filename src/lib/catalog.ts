@@ -1,6 +1,6 @@
 import { replaceDesigns, type Design } from "./designs";
 import { setAnonymousFee } from "./delivery";
-import { replaceMessengers, type Messenger } from "./messengers";
+import { FLIES, replaceMessengers, type Messenger } from "./messengers";
 import { listCatalog } from "./server/shop";
 
 export async function bootCatalog() {
@@ -32,6 +32,7 @@ export async function bootCatalog() {
       previewSrc: m.preview_src || undefined,
       mapSrc: m.map_src || undefined,
       arriveSrc: m.arrive_src || undefined,
+      mode: FLIES[m.id] === false ? "terra" : FLIES[m.id] === true ? "ar" : undefined,
     }));
     replaceDesigns(templates);
     replaceMessengers(messengers);

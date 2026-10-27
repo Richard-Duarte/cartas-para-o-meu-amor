@@ -21,9 +21,8 @@ export function SiteHeader({ className }: Props) {
   const [noticesOpen, setNoticesOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const lastY = useRef(0);
+  const headerRef = useRef<HTMLElement>(null);
   const ghost = className?.includes("is-ghost");
   const path = useRouterState({ select: (s) => s.location.pathname });
   const writing = path.startsWith("/escrever");
@@ -50,34 +49,99 @@ export function SiteHeader({ className }: Props) {
 
   useEffect(() => () => document.body.classList.remove("nav-open"), []);
 
+  // Some ao descer e volta ao subir acompanhando o dedo (como a barra do Safari/Chrome):
+  // o deslocamento segue a rolagem quadro a quadro e, ao parar no meio, encaixa
+  // aberto ou fechado. Só transform, fora do React (nada de re-render por quadro).
   useEffect(() => {
-    lastY.current = window.scrollY;
-    let ticking = false;
-    const update = () => {
-      ticking = false;
-      const y = window.scrollY;
-      if (ghost) setScrolled(y > 8);
-      const marquee = document.querySelector(".marquee");
-      if (open || noticesOpen || !marquee) {
-        setHidden(false);
-        lastY.current = y;
+    const el = headerRef.current;
+    if (!el) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let offset = 0;
+    let lastY = Math.max(0, window.scrollY);
+    let dir = 0;
+    let frame = 0;
+    let idle = 0;
+    let clearTimer = 0;
+    let height = el.offsetHeight || 64;
+
+    const paint = (snap: boolean) => {
+      window.clearTimeout(clearTimer);
+      if (reduce.matches) {
+        el.removeAttribute("data-bar-moving");
+        el.removeAttribute("data-bar-snap");
+        el.toggleAttribute("data-bar-hidden", offset <= -height / 2);
         return;
       }
-      const atCarousel = marquee.getBoundingClientRect().top <= 80;
-      const dy = y - lastY.current;
-      if (!atCarousel || y < 24) setHidden(false);
-      else if (dy > 3) setHidden(true);
-      else if (dy < -3) setHidden(false);
-      lastY.current = y;
+      el.toggleAttribute("data-bar-snap", snap);
+      el.toggleAttribute("data-bar-hidden", offset <= -height + 0.5);
+      el.style.setProperty("--bar-y", `${offset}px`);
+      if (offset !== 0) {
+        el.setAttribute("data-bar-moving", "");
+      } else if (!snap) {
+        el.removeAttribute("data-bar-moving");
+      } else {
+        // Depois de encaixar em 0, solta o transform (não prende elementos fixos internos).
+        clearTimer = window.setTimeout(() => {
+          if (offset === 0) {
+            el.removeAttribute("data-bar-moving");
+            el.removeAttribute("data-bar-snap");
+          }
+        }, 260);
+      }
+    };
+
+    const settle = () => {
+      if (offset === 0 || offset === -height) return;
+      const shown = -offset / height;
+      offset = shown < 0.2 ? 0 : shown > 0.8 ? -height : dir > 0 ? -height : 0;
+      paint(true);
+    };
+
+    const update = () => {
+      frame = 0;
+      const y = Math.max(0, window.scrollY);
+      if (ghost) setScrolled(y > 8);
+      const dy = y - lastY;
+      lastY = y;
+      const marquee = document.querySelector(".marquee");
+      const free = !open && !noticesOpen && Boolean(marquee) && marquee!.getBoundingClientRect().top <= 80 && y >= 24;
+      if (!free) {
+        window.clearTimeout(idle);
+        if (offset !== 0) {
+          offset = 0;
+          paint(true);
+        }
+        return;
+      }
+      if (!dy) return;
+      dir = dy > 0 ? 1 : -1;
+      const next = Math.min(0, Math.max(-height, offset - dy));
+      if (next !== offset) {
+        offset = next;
+        paint(false);
+      }
+      window.clearTimeout(idle);
+      idle = window.setTimeout(settle, 140);
     };
     const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(update);
+      if (!frame) frame = window.requestAnimationFrame(update);
     };
+    const ro =
+      typeof ResizeObserver === "function"
+        ? new ResizeObserver(() => {
+            height = el.offsetHeight || height;
+          })
+        : null;
+    ro?.observe(el);
     window.addEventListener("scroll", onScroll, { passive: true });
     update();
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+      window.clearTimeout(idle);
+      window.clearTimeout(clearTimer);
+      ro?.disconnect();
+    };
   }, [ghost, open, noticesOpen]);
 
   useEffect(() => {
@@ -91,7 +155,7 @@ export function SiteHeader({ className }: Props) {
 
   return (
     <>
-      <header className={cn("site-header", className, scrolled && "is-scrolled", hidden && "is-hidden")}>
+      <header ref={headerRef} className={cn("site-header", className, scrolled && "is-scrolled")}>
         <div className="site-header-inner">
           <Link to="/" className="site-header-brand" onClick={() => setOpen(false)}>
             <LogoMark className="h-9 w-10 shrink-0" />

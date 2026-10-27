@@ -4,7 +4,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import { approachNoticeAt, cleanEmail, formatArrival, planArrival, whatsAppNumber } from "@/lib/delivery";
 import { requireAdminSession } from "@/lib/server/admin-auth";
-import { recordAnonymousView } from "@/lib/server/notifications";
+import { ensureNoticeTables, recordAnonymousView } from "@/lib/server/notifications";
 import {
   dispatchDueNotices,
   dispatchLetterNotice,
@@ -194,20 +194,67 @@ export const checkoutLetter = createServerFn({ method: "POST" })
       recipientEmail: z.string().optional(),
       senderPhone: z.string().optional(),
       origin: z.string().optional(),
+      /** Resposta: o destino (endereço, conta e contato) vem do servidor, nunca do navegador. */
+      replyToLetterId: z.string().max(16).optional(),
     }),
   )
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await ensureProfile(sql, context.userId);
     await ensureDeliveryColumns(sql);
+    await ensureLetterInbox(sql);
+    await ensureReplyColumns(sql);
     const id = crypto.randomUUID().slice(0, 8);
-    const from = parseGeo(data.fromGeoJson) ?? { lat: -23.55, lng: -46.63 };
-    const to = parseGeo(data.toGeoJson) ?? { lat: -22.9, lng: -43.17 };
+    const anonymous = Boolean(data.anonymous);
+    let toName = data.toName;
+    let fromAddressJson = data.fromAddressJson;
+    let fromGeoJson = data.fromGeoJson;
+    let toAddressJson = data.toAddressJson;
+    let toGeoJson = data.toGeoJson;
+    let replyTo: string | null = null;
+    let threadId: string | null = null;
+    let recipientUserId: string | null = null;
+    let recipientEmail: string | null = null;
+    let recipientPhone: string | null = null;
+    if (data.replyToLetterId) {
+      const parent = await replyParent(sql, data.replyToLetterId, context.userId);
+      if (!parent) throw new Error("Só quem recebeu a carta pode responder.");
+      replyTo = parent.id;
+      threadId = parent.thread_id || parent.id;
+      recipientUserId = parent.user_id;
+      recipientEmail = parent.sender_email;
+      recipientPhone = parent.sender_phone;
+      // Regra: anônima ⇔ sem endereço. Resposta a carta anônima é sempre anônima.
+      if (parent.anonymous && !anonymous) throw new Error("Resposta a uma carta anônima é sempre anônima.");
+      toName = parent.anonymous ? "Alguém especial" : parent.from_name;
+      if (anonymous) {
+        toAddressJson = "{}";
+        toGeoJson = "";
+      } else {
+        // Resposta com nome: endereços invertidos da carta original, sempre no servidor.
+        // origem da resposta = destino da original (quem responde); destino = origem da original.
+        fromAddressJson = parent.to_address_json || "{}";
+        fromGeoJson = parseGeo(parent.to_geo_json) ? parent.to_geo_json : "";
+        toAddressJson = parent.from_address_json || "{}";
+        toGeoJson = parseGeo(parent.from_geo_json) ? parent.from_geo_json : "";
+      }
+    }
+    // Anônima nunca guarda endereço nem coordenada (de origem ou destino) e chega em 2h.
+    const addressless = anonymous;
+    if (addressless) {
+      fromAddressJson = "{}";
+      fromGeoJson = "";
+      toAddressJson = "{}";
+      toGeoJson = "";
+    }
+    const from = parseGeo(fromGeoJson) ?? { lat: -23.55, lng: -46.63 };
+    const to = parseGeo(toGeoJson) ?? { lat: -22.9, lng: -43.17 };
     const plan = planArrival({
       messengerId: data.messengerId,
       from,
       to,
-      arriveOn: data.scheduled ? data.arriveOn || null : null,
+      arriveOn: data.scheduled && !addressless ? data.arriveOn || null : null,
+      addressless,
     });
     if (data.scheduled && !plan.fits) {
       throw new Error("Esse mensageiro não chega na data escolhida.");
@@ -222,24 +269,41 @@ export const checkoutLetter = createServerFn({ method: "POST" })
     const senderEmail = cleanEmail(authUser[0]?.email ?? "") ?? "";
     const senderPhone = whatsAppNumber(profile[0]?.phone ?? "") ?? "";
     const origin = safeOrigin(data.origin);
-    const anonymous = Boolean(data.anonymous);
     await sql`
       insert into letters (
         id, user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json,
         paid_brl, coupon_code, affiliate_code, demo_duration_ms,
         anonymous, scheduled, recipient_phone, recipient_email, sender_phone, sender_email,
-        share_origin, depart_at, arrive_at
+        share_origin, depart_at, arrive_at, recipient_user_id, reply_to_letter_id, thread_id
       ) values (
-        ${id}, ${context.userId}, ${data.fromName}, ${data.toName}, ${data.pagesJson},
-        ${data.templateId}, ${data.messengerId}, ${data.fromAddressJson}, ${data.toAddressJson},
-        ${data.fromGeoJson}, ${data.toGeoJson}, ${data.paidBrl}, ${data.couponCode ?? null},
+        ${id}, ${context.userId}, ${data.fromName}, ${toName}, ${data.pagesJson},
+        ${data.templateId}, ${data.messengerId}, ${fromAddressJson}, ${toAddressJson},
+        ${fromGeoJson}, ${toGeoJson}, ${data.paidBrl}, ${data.couponCode ?? null},
         ${data.affiliateCode ?? null}, ${data.demoDurationMs},
-        ${anonymous}, ${Boolean(data.scheduled)}, ${null}, ${null},
+        ${anonymous}, ${Boolean(data.scheduled) && !addressless}, ${recipientPhone}, ${recipientEmail},
         ${senderPhone || null}, ${senderEmail || null}, ${origin},
-        ${plan.departAt.toISOString()}, ${plan.arriveAt.toISOString()}
+        ${plan.departAt.toISOString()}, ${plan.arriveAt.toISOString()},
+        ${recipientUserId}, ${replyTo}, ${threadId}
       )
     `;
+    if (replyTo && recipientUserId) {
+      try {
+        await ensureNoticeTables(sql);
+        await sql`
+          insert into notifications (id, user_id, kind, title, body, href, letter_id)
+          values (
+            ${`letter-${id}`}, ${recipientUserId}, 'letter',
+            ${"Chegou uma resposta para a sua carta"},
+            ${anonymous ? "Alguém respondeu sem mostrar o nome." : `${data.fromName.slice(0, 60)} respondeu.`},
+            ${`/acompanhar/${id}`}, ${id}
+          )
+          on conflict (id) do nothing
+        `;
+      } catch {
+        /* o aviso é extra; a carta já foi */
+      }
+    }
     await sql`
       insert into orders (id, user_id, letter_id, total_brl, method)
       values (${crypto.randomUUID().slice(0, 10)}, ${context.userId}, ${id}, ${data.paidBrl}, ${data.method})
@@ -281,7 +345,7 @@ export const checkoutLetter = createServerFn({ method: "POST" })
         if (at.getTime() <= Date.now()) notice = await dispatchLetterNotice(id);
       }
     }
-    return { id, linkSent, notice };
+    return { id, linkSent, notice, addressless, toName, arriveAt: plan.arriveAt.getTime(), departAt: plan.departAt.getTime() };
   });
 
 export const adminDashboard = createServerFn({ method: "GET" })
@@ -632,6 +696,124 @@ function parseGeo(raw: string): Geo | null {
   }
 }
 
+async function ensureReplyColumns(sql: Awaited<ReturnType<typeof getSql>>) {
+  // Aditivo: mesmo conteúdo de migrations/0009_replies.sql (o PGLite/local cria na hora).
+  await sql`alter table letters add column if not exists reply_to_letter_id text`;
+  await sql`alter table letters add column if not exists thread_id text`;
+}
+
+type ParentRow = {
+  id: string;
+  user_id: string;
+  from_name: string;
+  anonymous: boolean | null;
+  from_address_json: string;
+  from_geo_json: string;
+  to_address_json: string;
+  to_geo_json: string;
+  sender_email: string | null;
+  sender_phone: string | null;
+  thread_id: string | null;
+};
+
+/** A carta a responder, só se quem pede é quem recebeu. Fica no servidor. */
+async function replyParent(sql: Awaited<ReturnType<typeof getSql>>, letterId: string, userId: string) {
+  const rows = await sql<ParentRow & { recipient_user_id: string | null }>`
+    select id, user_id, recipient_user_id, from_name, anonymous, from_address_json, from_geo_json,
+      to_address_json, to_geo_json, sender_email, sender_phone, thread_id
+    from letters where id = ${letterId} limit 1
+  `;
+  const row = rows[0];
+  if (!row || row.recipient_user_id !== userId || row.user_id === userId) return null;
+  return row;
+}
+
+function ownAddress(raw: string) {
+  try {
+    const a = JSON.parse(raw || "{}") as Record<string, unknown> | null;
+    if (!a || typeof a !== "object") return undefined;
+    const pick = (k: string) => (typeof a[k] === "string" ? (a[k] as string).slice(0, 160) : "");
+    return {
+      cep: pick("cep"),
+      street: pick("street"),
+      number: pick("number"),
+      complement: pick("complement"),
+      neighborhood: pick("neighborhood"),
+      city: pick("city"),
+      state: pick("state"),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/** Nível cidade (~11 km): serve para estimar a viagem e desenhar o mapa sem revelar o endereço. */
+function coarseGeoJson(raw: string) {
+  const g = parseGeo(raw);
+  if (!g) return "";
+  return JSON.stringify({ lat: Math.round(g.lat * 10) / 10, lng: Math.round(g.lng * 10) / 10 });
+}
+
+function cityOnlyJson(raw: string) {
+  try {
+    const a = JSON.parse(raw) as { city?: string; state?: string } | null;
+    if (!a || typeof a !== "object" || !a.city) return "{}";
+    return JSON.stringify({
+      cep: "",
+      street: "",
+      number: "",
+      complement: "",
+      neighborhood: "",
+      city: String(a.city).slice(0, 80),
+      state: String(a.state ?? "").slice(0, 4),
+    });
+  } catch {
+    return "{}";
+  }
+}
+
+export type LetterRole = "sender" | "recipient" | "viewer";
+
+/**
+ * O que cada lado pode ver. Quem não é o remetente nunca recebe conta, telefone, e-mail,
+ * endereço ou coordenada de quem enviou; anônima também esconde o nome. Sem endereço:
+ * nenhuma coordenada sai do servidor.
+ */
+export function publicLetterRow(row: LetterRow, role: LetterRole): LetterRow & { addressless: boolean } {
+  const addressless = Boolean(row.anonymous) || !parseGeo(row.to_geo_json);
+  const out: LetterRow & { addressless: boolean } = { ...row, addressless };
+  if (addressless) {
+    out.from_geo_json = "";
+    out.to_geo_json = "";
+  }
+  if (role === "sender") {
+    // Resposta: o destino é o endereço da outra pessoa → só cidade e ponto aproximado.
+    if (row.reply_to_letter_id) {
+      out.to_address_json = addressless ? "{}" : cityOnlyJson(row.to_address_json);
+      if (!addressless) out.to_geo_json = coarseGeoJson(row.to_geo_json);
+    }
+    out.recipient_user_id = row.recipient_user_id ? "recipient" : null;
+    out.recipient_phone = null;
+    out.recipient_email = null;
+    return out;
+  }
+  out.user_id = "";
+  out.sender_phone = null;
+  out.coupon_code = null;
+  out.affiliate_code = null;
+  if (row.anonymous) out.from_name = "";
+  out.from_address_json = addressless ? "{}" : cityOnlyJson(row.from_address_json);
+  if (!addressless) out.from_geo_json = coarseGeoJson(row.from_geo_json);
+  if (role === "viewer") {
+    out.recipient_user_id = row.recipient_user_id ? "recipient" : null;
+    out.recipient_phone = null;
+    out.recipient_email = null;
+    out.to_address_json = addressless ? "{}" : cityOnlyJson(row.to_address_json);
+    if (!addressless) out.to_geo_json = coarseGeoJson(row.to_geo_json);
+  }
+  return out;
+}
+
 type LetterRow = {
   id: string;
   user_id: string;
@@ -657,6 +839,8 @@ type LetterRow = {
   arrive_at: string | null;
   started_at: string;
   demo_duration_ms: number;
+  reply_to_letter_id?: string | null;
+  thread_id?: string | null;
 };
 
 export const myMailbox = createServerFn({ method: "GET" })
@@ -665,11 +849,13 @@ export const myMailbox = createServerFn({ method: "GET" })
     const sql = await getSql();
     await ensureLetterInbox(sql);
     await ensureDeliveryColumns(sql);
+    await ensureReplyColumns(sql);
     const sent = await sql<LetterRow>`
       select id, user_id, recipient_user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
         affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
-        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms
+        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
+        reply_to_letter_id, thread_id
       from letters where user_id = ${context.userId}
       order by started_at desc
     `;
@@ -677,11 +863,15 @@ export const myMailbox = createServerFn({ method: "GET" })
       select id, user_id, recipient_user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
         affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
-        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms
+        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
+        reply_to_letter_id, thread_id
       from letters where recipient_user_id = ${context.userId}
       order by started_at desc
     `;
-    return { sent, received };
+    return {
+      sent: sent.map((r) => publicLetterRow(r, "sender")),
+      received: received.map((r) => publicLetterRow(r, r.user_id === context.userId ? "sender" : "recipient")),
+    };
   });
 
 export const openSharedLetter = createServerFn({ method: "POST" })
@@ -691,11 +881,13 @@ export const openSharedLetter = createServerFn({ method: "POST" })
     const sql = await getSql();
     await ensureLetterInbox(sql);
     await ensureDeliveryColumns(sql);
+    await ensureReplyColumns(sql);
     const rows = await sql<LetterRow>`
       select id, user_id, recipient_user_id, from_name, to_name, pages_json, template_id, messenger_id,
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
         affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
-        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms
+        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
+        reply_to_letter_id, thread_id
       from letters where id = ${id} limit 1
     `;
     const row = rows[0];
@@ -734,5 +926,79 @@ export const openSharedLetter = createServerFn({ method: "POST" })
         /* a próxima abertura tenta de novo se viewed_at ficou vazio */
       }
     }
-    return { letter: row, role };
+    return { letter: publicLetterRow(row, role), role };
+  });
+
+/** Contexto para "Enviar resposta": só o que quem responde pode ver da outra pessoa. */
+export const replyContext = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((id: string) => id.slice(0, 16))
+  .handler(async ({ context, data: id }) => {
+    const sql = await getSql();
+    await ensureLetterInbox(sql);
+    await ensureDeliveryColumns(sql);
+    await ensureReplyColumns(sql);
+    const parent = await replyParent(sql, id, context.userId);
+    if (!parent) return { ok: false as const };
+    const anonymous = Boolean(parent.anonymous);
+    const geo = anonymous ? null : parseGeo(parent.from_geo_json);
+    let city = "";
+    if (!anonymous) {
+      try {
+        city = String((JSON.parse(parent.from_address_json) as { city?: string })?.city ?? "");
+      } catch {
+        city = "";
+      }
+    }
+    const approx = geo ? (JSON.parse(coarseGeoJson(parent.from_geo_json)) as Geo) : undefined;
+    return {
+      ok: true as const,
+      letterId: parent.id,
+      toLabel: anonymous ? "Alguém especial" : parent.from_name,
+      /** Carta original anônima → a resposta é obrigatoriamente anônima. */
+      anonymous,
+      /** Origem da resposta = destino da carta original: é o endereço de quem responde. */
+      fromAddress: anonymous ? undefined : ownAddress(parent.to_address_json),
+      fromGeo: anonymous ? undefined : (parseGeo(parent.to_geo_json) ?? undefined),
+      toCity: city,
+      hasAddress: Boolean(geo),
+      approxGeo: approx,
+    };
+  });
+
+/** A conversa (cartas e respostas) que quem pede enviou ou recebeu. */
+export const letterThread = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((id: string) => id.slice(0, 16))
+  .handler(async ({ context, data: id }) => {
+    const sql = await getSql();
+    await ensureLetterInbox(sql);
+    await ensureDeliveryColumns(sql);
+    await ensureReplyColumns(sql);
+    const base = await sql<{ id: string; thread_id: string | null; user_id: string; recipient_user_id: string | null }>`
+      select id, thread_id, user_id, recipient_user_id from letters where id = ${id} limit 1
+    `;
+    const row = base[0];
+    if (!row || (row.user_id !== context.userId && row.recipient_user_id !== context.userId)) return [];
+    const root = row.thread_id || row.id;
+    const items = await sql<{
+      id: string;
+      user_id: string;
+      from_name: string;
+      anonymous: boolean | null;
+      started_at: string;
+    }>`
+      select id, user_id, from_name, anonymous, started_at::text
+      from letters
+      where (id = ${root} or thread_id = ${root})
+        and (user_id = ${context.userId} or recipient_user_id = ${context.userId})
+      order by started_at asc
+      limit 60
+    `;
+    return items.map((it) => ({
+      id: it.id,
+      mine: it.user_id === context.userId,
+      label: it.user_id === context.userId ? "Você" : it.anonymous ? "Alguém especial" : it.from_name,
+      startedAt: it.started_at,
+    }));
   });

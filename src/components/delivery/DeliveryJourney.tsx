@@ -1,11 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { LetterDocument } from "@/components/letters/LetterDocument";
+import { LetterDocument, ReplyButton } from "@/components/letters/LetterDocument";
+import { letterSheetPainter, paintEnvelopeNames } from "@/lib/letter-raster";
 import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { reloadOnceForStaleChunks } from "@/lib/chunk-reload";
 import { getDesign } from "@/lib/designs";
 import { messengerModelId } from "@/lib/messengers";
-import { journeySnapshot, letterEndpoints, letterOverlay } from "./journey";
+import { journeyScene, journeySnapshot, letterEndpoints, letterOverlay } from "./journey";
 import { MapOnlyFallback } from "./MapOnlyFallback";
 import "./delivery.css";
 
@@ -27,6 +28,8 @@ type Props = {
   allowDownload?: boolean;
   onDelivered?: () => void;
   onOpened?: () => void;
+  /** Link "Enviar resposta" mostrado na carta aberta (só para quem recebeu). */
+  replyHref?: string;
 };
 
 export type DeliveryJourneyHandle = {
@@ -40,7 +43,7 @@ function geoKey(n: number) {
 }
 
 export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function DeliveryJourney(
-  { letter, allowDownload = false, onDelivered, onOpened },
+  { letter, allowDownload = false, onDelivered, onOpened, replyHref },
   ref,
 ) {
   const slotRef = useRef<HTMLDivElement>(null);
@@ -57,6 +60,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   const [mapOnly, setMapOnly] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [pagesEl, setPagesEl] = useState<HTMLElement | null>(null);
+  const [overlayEl, setOverlayEl] = useState<HTMLElement | null>(null);
   const ends = letterEndpoints(letter);
   const animalId = messengerModelId(letter.messengerId);
   const mountKey = [
@@ -133,7 +137,15 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           animalId: messengerModelId(letterRef.current.messengerId),
           from: place.from,
           to: place.to,
+          scene: journeyScene(letterRef.current),
           designSrc: design.src,
+          paintSheet: letterSheetPainter(letterRef.current.designId ?? "classico", letterRef.current.pages?.[0]),
+          paintNames: (c: HTMLCanvasElement) =>
+            paintEnvelopeNames(
+              c,
+              letterRef.current.toName?.trim() || "Meu amor",
+              shownFromName(letterRef.current, "public")?.trim() || "",
+            ),
           getJourney: () => journeySnapshot(letterRef.current),
           getLetter: () => letterOverlay(letterRef.current),
           onDelivered: () => deliveredRef.current?.(),
@@ -148,6 +160,8 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
         openReadRef.current = () => host.__openRead?.();
         const pages = host.querySelector("#letterPages");
         if (pages instanceof HTMLElement) setPagesEl(pages);
+        const overlay = host.querySelector("#letter");
+        if (overlay instanceof HTMLElement) setOverlayEl(overlay);
         if (pendingOpen.current) {
           pendingOpen.current = false;
           host.__openRead?.();
@@ -184,6 +198,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
       host.remove();
       openReadRef.current = () => {};
       setPagesEl(null);
+      setOverlayEl(null);
     };
   }, [mountKey]);
 
@@ -217,6 +232,21 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
               shareText="Uma carta está a caminho. Acompanhe:"
             />,
             pagesEl,
+          )
+        : null}
+      {/* Tela cheia da carta: botão fixo embaixo (só para quem recebeu). Sai da tela cheia e abre a resposta. */}
+      {replyHref && overlayEl
+        ? createPortal(
+            <ReplyButton
+              dock
+              href={replyHref}
+              onClick={(e) => {
+                e.preventDefault();
+                overlayEl.querySelector<HTMLButtonElement>("#close")?.click();
+                window.setTimeout(() => window.location.assign(replyHref), 260);
+              }}
+            />,
+            overlayEl,
           )
         : null}
     </div>
