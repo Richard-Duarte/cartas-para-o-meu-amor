@@ -9,6 +9,14 @@ import { requireAdminSession } from "@/lib/server/admin-auth";
 import { attributionSchema } from "@/lib/attribution-schema";
 import { saveAttribution } from "@/lib/server/attribution";
 import { ensureNoticeTables, recordAnonymousView } from "@/lib/server/notifications";
+
+/* Moderação (só servidor): import dinâmico para não entrar no pacote do navegador. */
+const assertNotBlocked = async (...a: Parameters<typeof import("@/lib/server/moderation.server").assertNotBlocked>) =>
+  (await import("@/lib/server/moderation.server")).assertNotBlocked(...a);
+const senderBlocked = async (...a: Parameters<typeof import("@/lib/server/moderation.server").senderBlocked>) =>
+  (await import("@/lib/server/moderation.server")).senderBlocked(...a);
+const hiddenLetterIds = async (...a: Parameters<typeof import("@/lib/server/moderation.server").hiddenLetterIds>) =>
+  (await import("@/lib/server/moderation.server")).hiddenLetterIds(...a);
 import {
   dispatchDueNotices,
   dispatchLetterNotice,
@@ -415,6 +423,7 @@ export const checkoutLetter = createServerFn({ method: "POST" })
   .validator(checkoutSchema)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
+    await assertNotBlocked(sql, context.userId);
     if (paymentsMode() === "mercadopago") {
       // Pagamento real ligado: este atalho só serve para carrinho que sai grátis (cupom/crédito).
       const { serverCartTotal } = await import("@/lib/server/payments.server");
@@ -691,6 +700,7 @@ export const requestPayout = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const sql = await getSql();
+    await assertNotBlocked(sql, context.userId);
     await ensurePayouts(sql);
     const pending = await sql<{ id: string }>`
       select id from affiliate_payouts
@@ -808,6 +818,8 @@ async function replyParent(sql: Awaited<ReturnType<typeof getSql>>, letterId: st
   `;
   const row = rows[0];
   if (!row || row.recipient_user_id !== userId || row.user_id === userId) return null;
+  // Carta de conta bloqueada está fora do ar: não dá para responder.
+  if (await senderBlocked(sql, row.user_id)) return null;
   return row;
 }
 
@@ -951,9 +963,11 @@ export const myMailbox = createServerFn({ method: "GET" })
       from letters where recipient_user_id = ${context.userId}
       order by started_at desc
     `;
+    // Recebidas de uma conta bloqueada ficam fora do ar (voltam se a conta for desbloqueada).
+    const hidden = await hiddenLetterIds(sql, received.filter((r) => r.user_id !== context.userId).map((r) => r.id));
     return {
       sent: sent.map((r) => publicLetterRow(r, "sender")),
-      received: received.map((r) => publicLetterRow(r, r.user_id === context.userId ? "sender" : "recipient")),
+      received: received.filter((r) => !hidden.has(r.id)).map((r) => publicLetterRow(r, r.user_id === context.userId ? "sender" : "recipient")),
     };
   });
 
@@ -975,6 +989,9 @@ export const openSharedLetter = createServerFn({ method: "POST" })
     `;
     const row = rows[0];
     if (!row) return { letter: null as LetterRow | null, role: "none" as const };
+    if (await senderBlocked(sql, row.user_id)) {
+      return { letter: null as LetterRow | null, role: "none" as const, unavailable: true as const };
+    }
     let role: "sender" | "recipient" | "viewer" = "viewer";
     if (row.user_id === context.userId) role = "sender";
     else if (row.recipient_user_id === context.userId) role = "recipient";
@@ -1037,6 +1054,9 @@ export const openPublicLetter = createServerFn({ method: "POST" })
     `;
     const row = rows[0];
     if (!row) return { letter: null as LetterRow | null, role: "none" as const };
+    if (await senderBlocked(sql, row.user_id)) {
+      return { letter: null as LetterRow | null, role: "none" as const, unavailable: true as const };
+    }
     return { letter: publicLetterRow(row, "viewer"), role: "viewer" as const };
   });
 
@@ -1091,6 +1111,7 @@ export const letterThread = createServerFn({ method: "POST" })
     `;
     const row = base[0];
     if (!row || (row.user_id !== context.userId && row.recipient_user_id !== context.userId)) return [];
+    if (await senderBlocked(sql, row.user_id)) return [];
     const root = row.thread_id || row.id;
     const items = await sql<{
       id: string;
@@ -1106,7 +1127,8 @@ export const letterThread = createServerFn({ method: "POST" })
       order by started_at asc
       limit 60
     `;
-    return items.map((it) => ({
+    const hiddenItems = await hiddenLetterIds(sql, items.map((it) => it.id));
+    return items.filter((it) => !hiddenItems.has(it.id)).map((it) => ({
       id: it.id,
       mine: it.user_id === context.userId,
       label: it.user_id === context.userId ? "Você" : it.anonymous ? "Alguém especial" : it.from_name,

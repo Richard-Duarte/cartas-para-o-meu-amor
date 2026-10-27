@@ -58,6 +58,8 @@ export const startPayment = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<StartResult> => {
     if (paymentsMode() !== "mercadopago") throw new Error("Pagamento real desligado.");
     const sql = await getSql();
+    const { assertNotBlocked } = await import("@/lib/server/moderation.server");
+    await assertNotBlocked(sql, context.userId);
     await ensurePaymentTables(sql);
     const { checkout, payment } = data;
     const { total, creditBrl } = await serverCartTotal(sql, context.userId, checkout);

@@ -1,4 +1,5 @@
 import { GlobalFooter } from "@/components/layout/SiteFooter";
+import { AccountGuard } from "@/components/account/AccountGuard";
 import { createRootRoute, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
@@ -111,6 +112,7 @@ export const Route = createRootRoute({
           <KeyboardLift />
           <Outlet />
           <GlobalFooter />
+          <AccountGuard />
         </AuthProvider>
         <Scripts />
       </body>

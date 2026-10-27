@@ -82,8 +82,8 @@ function TermsPage() {
           resposta a uma carta anônima também é anônima.
         </li>
         <li>
-          Também é possível deixar comentários e fotos no acompanhamento da carta. Esse conteúdo fica visível para as
-          pessoas da conversa.
+          Comentários deixados antes no acompanhamento da carta continuam visíveis para as pessoas da conversa. A opção
+          de deixar novos comentários foi retirada.
         </li>
       </ul>
 
@@ -115,6 +115,28 @@ function TermsPage() {
         Podemos remover conteúdo, interromper entregas e suspender ou encerrar contas que violem estes termos, sem
         prejuízo de comunicar as autoridades quando a lei exigir. Para denunciar uma carta, escreva para {mail}.
       </p>
+
+      <h3>Moderação e bloqueio de contas</h3>
+      <ul>
+        <li>
+          Para garantir a segurança, prevenir abusos e cumprir a lei, a nossa equipe pode ler e guardar o conteúdo das
+          cartas (texto, imagens e comentários), inclusive das anônimas, quando houver denúncia, suspeita de uso
+          indevido ou ordem legal. Cada leitura feita pela equipe fica registrada.
+        </li>
+        <li>
+          Uma conta que viole estes termos pode ser <strong>bloqueada</strong>. Quem é bloqueado vê o motivo ao entrar
+          no site e não pode escrever, enviar nem pagar cartas enquanto o bloqueio durar.
+        </li>
+        <li>
+          Enquanto a conta estiver bloqueada, <strong>todas as cartas enviadas por ela saem do ar</strong>, inclusive as
+          que estão a caminho: quem tem o link vê apenas que a carta não está disponível, e os avisos de chegada param.
+          As cartas não são apagadas. Se a conta for desbloqueada, elas voltam como eram.
+        </li>
+        <li>
+          Você pode contestar o bloqueio pelo botão <strong>"Reivindicar acesso"</strong>, que aparece na tela de
+          bloqueio, ou escrevendo para {mail}. Respondemos pelo próprio site.
+        </li>
+      </ul>
 
       <h2>7. Preços e pagamento</h2>
       <ul>

@@ -20,20 +20,21 @@ async function ensureAttributionTable(sql: Sql) {
     fbclid text, ttclid text, landing_path text, referrer text, first_seen_at timestamptz,
     created_at timestamptz not null default now()
   )`;
+  await sql`alter table letter_attribution add column if not exists gclid text`;
 }
 
 export async function saveAttribution(sql: Sql, letterId: string, userId: string, a: AttributionInput) {
   if (!a) return;
-  const has = a.utm_source || a.utm_medium || a.utm_campaign || a.utm_content || a.utm_term || a.fbclid || a.ttclid;
+  const has = a.utm_source || a.utm_medium || a.utm_campaign || a.utm_content || a.utm_term || a.fbclid || a.ttclid || a.gclid;
   if (!has && !a.landing_path) return;
   try {
     await ensureAttributionTable(sql);
     const first = typeof a.first_seen_at === "number" && Number.isFinite(a.first_seen_at) ? new Date(a.first_seen_at).toISOString() : null;
     await sql`
       insert into letter_attribution (letter_id, user_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-        fbclid, ttclid, landing_path, referrer, first_seen_at)
+        fbclid, ttclid, gclid, landing_path, referrer, first_seen_at)
       values (${letterId}, ${userId}, ${a.utm_source ?? null}, ${a.utm_medium ?? null}, ${a.utm_campaign ?? null},
-        ${a.utm_content ?? null}, ${a.utm_term ?? null}, ${a.fbclid ?? null}, ${a.ttclid ?? null},
+        ${a.utm_content ?? null}, ${a.utm_term ?? null}, ${a.fbclid ?? null}, ${a.ttclid ?? null}, ${a.gclid ?? null},
         ${a.landing_path ?? null}, ${a.referrer ?? null}, ${first})
       on conflict (letter_id) do nothing
     `;

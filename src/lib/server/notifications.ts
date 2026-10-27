@@ -219,6 +219,8 @@ export const listLetterReplies = createServerFn({ method: "POST" })
     `;
     const letter = letters[0];
     if (!letter) return { replies: [] as ReplyItem[], canReply: false };
+    const { senderBlocked } = await import("@/lib/server/moderation.server");
+    if (await senderBlocked(sql, letter.user_id)) return { replies: [] as ReplyItem[], canReply: false };
     const mine = letter.user_id === context.userId || letter.recipient_user_id === context.userId;
     if (!mine) return { replies: [] as ReplyItem[], canReply: false };
     const rows = await sql<{
@@ -235,7 +237,7 @@ export const listLetterReplies = createServerFn({ method: "POST" })
       limit 20
     `;
     return {
-      canReply: letter.recipient_user_id === context.userId,
+      canReply: COMMENTS_ENABLED && letter.recipient_user_id === context.userId,
       replies: rows.map((row) => ({
         id: row.id,
         body: row.body,
@@ -254,6 +256,12 @@ type ReplyItem = {
   mine: boolean;
 };
 
+/**
+ * "Deixar comentário" foi retirado (pedido do Richard). Os comentários antigos continuam guardados e
+ * visíveis; só não dá para criar novos. Para religar, troque para `true`.
+ */
+const COMMENTS_ENABLED = false;
+
 export const postLetterReply = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(
@@ -264,6 +272,7 @@ export const postLetterReply = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ context, data }) => {
+    if (!COMMENTS_ENABLED) return { ok: false as const, error: "Os comentários foram desativados." };
     const text = data.body.trim();
     const photo = data.photo && data.photo.startsWith("data:image/") ? data.photo : null;
     if (data.photo && !photo) return { ok: false as const, error: "A foto precisa ser uma imagem." };

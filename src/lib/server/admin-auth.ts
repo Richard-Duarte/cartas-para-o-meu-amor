@@ -106,6 +106,29 @@ export async function googleAdminUserId(sql: Awaited<ReturnType<typeof getSql>>)
   return r && r.verified && r.google && !r.password ? user.id : null;
 }
 
+/** E-mails de ADMIN_EMAILS (contas que nunca podem ser bloqueadas). */
+export function adminEmailList() {
+  return adminEmails();
+}
+
+/** Como `requireAdminSession`, mas diz QUEM é o admin (para o registro de auditoria). */
+export async function requireAdmin(): Promise<{ sql: Awaited<ReturnType<typeof getSql>>; admin: string }> {
+  const sql = await ensureAdminRow();
+  const token = await readToken();
+  if (token) {
+    const rows = await sql<{ token: string }>`
+      select token from admin_sessions where token = ${token} limit 1
+    `;
+    if (rows.length) return { sql, admin: "admin (usuário e senha)" };
+  }
+  const googleId = await googleAdminUserId(sql);
+  if (googleId) {
+    const u = await sql<{ email: string }>`select email from "user" where id = ${googleId} limit 1`;
+    return { sql, admin: u[0]?.email || googleId };
+  }
+  throw new Error("Forbidden");
+}
+
 export async function requireAdminSession() {
   const sql = await ensureAdminRow();
   const token = await readToken();

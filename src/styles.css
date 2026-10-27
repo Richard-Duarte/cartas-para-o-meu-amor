@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./components/admin/admin-moderacao.css";
 
 @theme {
   --color-cream: #f6ede4;

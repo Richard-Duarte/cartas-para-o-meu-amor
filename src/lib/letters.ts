@@ -158,6 +158,16 @@ export function rememberLetter(letter: Letter) {
   return letter;
 }
 
+/** Tira a carta do cache deste aparelho (ex.: carta que saiu do ar). */
+export function forgetLetter(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    writeAll(readAll().filter((l) => l.id !== id));
+  } catch {
+    /* sem storage */
+  }
+}
+
 export function getLetter(id: string) {
   return readAll().find((l) => l.id === id);
 }
