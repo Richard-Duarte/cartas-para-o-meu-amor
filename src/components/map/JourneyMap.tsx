@@ -8,6 +8,7 @@ import {
   FLIES,
   getCity,
   getMessenger,
+  maxSpeedLabel,
   messengerGif,
   messengerArrivalGif,
   type Geo,
@@ -110,8 +111,6 @@ export function JourneyMap({ letter, onArrived }: Props) {
   const from = { ...fromCity, geo: letter.fromGeo ?? fromCity.geo };
   const to = { ...toCity, geo: letter.toGeo ?? toCity.geo };
   const arrived = stats.arrived;
-  const moving = !arrived && !stats.waiting;
-  const speedKmh = moving ? m.speedKmh : 0;
   const kmLeft = Math.max(0, stats.km * (1 - stats.progress));
   const kmDone = Math.max(0, stats.km - kmLeft);
   const flying = FLIES[letter.messengerId];
@@ -217,7 +216,7 @@ export function JourneyMap({ letter, onArrived }: Props) {
             />
           </div>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs uppercase tracking-widest text-muted tabular-nums">
-            <span>{speedKmh.toLocaleString("pt-BR")} km/h</span>
+            <span>Velocidade: {maxSpeedLabel(m.id)}</span>
             <span>{kmLeft.toFixed(0)} km à frente</span>
             <span>
               {arrived
@@ -245,7 +244,7 @@ export function JourneyMap({ letter, onArrived }: Props) {
                     {arrived ? "Chegou" : stats.waiting ? "Ainda não saiu" : "Ao vivo"}
                   </p>
                   <p className="map-stage-speed">
-                    {m.name} · {speedKmh.toLocaleString("pt-BR")} km/h
+                    {m.name} · {maxSpeedLabel(m.id)}
                   </p>
                 </div>
                 <button type="button" className="map-stage-close" onClick={() => setFull(false)}>
