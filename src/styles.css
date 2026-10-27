@@ -6372,10 +6372,57 @@ html {
 }
 .messenger-carousel-slide > .messenger-tilt { height: 100%; }
 .messenger-carousel .messenger-tilt-photo { -webkit-user-drag: none; }
+.messenger-carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+}
 .messenger-carousel-dots {
   display: flex;
   justify-content: center;
-  margin-top: 0.2rem;
+  min-width: 0;
+}
+/* Setas ‹ › ao lado dos pontos: nunca cobrem o cartão. */
+.messenger-carousel-arrow {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 6px 16px rgb(26 20 16 / 0.08);
+  cursor: pointer;
+  transition: transform 150ms ease, background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.messenger-carousel-arrow svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (hover: hover) {
+  .messenger-carousel-arrow:hover {
+    border-color: var(--color-rose);
+    background: var(--color-rose);
+    color: var(--color-paper);
+  }
+}
+.messenger-carousel-arrow:active { transform: scale(0.92); }
+.messenger-carousel-arrow:focus-visible {
+  outline: 2px solid var(--color-rose);
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .messenger-carousel-dots button { width: 2rem; }
 }
 .messenger-carousel-dots button {
   display: grid;
