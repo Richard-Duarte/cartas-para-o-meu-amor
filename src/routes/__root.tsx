@@ -1,4 +1,4 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { KeyboardLift } from "@/components/layout/KeyboardLift";
@@ -6,6 +6,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { bootCatalog } from "@/lib/catalog";
 import { installChunkReload } from "@/lib/chunk-reload";
 import { pingVisit } from "@/lib/server/shop";
+import { bootTracking, trackPageView, TRACKING_ENABLED } from "@/lib/tracking";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Carta para o meu amor";
@@ -17,6 +18,21 @@ function Boot() {
   }, []);
   // Aba aberta antes de um deploy: arquivos antigos somem e o import dinâmico falha.
   useEffect(() => installChunkReload(), []);
+  // Pixels (Meta/TikTok) só com VITE_META_PIXEL_ID / VITE_TIKTOK_PIXEL_ID; sem eles, nada carrega.
+  const router = useRouter();
+  useEffect(() => {
+    bootTracking();
+    if (!TRACKING_ENABLED) return;
+    // Só troca de página (pathname): mudar ?passo=… na mesma tela não é PageView.
+    let last = window.location.pathname;
+    trackPageView();
+    return router.subscribe("onResolved", () => {
+      const now = window.location.pathname;
+      if (now === last) return;
+      last = now;
+      trackPageView();
+    });
+  }, [router]);
   return null;
 }
 
