@@ -7170,3 +7170,9 @@ img.messenger-picker-live-media {
   border: 1px dashed rgb(232 90 122 / 0.45);
   font-size: 0.95rem;
 }
+
+/* Acompanhar sem login: colar link/código. */
+.track-code { display: grid; gap: 0.75rem; }
+.track-code input { min-height: 48px; font-size: 16px; }
+.track-signin-note { margin-top: 1rem; }
+.track-signin-note a { color: var(--color-rose, #e85a7a); text-decoration: underline; }

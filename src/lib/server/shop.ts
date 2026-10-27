@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
+import { PUBLIC_TRACKING } from "@/lib/public-tracking";
 import { getSql } from "@/lib/db";
 import { approachNoticeAt, cleanEmail, formatArrival, planArrival, whatsAppNumber } from "@/lib/delivery";
 import { requireAdminSession } from "@/lib/server/admin-auth";
@@ -927,6 +928,34 @@ export const openSharedLetter = createServerFn({ method: "POST" })
       }
     }
     return { letter: publicLetterRow(row, role), role };
+  });
+
+/**
+ * Acompanhar sem login (fase de testes, `PUBLIC_TRACKING`): quem abre pelo link vê só a
+ * visão de "quem visualiza". Não reivindica a carta como destinatário, não grava contato
+ * nem marca "vista". Com a chave desligada, recusa (volta a exigir login).
+ */
+export const openPublicLetter = createServerFn({ method: "POST" })
+  .validator((id: string) => String(id).slice(0, 16))
+  .handler(async ({ data: id }) => {
+    if (!PUBLIC_TRACKING) throw new Error("Entre para acompanhar esta carta.");
+    const { assertSameSiteRequest } = await import("@/lib/auth/isolation.server");
+    assertSameSiteRequest();
+    const sql = await getSql();
+    await ensureLetterInbox(sql);
+    await ensureDeliveryColumns(sql);
+    await ensureReplyColumns(sql);
+    const rows = await sql<LetterRow>`
+      select id, user_id, recipient_user_id, from_name, to_name, pages_json, template_id, messenger_id,
+        from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
+        affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
+        depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
+        reply_to_letter_id, thread_id
+      from letters where id = ${id} limit 1
+    `;
+    const row = rows[0];
+    if (!row) return { letter: null as LetterRow | null, role: "none" as const };
+    return { letter: publicLetterRow(row, "viewer"), role: "viewer" as const };
   });
 
 /** Contexto para "Enviar resposta": só o que quem responde pode ver da outra pessoa. */
