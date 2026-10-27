@@ -171,6 +171,8 @@ type Props = {
   stepLabel?: string;
   /** Abre direto na escolha do papel (ex.: "Ajustar" no carrinho). */
   openPapers?: boolean;
+  /** Avisado quando o seletor abriu por pedido explícito ("Escolher o papel"). */
+  onPapersOpened?: () => void;
 };
 
 export function CanvaEditor({
@@ -187,6 +189,7 @@ export function CanvaEditor({
   onBack,
   stepLabel,
   openPapers = false,
+  onPapersOpened,
 }: Props) {
   const design = getDesign(designId);
   const [panel, setPanel] = useState<Panel | null>("design");
@@ -495,8 +498,10 @@ export function CanvaEditor({
 
   useEffect(() => {
     if (openPapers) {
+      // Pedido explícito: abre sempre, ignorando "cartas-papel-visto".
       setPanel("design");
       if (isMobileEditor()) setPickerOpen(true);
+      onPapersOpened?.();
       return;
     }
     if (isMobileEditor() && !pickerSeen()) {
