@@ -23,6 +23,8 @@ import {
 export type { PaidResult, StartResult } from "@/lib/payments-types";
 
 /** Modo de pagamento + se ESTA conta pode avançar sem pagar (a regra de verdade fica no checkoutLetter). */
+const PROD_WEBHOOK_URL = "https://cartas-para-o-meu-amor.vercel.app/api/mercadopago/webhook";
+
 export const paymentsConfig = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
@@ -73,8 +75,8 @@ export const startPayment = createServerFn({ method: "POST" })
     `;
     const authUser = await sql<{ email: string }>`select email from "user" where id = ${context.userId} limit 1`;
     const email = (payment.payer?.email || authUser[0]?.email || "").trim();
-    const origin = (await import("@/lib/server/notices")).safeOrigin(checkout.origin);
-    const notifyUrl = paymentEnv("MERCADOPAGO_NOTIFICATION_URL") || `${origin}/api/mercadopago/webhook`;
+    // URL fixa de produção (o webhook sempre reconsulta o pagamento na API, então é seguro).
+    const notifyUrl = paymentEnv("MERCADOPAGO_NOTIFICATION_URL") || PROD_WEBHOOK_URL;
     const m = await sql<{ name: string }>`select name from messengers_catalog where id = ${checkout.messengerId} limit 1`;
     const body: Record<string, unknown> = {
       transaction_amount: total,

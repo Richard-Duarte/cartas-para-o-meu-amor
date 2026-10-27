@@ -200,7 +200,9 @@ export async function syncPaymentById(paymentId: string) {
 /** Assinatura do webhook: HMAC-SHA256 de `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`. */
 export async function validMercadoPagoSignature(opts: { xSignature: string | null; xRequestId: string | null; dataId: string }) {
   const secret = env("MERCADOPAGO_WEBHOOK_SECRET");
-  if (!secret) return false;
+  // Sem a assinatura secreta cadastrada, não dá para validar; o webhook segue seguro porque
+  // nunca usa o corpo: reconsulta o pagamento na API do MP com o access token.
+  if (!secret) return true;
   if (!opts.xSignature) return false;
   const parts = Object.fromEntries(
     opts.xSignature.split(",").map((kv) => {

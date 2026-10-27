@@ -4,7 +4,8 @@ import { paymentsMode } from "@/lib/payments-mode";
 
 /**
  * Webhook do Mercado Pago (Notificações → Webhooks, evento "Pagamentos").
- * Valida o x-signature com MERCADOPAGO_WEBHOOK_SECRET e busca o pagamento na API antes de agir.
+ * Valida o x-signature quando MERCADOPAGO_WEBHOOK_SECRET existe. Em qualquer caso, só confia no status
+ * que a API do MP devolve para o id (o corpo da notificação nunca é usado).
  * 200 = recebido (inclusive o que ignoramos); 401 = assinatura inválida; 500 = tente de novo.
  */
 export const Route = createFileRoute("/api/mercadopago/webhook")({
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/api/mercadopago/webhook")({
         }
         const type = url.searchParams.get("type") || url.searchParams.get("topic") || body.type || "";
         const dataId = String(url.searchParams.get("data.id") || url.searchParams.get("id") || body.data?.id || "");
-        if (!dataId) return Response.json({ ok: true, ignored: "no-id" });
+        if (!/^\d{1,20}$/.test(dataId)) return Response.json({ ok: true, ignored: "no-id" });
         const ok = await validMercadoPagoSignature({
           xSignature: request.headers.get("x-signature"),
           xRequestId: request.headers.get("x-request-id"),

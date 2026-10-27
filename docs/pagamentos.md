@@ -16,7 +16,7 @@
 | `PAYMENTS_MODE` | servidor |
 | `MERCADOPAGO_ACCESS_TOKEN` | servidor (sensível) |
 | `VITE_MERCADOPAGO_PUBLIC_KEY` | cliente (build) |
-| `MERCADOPAGO_WEBHOOK_SECRET` | servidor (sensível): a assinatura secreta do webhook no painel. Sem ela o webhook responde 401, e a tela do PIX continua liberando a carta pela consulta de status. |
+| `MERCADOPAGO_WEBHOOK_SECRET` | servidor (sensível): a assinatura secreta do webhook no painel. Opcional: com ela o webhook exige `x-signature` válido; sem ela aceita a notificação, mas sempre reconsulta o pagamento na API do MP e confia só nesse status. |
 | `MERCADOPAGO_NOTIFICATION_URL` | servidor (opcional) |
 | `PAYMENT_BYPASS_EMAILS` | servidor |
 | `MERCADOPAGO_CLIENT_ID` / `MERCADOPAGO_CLIENT_SECRET` | servidor; o código não usa hoje |
@@ -38,7 +38,7 @@
 - **URL:** `https://cartas-para-o-meu-amor.vercel.app/api/mercadopago/webhook`. Com o domínio: `https://cartaparaomeuamor.com.br/api/mercadopago/webhook`.
 - **Onde cadastrar:** Mercado Pago → Suas integrações → app → Webhooks → evento "Pagamentos". Copie a assinatura secreta para `MERCADOPAGO_WEBHOOK_SECRET`.
 - **Validação:** `HMAC-SHA256(secret, "id:<data.id>;request-id:<x-request-id>;ts:<ts>;")` comparado com o `v1`. Depois o servidor busca o pagamento na API e não confia no corpo.
-- Cada pagamento também leva `notification_url`.
+- Cada pagamento também leva `notification_url = https://cartas-para-o-meu-amor.vercel.app/api/mercadopago/webhook` (fixo; troque por `MERCADOPAGO_NOTIFICATION_URL`).
 
 ## Testar com credenciais de teste
 1. Num Preview, configure `PAYMENTS_MODE=mercadopago`, `MERCADOPAGO_ACCESS_TOKEN=TEST-…` e `VITE_MERCADOPAGO_PUBLIC_KEY=TEST-…`, e faça o redeploy.
