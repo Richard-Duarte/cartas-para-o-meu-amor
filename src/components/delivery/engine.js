@@ -27,6 +27,29 @@ const SHELL = `
 <div id="letterPages"></div></article></div>`;
 
 export async function mountDeliveryPreview(root, options) {
+/** Versão dos .glb (troque quando um modelo mudar) para não usar a cópia antiga do cache. */
+const MODEL_VERSION = 2;
+/** Reduz texturas acima de `max` px (mantém proporção) antes de subir para a GPU. */
+function capTextures(obj, max) {
+  const seen = new Set();
+  obj.traverse((o) => {
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) for (const k of Object.keys(m)) {
+      const t = m[k];
+      if (!t || !t.isTexture || seen.has(t)) continue;
+      seen.add(t);
+      const img = t.image; const w = img && (img.width || img.videoWidth), h = img && (img.height || img.videoHeight);
+      if (!w || !h || Math.max(w, h) <= max) continue;
+      try {
+        const s = max / Math.max(w, h); const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        if (img.close) try { img.close(); } catch (e) {}
+        t.image = c; t.needsUpdate = true;
+      } catch (e) {}
+    }
+  });
+}
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = (id) => root.querySelector('#' + id);
 // Sem endereço: cena ilustrada no lugar do mapa (sem Leaflet, sem tiles, sem coordenadas).
@@ -56,7 +79,17 @@ function loseRenderer(r) {
 function loseAllRenderers() {
   while (renderers.length) loseRenderer(renderers.pop());
 }
+// Sinal para o componente: o iOS derrubou um contexto WebGL (memória) → cai no mapa/cena estático.
+let disposing = false;
+function watchContext(canvas) {
+  canvas.addEventListener('webglcontextlost', (e) => {
+    if (disposing || !alive) return;
+    try { e.preventDefault(); } catch (err) {}
+    if (typeof options.onContextLost === 'function') options.onContextLost();
+  }, { once: true });
+}
 function makeRenderer(canvas) {
+  watchContext(canvas);
   const opts = [
     { antialias: true, alpha: true, powerPreference: 'default', failIfMajorPerformanceCaveat: false },
     { antialias: false, alpha: true, powerPreference: 'low-power', failIfMajorPerformanceCaveat: false },
@@ -103,12 +136,15 @@ const AN = ANIMALS[AID];
 $('landed').textContent = AN.land;
 let gltf;
 try {
-  gltf = await loader.loadAsync(`/models/${AID}.glb`);
+  gltf = await loader.loadAsync(`/models/${AID}.glb?v=${MODEL_VERSION}`);
 } catch (err) {
   draco.dispose();
   throw new Error(`model-load-failed:${AID}:${err && err.message ? err.message : err}`);
 }
 if (!alive || !root.isConnected) { draco.dispose(); return () => {}; }
+// Teto de textura: cada contexto WebGL guarda a sua cópia (mapa, palco e envelope). Uma 4096² RGBA
+// são 64 MB (+mipmaps) — no iPhone isso derrubava a página. Reduz qualquer textura maior que o teto.
+capTextures(gltf.scene, TIER.name === 'low' ? 1024 : 2048);
 // R7: the glTF exporter writes a stale first sample on every baked track (pose left over from the previous NLA strip),
 // which popped at every clip start and loop wrap. Replace sample 0 by linear extrapolation of samples 1-2.
 if (AID === 'stork') for (const cl of gltf.animations) for (const tr of cl.tracks) if (/morphTargetInfluences/.test(tr.name)) tr.setInterpolation(THREE.InterpolateDiscrete); /* R7j stork: RootTuck is an on/off swap; linear blending showed a 1-frame paper wing */
@@ -889,7 +925,7 @@ function stageTick(dt, t) {
   if (SET.ripples && stageState !== 'arriving') { idleFx += dt; if (idleFx > 1.6) { idleFx = 0; const p = rootBone.getWorldPosition(new THREE.Vector3()); if (AID === 'swan') ripple(p.x, p.z, 0.004, 0.18, 2.6); else ripple(1.15 + (Math.random() - 0.5), -0.55 + (Math.random() - 0.5), -0.015, 0.05, 2.2); } }
   if (orbit.enabled) orbit.update();
   keepCamClear();
-  sr.render(ss, scam);
+  if (onScreen(stageEl)) sr.render(ss, scam);
 }
 
 // ---------- 3. envelope panel ----------
@@ -1189,12 +1225,12 @@ function advance(dt) {
       tellDelivered();
     }
   }
-  if (map3dOk && ms && mc && (!arrived || mapFrames-- > 0)) mr.render(ms, mc);
+  if (map3dOk && ms && mc && onScreen(mapEl) && (!arrived || mapFrames-- > 0)) mr.render(ms, mc);
   if (!$('arrival').classList.contains('hidden')) {
     if (stageReady) stageTick(dt, t);
     if (envReady) {
       if (env.visible && !reduced && (envState === 'closed' || envState === 'opening')) { const f = floatAmt; env.position.y = Math.sin(t * 1.3) * 0.05 * f; env.rotation.y = Math.sin(t * 0.8) * 0.16 * f; env.rotation.x = Math.sin(t * 1.1) * 0.05 * f; env.rotation.z = Math.sin(t * 0.7) * 0.025 * f; }
-      er.render(es, ecam);
+      if (onScreen(envEl)) er.render(es, ecam);
     }
   }
 }
@@ -1232,6 +1268,13 @@ if (typeof ResizeObserver !== 'undefined' && mapEl) {
   mapRo = new ResizeObserver(() => onMapResize());
   mapRo.observe(mapEl);
 }
+// Fora da tela não desenha (o quadro anterior continua no canvas): menos GPU e bateria.
+const hiddenEls = new Set();
+const visIo = typeof IntersectionObserver === 'function'
+  ? new IntersectionObserver((es) => { for (const e of es) { if (e.isIntersecting) hiddenEls.delete(e.target); else hiddenEls.add(e.target); } }, { rootMargin: '120px' })
+  : null;
+for (const el of [mapEl, stageEl, envEl]) if (el && visIo) visIo.observe(el);
+function onScreen(el) { return !el || !hiddenEls.has(el); }
 rafId = requestAnimationFrame(loop);
 requestAnimationFrame(() => { if (!alive) return; onMapResize(); });
 setTimeout(() => { if (alive) onMapResize(); }, 120);
@@ -1286,8 +1329,10 @@ window.__demo = {
   info: () => ({ calls: sr.info.render.calls, tris: sr.info.render.triangles, geo: sr.info.memory.geometries, tex: sr.info.memory.textures }),
 };
 return () => {
+  disposing = true;
   alive = false;
   cancelAnimationFrame(rafId);
+  try { if (visIo) visIo.disconnect(); } catch (e) {}
   off.forEach((fn) => fn());
   try { if (mapRo) mapRo.disconnect(); } catch (e) {}
   try { orbit.dispose(); } catch (e) {}

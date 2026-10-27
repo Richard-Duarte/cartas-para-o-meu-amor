@@ -250,7 +250,6 @@ function TrackView({
           )}
           <p className="track-meta">
             {meta.animal}
-            {meta.price ? ` · ${meta.price}` : ""}
           </p>
           <div className="share-bar track-share">
             <button type="button" onClick={copyLink}>

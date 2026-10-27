@@ -150,6 +150,22 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           getLetter: () => letterOverlay(letterRef.current),
           onDelivered: () => deliveredRef.current?.(),
           onOpened: () => openedRef.current?.(),
+          // iOS derrubou o WebGL (memória): sem tela de erro — mostra o mapa/cena estático.
+          onContextLost: () => {
+            if (dead) return;
+            console.warn("[delivery] webgl context lost → mapa estático");
+            try {
+              dispose();
+            } catch {
+              /* ignore */
+            }
+            dispose = () => {};
+            loseHostWebgl(host);
+            host.replaceChildren();
+            setMapOnly(true);
+            setError("");
+            setReady(true);
+          },
         });
         if (typeof cleanup !== "function") return;
         if (dead) {
