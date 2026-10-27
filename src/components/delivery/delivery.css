@@ -401,10 +401,12 @@
   }
 }
 
+/* Canto esquerdo: no direito ficava em cima da atribuição do mapa. */
 .delivery-preview .mute {
   position: fixed;
-  right: max(12px, env(safe-area-inset-right));
-  bottom: max(12px, env(safe-area-inset-bottom));
+  left: max(12px, env(safe-area-inset-left));
+  right: auto;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 90;
   width: 44px;
   height: 44px;

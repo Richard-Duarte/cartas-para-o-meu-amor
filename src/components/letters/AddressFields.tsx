@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { formatCep, lookupCep, lookupStreet, type Address } from "@/lib/address";
+import { useEffect, useRef, useState, type FocusEvent } from "react";
+import { Pencil } from "lucide-react";
+import { digitsCep, formatCep, lookupCep, lookupStreet, type Address } from "@/lib/address";
 import {
   addressLooksFilled,
   favoriteSummary,
@@ -13,18 +14,31 @@ import {
 
 type Props = {
   label: string;
+  /** Frase curta embaixo do título (ex.: "Onde a carta chega"). */
+  hint?: string;
   value: Address;
   onChange: (next: Address) => void;
 };
 
-export function AddressFields({ label, value, onChange }: Props) {
+/** Dá para fechar o cartão num resumo: CEP completo, rua e cidade. */
+function addressComplete(a: Address) {
+  return digitsCep(a.cep).length === 8 && Boolean(a.street.trim()) && Boolean(a.city.trim());
+}
+
+export function AddressFields({ label, hint, value, onChange }: Props) {
   const [status, setStatus] = useState("");
   const [hits, setHits] = useState<Partial<Address>[]>([]);
   const [open, setOpen] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteAddress[]>(() => listFavoriteAddresses());
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Endereço que já volta preenchido (rascunho) abre fechado, como um resumo editável.
+  const [collapsed, setCollapsed] = useState(() => addressComplete(value) && Boolean(value.number.trim()));
   const streetRef = useRef(value.street);
   streetRef.current = value.street;
+  /** Só sugere ruas quando a pessoa digitou a rua — não quando o CEP preencheu. */
+  const typedStreet = useRef(false);
+  const cardRef = useRef<HTMLFieldSetElement>(null);
+  const complete = addressComplete(value);
 
   function refreshFavorites() {
     setFavorites(listFavoriteAddresses());
@@ -40,26 +54,39 @@ export function AddressFields({ label, value, onChange }: Props) {
       setStatus(found.error);
       return;
     }
-    setStatus("Endereço encontrado");
+    setStatus("Endereço encontrado. Falta o número.");
+    typedStreet.current = false;
     setHits([]);
+    setOpen(false);
     onChange({ ...value, ...found, cep, number: value.number });
   }
 
   useEffect(() => {
     const q = value.street.trim();
-    if (q.length < 5) {
+    if (q.length < 5 || !typedStreet.current) {
       setHits([]);
+      setOpen(false);
       return;
     }
     const t = window.setTimeout(() => {
       void lookupStreet(q, { city: value.city, state: value.state }).then((rows) => {
-        if (streetRef.current.trim() !== q) return;
+        if (streetRef.current.trim() !== q || !typedStreet.current) return;
         setHits(rows);
         setOpen(rows.length > 0);
       });
     }, 450);
     return () => window.clearTimeout(t);
   }, [value.street, value.city, value.state]);
+
+  /** Saiu do cartão com tudo preenchido: vira resumo. */
+  function onCardBlur(e: FocusEvent<HTMLFieldSetElement>) {
+    const next = e.relatedTarget as Node | null;
+    if (next && cardRef.current?.contains(next)) return;
+    setOpen(false);
+    // Só fecha quando o foco foi para outro campo (ex.: o outro endereço). Tocar em "OK" no
+    // teclado ou num botão daqui não esconde o cartão no meio da edição.
+    if (next instanceof HTMLInputElement && complete && value.number.trim()) setCollapsed(true);
+  }
 
   function pick(hit: Partial<Address>) {
     onChange({
@@ -71,6 +98,7 @@ export function AddressFields({ label, value, onChange }: Props) {
       cep: hit.cep || value.cep,
       complement: hit.complement ?? value.complement,
     });
+    typedStreet.current = false;
     setHits([]);
     setOpen(false);
     setStatus(hit.cep ? "Endereço e CEP preenchidos" : "Endereço preenchido");
@@ -86,8 +114,12 @@ export function AddressFields({ label, value, onChange }: Props) {
       city: fav.city,
       state: fav.state,
     });
+    typedStreet.current = false;
+    setHits([]);
+    setOpen(false);
     setPickerOpen(false);
     setStatus(`Favorito “${fav.label}” aplicado`);
+    if (fav.cep && fav.street && fav.city) setCollapsed(true);
   }
 
   function rememberFavorite() {
@@ -114,9 +146,32 @@ export function AddressFields({ label, value, onChange }: Props) {
     setStatus("Favorito removido");
   }
 
+  if (collapsed && complete) {
+    const line1 = [value.street, value.number || "s/n"].filter(Boolean).join(", ");
+    const line2 = [value.complement, value.neighborhood].filter(Boolean).join(" · ");
+    const line3 = [value.city, value.state].filter(Boolean).join(" – ") + (value.cep ? ` · ${value.cep}` : "");
+    return (
+      <button
+        type="button"
+        className="addr-summary"
+        onClick={() => setCollapsed(false)}
+        aria-label={`${label}: ${line1}. Toque para editar`}
+      >
+        <span className="addr-summary-label">{label}</span>
+        <span className="addr-summary-main">{line1}</span>
+        {line2 ? <span className="addr-summary-sub">{line2}</span> : null}
+        <span className="addr-summary-sub">{line3}</span>
+        <span className="addr-summary-edit">
+          <Pencil size={14} /> Editar
+        </span>
+      </button>
+    );
+  }
+
   return (
-    <fieldset className="addr-card">
+    <fieldset className="addr-card" ref={cardRef} onBlur={onCardBlur}>
       <legend>{label}</legend>
+      {hint ? <p className="addr-hint">{hint}</p> : null}
       <div className="addr-fav">
         <button
           type="button"
@@ -154,6 +209,8 @@ export function AddressFields({ label, value, onChange }: Props) {
         CEP
         <input
           inputMode="numeric"
+          autoComplete="postal-code"
+          enterKeyHint="next"
           value={value.cep}
           onChange={(e) => void onCep(e.target.value)}
           placeholder="00000-000"
@@ -165,10 +222,16 @@ export function AddressFields({ label, value, onChange }: Props) {
         <input
           value={value.street}
           onChange={(e) => {
+            typedStreet.current = true;
             onChange({ ...value, street: e.target.value });
             setOpen(true);
           }}
-          onFocus={() => hits.length && setOpen(true)}
+          onFocus={() => {
+            if (typedStreet.current && hits.length) setOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
           placeholder="Nome da rua, mesmo sem CEP"
           autoComplete="street-address"
         />
@@ -176,7 +239,12 @@ export function AddressFields({ label, value, onChange }: Props) {
           <ul className="addr-suggest" role="listbox">
             {hits.map((h, i) => (
               <li key={`${h.cep}-${h.street}-${i}`}>
-                <button type="button" onClick={() => pick(h)}>
+                <button
+                  type="button"
+                  // Não deixa o campo perder o foco antes do toque contar.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pick(h)}
+                >
                   <strong>{h.street}</strong>
                   <span>
                     {[h.neighborhood, h.city, h.state, h.cep].filter(Boolean).join(" · ")}
@@ -191,6 +259,7 @@ export function AddressFields({ label, value, onChange }: Props) {
         <label>
           Número
           <input
+            enterKeyHint="next"
             value={value.number}
             onChange={(e) => onChange({ ...value, number: e.target.value })}
           />
@@ -227,6 +296,11 @@ export function AddressFields({ label, value, onChange }: Props) {
           />
         </label>
       </div>
+      {complete ? (
+        <button type="button" className="addr-done" onClick={() => setCollapsed(true)}>
+          Confirmar {label.toLowerCase()}
+        </button>
+      ) : null}
     </fieldset>
   );
 }

@@ -1,21 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { LazyVideo } from "@/components/ui/LazyVideo";
 
 export function StoryFilm() {
   return (
     <section className="story-film">
       <div className="story-film-media">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
+        <LazyVideo
+          src="/media/criativo.mp4"
           poster="/media/criativo-poster.jpg"
           className="story-film-video"
-        >
-          <source src="/media/criativo.mp4" type="video/mp4" />
-        </video>
+        />
       </div>
       <div className="story-film-copy">
         <p className="section-kicker">A chegada</p>
