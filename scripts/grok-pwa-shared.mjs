@@ -445,21 +445,27 @@ export function injectGrokPwaHead(html, ctx = {}) {
     host,
     documentTitle,
   );
-  let next = stripShareMetaTags(html);
+  // O app já declara a própria prévia de link (og:image absoluta, por rota):
+  // não apaga nem duplica essas tags.
+  const appOwnsShareCard = /<meta\b[^>]*\bproperty\s*=\s*["']og:image["']/i.test(html);
+  let next = appOwnsShareCard ? html : stripShareMetaTags(html);
   if (!readGrokExtensionsEnabled()) next = stripGrokExtensionsScript(next);
 
+  const hasRel = (rel) => new RegExp(`<link\\b[^>]*\\brel\\s*=\\s*["']${rel}["']`, "i").test(next);
   const missing = grokPwaHeadTags(appName)
     .filter(([key]) => {
-      if (key === "manifest") return !next.includes('href="/__grok/manifest.webmanifest"');
-      if (key === "apple-touch-icon") return !next.includes('href="/__grok/icon-180.png"');
+      if (key === "manifest") return !next.includes('href="/__grok/manifest.webmanifest"') && !hasRel("manifest");
+      if (key === "apple-touch-icon") return !next.includes('href="/__grok/icon-180.png"') && !hasRel("apple-touch-icon");
       return !next.includes(`name="${key}"`);
     })
     .map(([, tag]) => tag);
 
-  next = insertAfterHeadOpen(
-    next,
-    grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
-  );
+  if (!appOwnsShareCard) {
+    next = insertAfterHeadOpen(
+      next,
+      grokOgHeadTags({ host, appName, site, documentTitle, cwd }).join(""),
+    );
+  }
 
   if (readGrokExtensionsEnabled() && !next.includes("/grok-app-builder/extensions.js")) {
     missing.push(...grokExtensionsHeadTags(projectId));

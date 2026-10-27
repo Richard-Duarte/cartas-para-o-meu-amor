@@ -1,8 +1,15 @@
+import { shareMeta } from "@/lib/share-meta";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CONTACT_EMAIL, LegalPage } from "@/components/legal/LegalPage";
 
 export const Route = createFileRoute("/privacidade")({
-  head: () => ({ meta: [{ title: "Política de privacidade · Carta para o meu amor" }] }),
+  head: () => ({
+    meta: [
+      { title: "Política de privacidade · Carta para o meu amor" },
+      { name: "description", content: "Como o Carta para o meu amor coleta, usa e protege os seus dados." },
+      ...shareMeta({ title: "Política de privacidade · Carta para o meu amor", description: "Como o Carta para o meu amor coleta, usa e protege os seus dados.", path: "/privacidade" }),
+    ],
+  }),
   component: PrivacyPage,
 });
 

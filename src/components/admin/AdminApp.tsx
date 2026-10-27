@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { formatBrl, formatMoney } from "@/lib/cart";
 import { bootCatalog } from "@/lib/catalog";
+import { signOut } from "@/lib/auth/client";
 import {
   adminLogin,
   adminLogout,
@@ -83,7 +84,7 @@ export function AdminApp() {
             {t.label}
           </button>
         ))}
-        <button type="button" onClick={() => void adminLogout().then(() => setAllowed(false))}>
+        <button type="button" onClick={() => void adminLogout().then(() => signOut("/login")).catch(() => setAllowed(false))}>
           Sair
         </button>
       </aside>

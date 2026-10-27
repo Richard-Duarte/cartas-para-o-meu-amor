@@ -9,6 +9,7 @@ import { NoticeBell } from "@/components/layout/NoticeBell";
 import { signOut } from "@/lib/auth/client";
 import { SignedIn, SignedOut } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useGoogleAdmin } from "@/lib/auth/use-admin";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -26,6 +27,9 @@ export function SiteHeader({ className }: Props) {
   const ghost = className?.includes("is-ghost");
   const path = useRouterState({ select: (s) => s.location.pathname });
   const writing = path.startsWith("/escrever");
+  const isAdmin = useGoogleAdmin(user?.id);
+  const accountTo = isAdmin ? "/admin" : "/conta";
+  const accountLabel = isAdmin ? "Painel Admin" : "Minha conta";
   const initial = (user?.displayName || user?.primaryEmail || "A").charAt(0).toUpperCase();
 
   useEffect(() => {
@@ -178,10 +182,15 @@ export function SiteHeader({ className }: Props) {
                   </Link>
                 </SignedOut>
                 <SignedIn>
-                  <Link to="/conta" className="site-header-link">
-                    Minha conta
+                  <Link to={accountTo} className="site-header-link">
+                    {accountLabel}
                   </Link>
-                  <Link to="/conta" className="site-header-avatar" aria-label="Minha conta">
+                  {isAdmin ? (
+                    <button type="button" className="site-header-link" disabled={leaving} onClick={() => leave("/login")}>
+                      Sair
+                    </button>
+                  ) : null}
+                  <Link to={accountTo} className="site-header-avatar" aria-label={accountLabel}>
                     {user?.profileImageUrl ? (
                       <img src={user.profileImageUrl} alt="" referrerPolicy="no-referrer" />
                     ) : (
@@ -243,10 +252,10 @@ export function SiteHeader({ className }: Props) {
         {user ? (
           <div className="site-menu-identity" style={{ "--i": 0 } as CSSProperties}>
           <Link
-            to="/conta"
+            to={accountTo}
             className="site-menu-heart"
             onClick={() => setOpen(false)}
-            aria-label="Minha conta"
+            aria-label={accountLabel}
           >
             {user.profileImageUrl ? (
               <img src={user.profileImageUrl} alt="" className="site-menu-heart-img" referrerPolicy="no-referrer" />
@@ -288,8 +297,8 @@ export function SiteHeader({ className }: Props) {
           </Link>
         </SignedOut>
         <SignedIn>
-          <Link to="/conta" style={{ "--i": 3 } as CSSProperties} onClick={() => setOpen(false)}>
-            Minha conta
+          <Link to={accountTo} style={{ "--i": 3 } as CSSProperties} onClick={() => setOpen(false)}>
+            {accountLabel}
           </Link>
           <button
             type="button"

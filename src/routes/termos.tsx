@@ -1,8 +1,15 @@
+import { shareMeta } from "@/lib/share-meta";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CONTACT_EMAIL, LegalPage } from "@/components/legal/LegalPage";
 
 export const Route = createFileRoute("/termos")({
-  head: () => ({ meta: [{ title: "Termos de Uso · Carta para o meu amor" }] }),
+  head: () => ({
+    meta: [
+      { title: "Termos de Uso · Carta para o meu amor" },
+      { name: "description", content: "Termos de Uso do Carta para o meu amor: como funcionam as cartas, os mensageiros, os pagamentos e a sua conta." },
+      ...shareMeta({ title: "Termos de Uso · Carta para o meu amor", description: "Termos de Uso do Carta para o meu amor: como funcionam as cartas, os mensageiros, os pagamentos e a sua conta.", path: "/termos" }),
+    ],
+  }),
   component: TermsPage,
 });
 

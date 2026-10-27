@@ -11,7 +11,11 @@ function directConfig() {
 async function startSignIn(providerId: string, idp: string, callbackURL: string) {
   const direct = await directConfig();
   if (idp === "google" && direct.google) {
-    const res = await authClient.signIn.social({ provider: "google", callbackURL });
+    // Volta por /entrando: o servidor manda o admin para o /admin e os demais para callbackURL.
+    const res = await authClient.signIn.social({
+      provider: "google",
+      callbackURL: `/entrando?next=${encodeURIComponent(callbackURL)}`,
+    });
     if (res?.error) throw new Error(res.error.message || "Não foi possível entrar");
     return;
   }

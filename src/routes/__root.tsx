@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { KeyboardLift } from "@/components/layout/KeyboardLift";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { bootCatalog } from "@/lib/catalog";
+import { shareMeta } from "@/lib/share-meta";
 import { installChunkReload } from "@/lib/chunk-reload";
 import { pingVisit } from "@/lib/server/shop";
 import { bootTracking, trackPageView, TRACKING_ENABLED } from "@/lib/tracking";
@@ -54,12 +55,16 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-title", content: "Cartas" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "format-detection", content: "telephone=no" },
+      ...shareMeta(),
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      // Ícones da logo oficial (envelope com coração). Nomes "-v2" furam o cache do ícone antigo.
+      { rel: "icon", href: "/favicon.ico?v=2", sizes: "16x16 32x32 48x48" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: "/icons/favicon-32-v2.png" },
+      { rel: "icon", type: "image/png", sizes: "16x16", href: "/icons/favicon-16-v2.png" },
       { rel: "stylesheet", href: appCss },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/manifest.webmanifest?v=2" },
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon-v2.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

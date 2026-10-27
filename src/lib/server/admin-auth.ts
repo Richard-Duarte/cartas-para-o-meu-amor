@@ -205,3 +205,13 @@ export const saveSettings = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+/** O usuário logado é admin pelo Google? (usado para mandar o admin ao /admin e trocar o menu). */
+export const googleAdminStatus = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    const sql = await getSql();
+    return { admin: Boolean(await googleAdminUserId(sql)) };
+  } catch {
+    return { admin: false };
+  }
+});
