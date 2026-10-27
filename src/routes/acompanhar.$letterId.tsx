@@ -8,7 +8,8 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { downloadLetterPng } from "@/lib/download-letter";
 import { getLetter, letterFromRecord, letterProgress, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { LetterReply } from "@/components/letters/LetterReply";
-import { letterThread, openSharedLetter } from "@/lib/server/shop";
+import { letterThread, openPublicLetter, openSharedLetter } from "@/lib/server/shop";
+import { PUBLIC_TRACKING } from "@/lib/public-tracking";
 export const Route = createFileRoute("/acompanhar/$letterId")({
   component: TrackPage,
 });
@@ -51,13 +52,16 @@ function TrackPage() {
       if (params.get("resposta") === "1") setRole("recipient");
       return;
     }
+    if (isPending) return;
     const local = getLetter(letterId);
     if (local) setLetter(local);
-    if (!user) {
+    if (!user && !PUBLIC_TRACKING) {
       if (!local) setLetter(undefined);
       return;
     }
-    void openSharedLetter({ data: letterId })
+    // Sem login (fase de testes): visão pública de quem só visualiza pelo link.
+    const open = user ? openSharedLetter({ data: letterId }) : openPublicLetter({ data: letterId });
+    void open
       .then((r) => {
         if (r.role === "sender" || r.role === "recipient" || r.role === "viewer") setRole(r.role);
         if (r.letter) {
@@ -69,7 +73,7 @@ function TrackPage() {
       .catch(() => {
         if (!local) setLetter(null);
       });
-  }, [letterId, user]);
+  }, [letterId, user, isPending]);
 
   if (isPending) {
     return (
@@ -79,7 +83,7 @@ function TrackPage() {
       </div>
     );
   }
-  if (!user && letterId !== "demo") {
+  if (!user && letterId !== "demo" && !PUBLIC_TRACKING) {
     return <RedirectToSignIn next={`/acompanhar/${letterId}`} />;
   }
 
@@ -107,15 +111,19 @@ function TrackPage() {
     );
   }
 
-  return <TrackView letter={letter} role={role} />;
+  const signedIn = Boolean(user) || letter.id === "demo";
+  return <TrackView letter={letter} role={signedIn ? role : "viewer"} signedIn={signedIn} />;
 }
 
 function TrackView({
   letter,
   role,
+  signedIn = true,
 }: {
   letter: Letter;
   role: "sender" | "recipient" | "viewer";
+  /** false = abriu pelo link sem entrar (PUBLIC_TRACKING). */
+  signedIn?: boolean;
 }) {
   const meta = trackMeta(letter);
   const [now, setNow] = useState(() => Date.now());
@@ -130,7 +138,15 @@ function TrackView({
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
   const fromLabel = shownFromName(letter, role === "sender" ? "sender" : "public");
   // Qualquer destinatário (inclusive de uma resposta) pode responder depois de abrir a carta.
-  const replyHref = role === "recipient" && showLetter ? `/escrever?responder=${encodeURIComponent(letter.id)}` : undefined;
+  // Sem login o botão aparece, mas pede para entrar antes (e volta para esta carta).
+  const loginHref = `/login?next=${encodeURIComponent(`/acompanhar/${letter.id}`)}`;
+  const replyHref = !showLetter
+    ? undefined
+    : !signedIn
+      ? loginHref
+      : role === "recipient"
+        ? `/escrever?responder=${encodeURIComponent(letter.id)}`
+        : undefined;
   const [thread, setThread] = useState<{ id: string; mine: boolean; label: string; startedAt: string }[]>([]);
   const inThread = Boolean(letter.threadId || letter.replyToLetterId);
 
@@ -282,10 +298,15 @@ function TrackView({
             </ol>
           </section>
         ) : null}
+        {!signedIn ? (
+          <p className="track-note track-signin-note">
+            Você está vendo sem entrar. Para responder ou guardar a carta, <a href={loginHref}>entre na sua conta</a>.
+          </p>
+        ) : null}
         {letter.id !== "demo" && role === "recipient" && !showLetter ? (
           <p className="reply-wait">O comentário abre quando você ler a carta.</p>
         ) : null}
-        {letter.id !== "demo" ? (
+        {letter.id !== "demo" && signedIn ? (
           <LetterReply letterId={letter.id} canWrite={role === "recipient" && showLetter} />
         ) : null}
       </main>
