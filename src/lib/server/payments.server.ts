@@ -102,7 +102,7 @@ export async function mp<T>(path: string, init: RequestInit & { idempotencyKey?:
   const text = await res.text();
   if (!res.ok) {
     console.warn("[mp]", path, res.status, text.slice(0, 300));
-    throw new Error(`mp-${res.status}`);
+    throw new Error(`mp-${res.status}${/Payer email forbidden|"code":\s*4390/.test(text) ? ":payer-email" : ""}`);
   }
   return JSON.parse(text) as T;
 }
@@ -189,7 +189,14 @@ export async function syncPaymentById(paymentId: string) {
   if (paymentsMode() !== "mercadopago") return { ok: true, ignored: "test-mode" };
   const sql = await getSql();
   await ensurePaymentTables(sql);
-  const pay = await mp<MpPayment>(`/v1/payments/${encodeURIComponent(paymentId)}`);
+  let pay: MpPayment;
+  try {
+    pay = await mp<MpPayment>(`/v1/payments/${encodeURIComponent(paymentId)}`);
+  } catch (err) {
+    // Id que não existe nesta conta: nada a fazer (não pedir reenvio).
+    if (err instanceof Error && err.message.startsWith("mp-404")) return { ok: true, ignored: "not-found" };
+    throw err;
+  }
   if (!pay.external_reference) return { ok: true, ignored: "no-reference" };
   const rows = await sql<IntentRow>`select * from payment_intents where id = ${pay.external_reference} limit 1`;
   if (!rows[0]) return { ok: true, ignored: "unknown-intent" };
