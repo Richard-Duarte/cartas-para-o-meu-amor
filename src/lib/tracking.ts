@@ -28,7 +28,8 @@ type W = Window & {
 
 const ATTR_KEY = "trk:attr";
 const PENDING_KEY = "trk:pending";
-const ATTR_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "ttclid"] as const;
+const FIRST_KEY = "trk:first";
+const ATTR_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "ttclid", "gclid"] as const;
 export type Attribution = Partial<Record<(typeof ATTR_FIELDS)[number], string>> & {
   landing_path?: string;
   referrer?: string;
@@ -75,6 +76,22 @@ export function captureAttribution() {
     prev = {};
   }
   const hasNew = Object.keys(found).length > 0;
+  // Primeiro toque: gravado uma única vez (vai para a conta no cadastro; o painel mostra "de onde veio").
+  if (!store.getItem(FIRST_KEY)) {
+    try {
+      store.setItem(
+        FIRST_KEY,
+        JSON.stringify({
+          ...found,
+          landing_path: window.location.pathname.slice(0, 200),
+          referrer: document.referrer.slice(0, 300),
+          first_seen_at: Date.now(),
+        }),
+      );
+    } catch {
+      /* cheio / bloqueado */
+    }
+  }
   if (!hasNew && prev.first_seen_at) return;
   const next: Attribution = hasNew
     ? { ...found, landing_path: window.location.pathname.slice(0, 200), referrer: document.referrer.slice(0, 300), first_seen_at: Date.now() }
@@ -84,6 +101,17 @@ export function captureAttribution() {
     store.setItem(ATTR_KEY, JSON.stringify(next));
   } catch {
     /* cheio / bloqueado */
+  }
+}
+
+/** Primeiro toque guardado neste navegador (UTMs, click ids, referrer e página de entrada). */
+export function readFirstTouch(): Attribution | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = safeStorage("local")?.getItem(FIRST_KEY);
+    return raw ? (JSON.parse(raw) as Attribution) : undefined;
+  } catch {
+    return undefined;
   }
 }
 

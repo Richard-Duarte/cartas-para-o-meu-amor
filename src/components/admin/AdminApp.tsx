@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
 import { formatBrl, formatMoney } from "@/lib/cart";
+import { AdminDashboard } from "@/components/admin/AdminDashboard";
+import { AdminUnblockRequests, AdminUsers } from "@/components/admin/AdminUsers";
+import { adminPendingCount } from "@/lib/server/admin-panel";
 import { bootCatalog } from "@/lib/catalog";
 import { signOut } from "@/lib/auth/client";
 import {
@@ -14,9 +16,6 @@ import {
   saveSettings,
 } from "@/lib/server/admin-auth";
 import {
-  adminDashboard,
-  adminUserLetters,
-  adminUsers,
   listAffiliates,
   listPayouts,
   markPayoutPaid,
@@ -29,11 +28,12 @@ import {
 import { adminListNotices, adminPublishNotice } from "@/lib/server/notifications";
 import { cn } from "@/lib/utils";
 
-type Tab = "painel" | "usuarios" | "templates" | "mensageiros" | "cupons" | "afiliados" | "avisos" | "senha";
+type Tab = "painel" | "usuarios" | "desbloqueios" | "templates" | "mensageiros" | "cupons" | "afiliados" | "avisos" | "senha";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "painel", label: "Painel" },
   { id: "usuarios", label: "Usuários" },
+  { id: "desbloqueios", label: "Desbloqueios" },
   { id: "templates", label: "Templates" },
   { id: "mensageiros", label: "Mensageiros" },
   { id: "cupons", label: "Cupons" },
@@ -55,12 +55,22 @@ async function fileToDataUrl(file: File) {
 export function AdminApp() {
   const [tab, setTab] = useState<Tab>("painel");
   const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [pending, setPending] = useState(0);
+  const [focusUser, setFocusUser] = useState<string | null>(null);
+  const refreshPending = useCallback(() => {
+    void adminPendingCount().then(setPending).catch(() => {});
+  }, []);
+  const clearFocus = useCallback(() => setFocusUser(null), []);
 
   useEffect(() => {
     void adminSession()
       .then((s) => setAllowed(s.ok))
       .catch(() => setAllowed(false));
   }, []);
+
+  useEffect(() => {
+    if (allowed) refreshPending();
+  }, [allowed, tab, refreshPending]);
 
   if (allowed === null) {
     return <main className="mx-auto max-w-lg px-5 py-16 text-muted">Abrindo o escritório…</main>;
@@ -82,6 +92,11 @@ export function AdminApp() {
             onClick={() => setTab(t.id)}
           >
             {t.label}
+            {t.id === "desbloqueios" && pending > 0 ? (
+              <span className="admin-badge" aria-label={`${pending} pendentes`}>
+                {pending}
+              </span>
+            ) : null}
           </button>
         ))}
         <button type="button" onClick={() => void adminLogout().then(() => signOut("/login")).catch(() => setAllowed(false))}>
@@ -89,8 +104,17 @@ export function AdminApp() {
         </button>
       </aside>
       <section className="admin-body">
-        {tab === "painel" ? <Dash /> : null}
-        {tab === "usuarios" ? <Users /> : null}
+        {tab === "painel" ? <AdminDashboard /> : null}
+        {tab === "usuarios" ? <AdminUsers focusUserId={focusUser} onFocused={clearFocus} /> : null}
+        {tab === "desbloqueios" ? (
+          <AdminUnblockRequests
+            onChange={refreshPending}
+            onOpenUser={(id) => {
+              setFocusUser(id);
+              setTab("usuarios");
+            }}
+          />
+        ) : null}
         {tab === "templates" ? <Templates /> : null}
         {tab === "mensageiros" ? <Messengers /> : null}
         {tab === "cupons" ? <Coupons /> : null}
@@ -98,93 +122,6 @@ export function AdminApp() {
         {tab === "avisos" ? <Notices /> : null}
         {tab === "senha" ? <PasswordPanel /> : null}
       </section>
-    </div>
-  );
-}
-
-function Dash() {
-  const [data, setData] = useState<Awaited<ReturnType<typeof adminDashboard>> | null>(null);
-  useEffect(() => {
-    void adminDashboard().then(setData).catch(() => setData({ visits: 0, users: 0, letters: 0, purchases: 0, revenue: 0, affiliateDue: 0, topPaths: [] }));
-  }, []);
-  if (!data) return <p className="text-muted">Lendo o dia…</p>;
-  return (
-    <div>
-      <h2>Painel</h2>
-      <div className="admin-kpis">
-        <Kpi label="Acessos" value={String(data.visits)} />
-        <Kpi label="Contas" value={String(data.users)} />
-        <Kpi label="Cartas" value={String(data.letters)} />
-        <Kpi label="Compras" value={String(data.purchases)} />
-        <Kpi label="Financeiro" value={formatBrl(data.revenue)} />
-        <Kpi label="A pagar afiliados" value={formatMoney(data.affiliateDue ?? 0)} />
-      </div>
-      <h3 className="mt-8 font-display text-xl">Onde param</h3>
-      <ul className="mt-3 grid gap-2">
-        {data.topPaths.map((p) => (
-          <li key={p.path} className="flex justify-between border-b border-line py-2 text-sm">
-            <span>{p.path}</span>
-            <strong>{p.n}</strong>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function Kpi({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="admin-kpi">
-      <p>{label}</p>
-      <b>{value}</b>
-    </article>
-  );
-}
-
-function Users() {
-  const [rows, setRows] = useState<Awaited<ReturnType<typeof adminUsers>>>([]);
-  const [open, setOpen] = useState<string | null>(null);
-  const [letters, setLetters] = useState<Awaited<ReturnType<typeof adminUserLetters>>>([]);
-  useEffect(() => {
-    void adminUsers().then(setRows).catch(() => setRows([]));
-  }, []);
-  async function openUser(id: string) {
-    setOpen(id);
-    setLetters(await adminUserLetters({ data: id }));
-  }
-  return (
-    <div>
-      <h2>Usuários</h2>
-      <div className="admin-table">
-        {rows.map((u) => (
-          <button key={u.user_id} type="button" className="admin-row" onClick={() => void openUser(u.user_id)}>
-            <span>
-              <strong>{u.display_name || u.email || u.user_id.slice(0, 8)}</strong>
-              <em>{u.email}</em>
-            </span>
-            <span>
-              {u.letters} cartas · {formatBrl(u.credit_brl)}
-              {u.is_admin ? " · admin" : ""}
-            </span>
-          </button>
-        ))}
-      </div>
-      {open ? (
-        <div className="mt-6">
-          <h3 className="font-display text-xl">Cartas deste usuário</h3>
-          <ul className="mt-3 grid gap-2">
-            {letters.map((l) => (
-              <li key={l.id} className="rounded-xl border border-line bg-paper px-4 py-3 text-sm">
-                {l.from_name} → {l.to_name} · {l.template_id} · {l.messenger_id} · {formatBrl(l.paid_brl)}
-                <Link className="ml-3 text-rose" to="/acompanhar/$letterId" params={{ letterId: l.id }}>
-                  ver
-                </Link>
-              </li>
-            ))}
-            {!letters.length ? <li className="text-muted">Nenhuma carta ainda.</li> : null}
-          </ul>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { trackMeta } from "@/components/delivery/journey";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { downloadLetterPng } from "@/lib/download-letter";
-import { getLetter, letterFromRecord, letterProgress, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
+import { forgetLetter, getLetter, letterFromRecord, letterProgress, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { LetterReply } from "@/components/letters/LetterReply";
 import { letterThread, openPublicLetter, openSharedLetter } from "@/lib/server/shop";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
@@ -19,6 +19,7 @@ function TrackPage() {
   const { user, isPending } = useCurrentUserState();
   const [letter, setLetter] = useState<Letter | null | undefined>(undefined);
   const [role, setRole] = useState<"sender" | "recipient" | "viewer">("viewer");
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     if (letterId === "demo") {
@@ -63,6 +64,14 @@ function TrackPage() {
     const open = user ? openSharedLetter({ data: letterId }) : openPublicLetter({ data: letterId });
     void open
       .then((r) => {
+        // Carta fora do ar (conta de quem enviou bloqueada): some daqui e do cache, sem mostrar nada dela.
+        if ("unavailable" in r && r.unavailable) {
+          forgetLetter(letterId);
+          setUnavailable(true);
+          setLetter(null);
+          return;
+        }
+        setUnavailable(false);
         if (r.role === "sender" || r.role === "recipient" || r.role === "viewer") setRole(r.role);
         if (r.letter) {
           const mapped = letterFromRecord(r.letter);
@@ -92,6 +101,21 @@ function TrackPage() {
       <div className="min-h-dvh">
         <SiteHeader />
         <main className="mx-auto max-w-lg px-5 py-16 text-muted">Carregando a carta…</main>
+      </div>
+    );
+  }
+
+  if (!letter && unavailable) {
+    return (
+      <div className="min-h-dvh">
+        <SiteHeader />
+        <main className="mx-auto max-w-lg px-5 py-16" data-testid="letter-unavailable">
+          <h1 className="font-display text-3xl">Esta carta não está disponível</h1>
+          <p className="mt-3 text-muted">Ela não pode ser aberta no momento.</p>
+          <Link to="/" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-rose px-6 text-paper">
+            Voltar ao início
+          </Link>
+        </main>
       </div>
     );
   }
@@ -301,9 +325,6 @@ function TrackView({
           <p className="track-note track-signin-note">
             Você está vendo sem entrar. Para responder ou guardar a carta, <a href={loginHref}>entre na sua conta</a>.
           </p>
-        ) : null}
-        {letter.id !== "demo" && role === "recipient" && !showLetter ? (
-          <p className="reply-wait">O comentário abre quando você ler a carta.</p>
         ) : null}
         {letter.id !== "demo" && signedIn ? (
           <LetterReply letterId={letter.id} canWrite={role === "recipient" && showLetter} />

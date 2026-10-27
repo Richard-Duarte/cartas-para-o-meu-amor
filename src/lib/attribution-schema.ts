@@ -11,6 +11,7 @@ export const attributionSchema = z
     utm_term: s(200),
     fbclid: s(500),
     ttclid: s(500),
+    gclid: s(500),
     landing_path: s(200),
     referrer: s(300),
     first_seen_at: z.number().optional(),

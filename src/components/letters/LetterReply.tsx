@@ -46,7 +46,7 @@ export function LetterReply({
   canWrite: boolean;
 }) {
   const [replies, setReplies] = useState<Reply[]>([]);
-  const [allowed, setAllowed] = useState(canWrite);
+  const [allowed, setAllowed] = useState(false);
   const [body, setBody] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -102,6 +102,7 @@ export function LetterReply({
     window.dispatchEvent(new Event("cartas:notices"));
   }
 
+  // "Deixar comentário" foi retirado: o servidor diz canReply=false e o formulário não aparece mais.
   const showForm = canWrite && allowed;
   if (!showForm && replies.length === 0) return null;
 

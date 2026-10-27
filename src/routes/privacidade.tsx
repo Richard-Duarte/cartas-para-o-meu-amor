@@ -44,6 +44,17 @@ function PrivacyPage() {
           visitas e compras. O conteúdo das cartas nunca é enviado a esses serviços. E-mails, quando usados para medir
           conversões, vão criptografados (hash SHA-256).
         </li>
+        <li>
+          <strong>Origem do acesso e aparelho:</strong> no primeiro acesso guardamos de onde você veio (parâmetros de
+          campanha como utm_source, utm_medium e utm_campaign, identificadores de clique como fbclid, ttclid e gclid, e o
+          site de origem) e, ao criar a conta, o tipo de aparelho, o sistema, o navegador e se o site foi aberto como app
+          instalado. Usamos isso só para medir de onde vêm os usuários e melhorar o serviço, com base no legítimo
+          interesse (LGPD, art. 7º, IX).
+        </li>
+        <li>
+          <strong>Moderação:</strong> quando uma conta é bloqueada, guardamos o motivo, a data, quem bloqueou e os
+          pedidos de desbloqueio, além do registro de cada vez que a equipe abriu ou baixou uma carta.
+        </li>
       </ul>
 
       <h2>Para que usamos</h2>
@@ -51,6 +62,10 @@ function PrivacyPage() {
         <li>criar e manter sua conta, entregar a carta e mostrar o acompanhamento;</li>
         <li>avisar remetente e destinatário sobre a chegada;</li>
         <li>processar pagamentos, prevenir fraude e cumprir obrigações legais;</li>
+        <li>
+          garantir a segurança e prevenir abusos: a nossa equipe pode ler o conteúdo das cartas quando houver denúncia,
+          suspeita de uso indevido ou ordem legal, e pode bloquear contas, informando o motivo e oferecendo um canal
+          para contestar (veja os <Link to="/termos">Termos de uso</Link>);</li>
         <li>medir e melhorar o site e os anúncios.</li>
       </ul>
 

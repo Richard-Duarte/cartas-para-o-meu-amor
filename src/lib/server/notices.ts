@@ -146,10 +146,14 @@ export async function dispatchDueNotices() {
   await sql`alter table letters add column if not exists notice_at timestamptz`;
   await sql`alter table letters add column if not exists notice_sent_at timestamptz`;
   await sql`alter table letters add column if not exists notice_error text`;
+  const { ensureModerationTables } = await import("@/lib/server/moderation.server");
+  await ensureModerationTables(sql);
+  // Cartas de conta bloqueada (fora do ar) não mandam aviso; o aviso fica pendente e sai se desbloquear.
   const due = await sql<{ id: string }>`
-    select id from letters
-    where notice_at is not null and notice_sent_at is null and notice_at <= now()
-    order by notice_at
+    select l.id from letters l
+    where l.notice_at is not null and l.notice_sent_at is null and l.notice_at <= now()
+      and not exists (select 1 from profiles p where p.user_id = l.user_id and p.blocked_at is not null)
+    order by l.notice_at
     limit 3
   `;
   const states: NoticeState[] = [];
@@ -167,6 +171,9 @@ export async function dispatchLetterNotice(id: string): Promise<NoticeState> {
   `;
   const row = rows[0];
   if (!row) return "queued";
+  const { senderBlocked } = await import("@/lib/server/moderation.server");
+  const owner = await sql<{ user_id: string }>`select user_id from letters where id = ${id} limit 1`;
+  if (await senderBlocked(sql, owner[0]?.user_id)) return "queued";
   const state = await notifyArriving(row);
   if (state === "sent") {
     await sql`update letters set notice_sent_at = now(), notice_error = null where id = ${id}`;
