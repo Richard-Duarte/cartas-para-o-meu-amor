@@ -6339,27 +6339,80 @@ html {
   .arrival-note { padding: 0.8rem 0.9rem; font-size: 0.88rem; }
 }
 
-/* —— início —— */
+/* —— início: os sete mensageiros num carrossel que anda sozinho —— */
+.messenger-carousel {
+  --pv: 1.18;
+  --gap: 0.8rem;
+  position: relative;
+  overflow: hidden;
+  margin: 1.8rem -1.4rem 0;
+  padding: 0.4rem 1.4rem 1.2rem;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.messenger-carousel-track {
+  display: flex;
+  gap: var(--gap);
+  transform: translate3d(
+    calc(var(--pos, 0) * -1 * ((100% - (var(--pv) - 1) * var(--gap)) / var(--pv) + var(--gap)) + var(--dx, 0px)),
+    0,
+    0
+  );
+  will-change: transform;
+}
+.messenger-carousel-track.is-animated {
+  transition: transform 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.messenger-carousel-slide {
+  flex: 0 0 calc((100% - (var(--pv) - 1) * var(--gap)) / var(--pv));
+  min-width: 0;
+  perspective: 1200px;
+}
+.messenger-carousel-slide > .messenger-tilt { height: 100%; }
+.messenger-carousel .messenger-tilt-photo { -webkit-user-drag: none; }
+.messenger-carousel-dots {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.2rem;
+}
+.messenger-carousel-dots button {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.75rem;
+}
+.messenger-carousel-dots button::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgb(26 20 16 / 0.18);
+  transition: width 300ms ease, background-color 300ms ease;
+}
+.messenger-carousel-dots button.is-on::before {
+  width: 1.5rem;
+  background: var(--color-rose);
+}
 @media (max-width: 719px) {
-  .messenger-showcase-grid {
-    display: flex;
-    gap: 0.8rem;
-    margin: 1.6rem -1rem 0;
-    padding: 0.25rem 1rem 1rem;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: 1rem;
-    scrollbar-width: none;
-    perspective: none;
-    -webkit-overflow-scrolling: touch;
+  .messenger-carousel .messenger-tilt-photo { aspect-ratio: 4 / 3; }
+}
+@media (min-width: 720px) {
+  .messenger-carousel { --pv: 2.15; --gap: 0.9rem; }
+}
+@media (min-width: 1100px) {
+  .messenger-carousel {
+    --pv: 3;
+    max-width: 74rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
-  .messenger-showcase-grid::-webkit-scrollbar { display: none; }
-  .messenger-showcase-grid > .messenger-tilt {
-    flex: 0 0 78%;
-    scroll-snap-align: start;
-  }
-  .messenger-showcase-grid .messenger-tilt-photo { aspect-ratio: 4 / 3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .messenger-carousel-track.is-animated { transition: none; }
+  .messenger-carousel-dots button::before { transition: none; }
 }
 
 .home-sticky-cta {
