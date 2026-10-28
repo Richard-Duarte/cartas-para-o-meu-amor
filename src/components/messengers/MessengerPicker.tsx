@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { SCHEDULE_FEE_BRL } from "@/lib/delivery";
+import { getScheduleFee } from "@/lib/delivery";
 import {
   MESSENGERS,
   maxSpeedLabel,
@@ -141,7 +141,7 @@ export function MessengerPicker({
   scheduled,
 }: Props) {
   const selected = MESSENGERS.find((m) => m.id === value) ?? MESSENGERS[0];
-  const fee = SCHEDULE_FEE_BRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fee = getScheduleFee().toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const hasEta = MESSENGERS.some((m) => Boolean(arriveLabelById?.[m.id]));
   const wide = useWide();
   const reduce = useReducedMotion() ?? false;

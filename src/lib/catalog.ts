@@ -1,5 +1,5 @@
 import { replaceDesigns, type Design } from "./designs";
-import { setAnonymousFee } from "./delivery";
+import { setAnonymousFee, setScheduleFee } from "./delivery";
 import { FLIES, replaceMessengers, type Messenger } from "./messengers";
 import { listCatalog } from "./server/shop";
 
@@ -13,7 +13,7 @@ export async function bootCatalog() {
       src: t.src,
       tilt: i % 2 ? 2.2 : -2.2,
       paid: t.paid,
-      priceBrl: t.price_brl,
+      priceBrl: Number(t.price_brl) || 0,
       ink: t.ink === "light" ? "light" : "dark",
       fontFamily: t.font_family,
     }));
@@ -23,7 +23,7 @@ export async function bootCatalog() {
       tagline: m.tagline,
       flavor: m.flavor,
       speedKmh: Number(m.speed_kmh),
-      basePriceBrl: m.price_brl,
+      basePriceBrl: Number(m.price_brl) || 0,
       token: m.token,
       arrival: "land-flap",
       arrivalCopy: "",
@@ -37,6 +37,7 @@ export async function bootCatalog() {
     replaceDesigns(templates);
     replaceMessengers(messengers);
     if (typeof data.anonymousFee === "number") setAnonymousFee(data.anonymousFee);
+    if (typeof data.scheduleFee === "number") setScheduleFee(data.scheduleFee);
   } catch {
     /* seed in client modules remains */
   }

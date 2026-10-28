@@ -21,6 +21,7 @@ import {
   markPayoutPaid,
   listCatalog,
   listCoupons,
+  listReferralUses,
   saveCoupon,
   saveMessenger,
   saveTemplate,
@@ -242,6 +243,9 @@ function Templates() {
             Preço
             <input
               type="number"
+              min={0}
+              step={0.01}
+              inputMode="decimal"
               value={form.priceBrl}
               onChange={(e) =>
                 setForm({ ...form, priceBrl: Number(e.target.value), paid: Number(e.target.value) > 0 })
@@ -392,6 +396,9 @@ function Messengers() {
             Preço
             <input
               type="number"
+              min={0}
+              step={0.01}
+              inputMode="decimal"
               value={form.priceBrl}
               onChange={(e) => setForm({ ...form, priceBrl: Number(e.target.value) })}
             />
@@ -424,32 +431,83 @@ function Messengers() {
 
 function Coupons() {
   const [rows, setRows] = useState<Awaited<ReturnType<typeof listCoupons>>>([]);
+  const [refs, setRefs] = useState<Awaited<ReturnType<typeof listReferralUses>>>([]);
   const [code, setCode] = useState("");
   const [percent, setPercent] = useState(10);
   const [amount, setAmount] = useState(0);
-  useEffect(() => {
+  const reload = useCallback(() => {
     void listCoupons().then(setRows).catch(() => setRows([]));
+    void listReferralUses().then(setRefs).catch(() => setRefs([]));
   }, []);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+  const total = rows.reduce((n, c) => n + Number(c.redemptions || 0), 0);
   return (
     <div>
       <h2>Cupons</h2>
-      <ul className="mt-4 grid gap-2">
+      <p className="mb-2 text-muted">
+        Usos contados no servidor (tabela de usos). {total} uso{total === 1 ? "" : "s"} de cupom no total.
+      </p>
+      <ul className="mt-4 grid gap-2" data-testid="admin-coupons">
         {rows.map((c) => (
-          <li key={c.id} className="flex justify-between rounded-xl border border-line bg-paper px-4 py-3">
+          <li
+            key={c.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-paper px-4 py-3"
+          >
             <span>
-              <strong>{c.code}</strong> · {c.percent ? `${c.percent}%` : formatBrl(c.amount_brl)}
+              <strong>{c.code}</strong> ·{" "}
+              {c.rule === "second_send"
+                ? "2º envio grátis · 1x por conta"
+                : c.percent
+                  ? `${c.percent}%`
+                  : formatBrl(c.amount_brl)}
+              {c.active ? null : <span className="text-muted"> · desligado</span>}
             </span>
-            <span className="text-muted">{c.uses} usos</span>
+            <span className="flex items-center gap-3">
+              <span className="admin-coupon-count" data-code={c.code}>
+                <b>{c.redemptions}</b> uso{c.redemptions === 1 ? "" : "s"}
+              </span>
+              <button
+                type="button"
+                className="text-sm underline-offset-4 hover:underline"
+                onClick={() =>
+                  void saveCoupon({
+                    data: { id: c.id, code: c.code, percent: c.percent, amountBrl: Number(c.amount_brl), active: !c.active },
+                  }).then(reload)
+                }
+              >
+                {c.active ? "Desligar" : "Ligar"}
+              </button>
+            </span>
           </li>
         ))}
       </ul>
+      <h3 className="mt-8 font-display text-xl">Códigos de indicação</h3>
+      {refs.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">Nenhuma carta enviada com código de indicação ainda.</p>
+      ) : (
+        <ul className="mt-3 grid gap-2">
+          {refs.map((r) => (
+            <li key={r.code} className="flex justify-between rounded-xl border border-line bg-paper px-4 py-3">
+              <span>
+                <strong>{r.code}</strong>
+                {r.owner ? <span className="text-muted"> · {r.owner}</span> : null}
+              </span>
+              <span className="text-muted">
+                {r.redemptions} uso{r.redemptions === 1 ? "" : "s"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       <form
         className="pay-card-form mt-6"
         onSubmit={(e) => {
           e.preventDefault();
           void saveCoupon({
             data: { code, percent, amountBrl: amount, active: true },
-          }).then(() => listCoupons().then(setRows));
+          }).then(reload);
         }}
       >
         <label>
@@ -459,11 +517,18 @@ function Coupons() {
         <div className="pay-row">
           <label>
             %
-            <input type="number" value={percent} onChange={(e) => setPercent(Number(e.target.value))} />
+            <input type="number" min={0} max={100} value={percent} onChange={(e) => setPercent(Number(e.target.value))} />
           </label>
           <label>
             R$ fixo
-            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+            />
           </label>
         </div>
         <button className="pay-submit" type="submit">
@@ -479,7 +544,8 @@ function Affiliates() {
   const [payouts, setPayouts] = useState<Awaited<ReturnType<typeof listPayouts>>>([]);
   const [percent, setPercent] = useState(10);
   const [msg, setMsg] = useState("");
-  const [anonFee, setAnonFee] = useState(9.9);
+  const [anonFee, setAnonFee] = useState(5.9);
+  const [scheduleFee, setScheduleFee] = useState(1.9);
   useEffect(() => {
     void listAffiliates().then(setRows).catch(() => setRows([]));
     void listPayouts().then(setPayouts).catch(() => setPayouts([]));
@@ -487,6 +553,7 @@ function Affiliates() {
       .then((st) => {
         setPercent(st.affiliatePercent);
         if (Number.isFinite(st.anonymousFee)) setAnonFee(st.anonymousFee);
+        if (Number.isFinite(st.scheduleFee)) setScheduleFee(st.scheduleFee);
       })
       .catch(() => {});
   }, []);
@@ -529,7 +596,7 @@ function Affiliates() {
         className="pay-card-form mb-6 mt-10 max-w-sm"
         onSubmit={(e) => {
           e.preventDefault();
-          void saveSettings({ data: { affiliatePercent: percent, anonymousFee: anonFee } }).then(
+          void saveSettings({ data: { affiliatePercent: percent, anonymousFee: anonFee, scheduleFee } }).then(
             () => setMsg("Preços salvos."),
           );
         }}
@@ -547,6 +614,17 @@ function Affiliates() {
             step={0.01}
             value={anonFee}
             onChange={(e) => setAnonFee(Number(e.target.value))}
+          />
+        </label>
+        <label>
+          Agendar chegada (R$)
+          <input
+            type="number"
+            min={0}
+            max={999}
+            step={0.01}
+            value={scheduleFee}
+            onChange={(e) => setScheduleFee(Number(e.target.value))}
           />
         </label>
         <button className="pay-submit" type="submit">Salvar preços</button>

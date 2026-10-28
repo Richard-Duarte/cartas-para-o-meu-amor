@@ -3,8 +3,17 @@ import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
 import { getSql } from "@/lib/db";
+import { roundBrl } from "@/lib/coupon-rules";
 import { paymentsMode } from "@/lib/payments-mode";
-import { approachNoticeAt, cleanEmail, formatArrival, planArrival, whatsAppNumber } from "@/lib/delivery";
+import {
+  ANONYMOUS_FEE_BRL,
+  approachNoticeAt,
+  cleanEmail,
+  formatArrival,
+  planArrival,
+  SCHEDULE_FEE_BRL,
+  whatsAppNumber,
+} from "@/lib/delivery";
 import { requireAdminSession } from "@/lib/server/admin-auth";
 import { attributionSchema } from "@/lib/attribution-schema";
 import { saveAttribution } from "@/lib/server/attribution";
@@ -24,6 +33,14 @@ import {
   type NoticeState,
 } from "@/lib/server/notices";
 import type { Geo } from "@/lib/messengers";
+import {
+  COUPON_MESSAGES,
+  normalizeCouponCode,
+  SECOND_SEND_CODE,
+  SECOND_SEND_RULE,
+  secondSendMessage,
+  secondSendState,
+} from "@/lib/coupon-rules";
 
 function code6() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -86,17 +103,27 @@ export const listCatalog = createServerFn({ method: "GET" }).handler(async () =>
     token: string;
     sort_order: number;
   }>`select * from messengers_catalog order by sort_order, name`;
-  let anonymousFee = 9.9;
+  let anonymousFee = ANONYMOUS_FEE_BRL;
+  let scheduleFee = SCHEDULE_FEE_BRL;
   try {
-    const feeRows = await sql<{ value: string }>`
-      select value from app_settings where key = 'anonymous_fee' limit 1
+    const feeRows = await sql<{ key: string; value: string }>`
+      select key, value from app_settings where key in ('anonymous_fee', 'schedule_fee')
     `;
-    const parsed = Number(feeRows[0]?.value ?? 9.9);
-    if (Number.isFinite(parsed)) anonymousFee = parsed;
+    for (const r of feeRows) {
+      const parsed = Number(r.value);
+      if (!Number.isFinite(parsed) || parsed < 0) continue;
+      if (r.key === "anonymous_fee") anonymousFee = parsed;
+      if (r.key === "schedule_fee") scheduleFee = parsed;
+    }
   } catch {
     /* setting table still applying */
   }
-  return { templates, messengers, anonymousFee };
+  return {
+    templates: templates.map((t) => ({ ...t, price_brl: Number(t.price_brl) || 0 })),
+    messengers: messengers.map((m) => ({ ...m, price_brl: Number(m.price_brl) || 0 })),
+    anonymousFee,
+    scheduleFee,
+  };
 });
 
 export const geocodeAddress = createServerFn({ method: "POST" })
@@ -140,21 +167,89 @@ export const geocodeAddress = createServerFn({ method: "POST" })
     return { lat: -23.55, lng: -46.63 };
   });
 
-export const applyCoupon = createServerFn({ method: "POST" })
-  .validator((code: string) => code.trim().toUpperCase())
-  .handler(async ({ data: code }) => {
-    const sql = await getSql();
-    const rows = await sql<{ code: string; percent: number; amount_brl: number; active: boolean }>`
-      select code, percent, amount_brl, active from coupons where upper(code) = ${code} limit 1
+type Sql = Awaited<ReturnType<typeof getSql>>;
+
+type CouponRow = { id: string; code: string; percent: number; amount_brl: number; active: boolean; rule: string | null };
+
+export type ResolvedCoupon =
+  | { ok: true; code: string; percent: number; amountBrl: number; rule: string | null }
+  | { ok: false; message: string; ruleBlocked: boolean };
+
+async function findCoupon(sql: Sql, code: string): Promise<CouponRow | null> {
+  try {
+    const rows = await sql<CouponRow>`
+      select id, code, percent, amount_brl, active, rule from coupons where upper(code) = ${code} limit 1
     `;
-    const row = rows[0];
-    if (!row || !row.active) return { ok: false as const, message: "Cupom inválido" };
-    return {
-      ok: true as const,
-      code: row.code,
-      percent: row.percent,
-      amountBrl: row.amount_brl,
-    };
+    return rows[0] ?? null;
+  } catch {
+    // Banco sem a coluna `rule` (migração 0014 ainda não aplicada): cupons comuns seguem valendo.
+    const rows = await sql<Omit<CouponRow, "rule">>`
+      select id, code, percent, amount_brl, active from coupons where upper(code) = ${code} limit 1
+    `;
+    return rows[0] ? { ...rows[0], rule: null } : null;
+  }
+}
+
+/**
+ * AMOR (2º envio grátis): conta já enviou ao menos 1 carta e nunca usou o cupom.
+ * `exceptLetterId`: a própria carta (idempotência do placeLetter / webhook).
+ */
+export async function secondSendStatus(sql: Sql, userId: string, exceptLetterId?: string) {
+  const sent = await sql<{ n: number }>`
+    select count(*)::int as n from letters where user_id = ${userId} and id <> ${exceptLetterId ?? ""}
+  `;
+  const used = await sql<{ n: number }>`
+    select count(*)::int as n from coupon_redemptions
+    where code = ${SECOND_SEND_CODE} and user_id = ${userId} and letter_id <> ${exceptLetterId ?? ""}
+  `;
+  return secondSendState({ sentLetters: sent[0]?.n ?? 0, alreadyRedeemed: (used[0]?.n ?? 0) > 0 });
+}
+
+/** Valida o cupom NO SERVIDOR (regras inclusas). O navegador só mostra o resultado. */
+export async function resolveCoupon(
+  sql: Sql,
+  userId: string | null,
+  rawCode: string,
+  exceptLetterId?: string,
+): Promise<ResolvedCoupon> {
+  const code = normalizeCouponCode(rawCode);
+  if (!code) return { ok: false, message: COUPON_MESSAGES.invalid, ruleBlocked: false };
+  const row = await findCoupon(sql, code);
+  if (!row || !row.active) return { ok: false, message: COUPON_MESSAGES.invalid, ruleBlocked: false };
+  if (row.rule === SECOND_SEND_RULE) {
+    if (!userId) return { ok: false, message: COUPON_MESSAGES.login, ruleBlocked: true };
+    const state = await secondSendStatus(sql, userId, exceptLetterId);
+    if (state !== "ok") return { ok: false, message: secondSendMessage(state), ruleBlocked: true };
+  }
+  return {
+    ok: true,
+    code: row.code.toUpperCase(),
+    percent: Number(row.percent) || 0,
+    amountBrl: Number(row.amount_brl) || 0,
+    rule: row.rule ?? null,
+  };
+}
+
+export const applyCoupon = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((code: string) => normalizeCouponCode(String(code ?? "")).slice(0, 40))
+  .handler(async ({ context, data: code }) => {
+    const sql = await getSql();
+    const r = await resolveCoupon(sql, context.userId, code);
+    if (!r.ok) return { ok: false as const, message: r.message };
+    return { ok: true as const, code: r.code, percent: r.percent, amountBrl: r.amountBrl, rule: r.rule };
+  });
+
+/** Para o lembrete pós-envio: a conta ainda pode usar o AMOR? (só leitura) */
+export const secondSendPromo = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    try {
+      return { state: await secondSendStatus(sql, context.userId) };
+    } catch {
+      return { state: "first-send" as const };
+    }
   });
 
 export const myProfile = createServerFn({ method: "GET" })
@@ -319,7 +414,35 @@ export async function placeLetter(
   const senderEmail = cleanEmail(authUser[0]?.email ?? "") ?? "";
   const senderPhone = whatsAppNumber(profile[0]?.phone ?? "") ?? "";
   const origin = safeOrigin(data.origin);
-  const inserted = await sql<{ id: string }>`
+  // Cupom: sempre conferido aqui (vale para teste, Mercado Pago e webhook). AMOR = 1x por conta,
+  // gravado ANTES da carta (o índice único code+user_id segura dois envios ao mesmo tempo).
+  let couponCode: string | null = data.couponCode ? normalizeCouponCode(data.couponCode) : null;
+  let affiliateCode = data.affiliateCode;
+  let redeemed = false;
+  if (couponCode) {
+    const c = await resolveCoupon(sql, userId, couponCode, id);
+    if (!c.ok) {
+      if (c.ruleBlocked) throw new Error(c.message);
+      couponCode = null; // cupom comum inválido/desligado: segue como antes (sem desconto)
+    } else {
+      if (c.rule === SECOND_SEND_RULE) affiliateCode = undefined; // envio grátis: sem comissão
+      const red = await sql<{ id: string }>`
+        insert into coupon_redemptions (id, code, kind, user_id, letter_id)
+        values (${`c-${id}`}, ${c.code}, 'coupon', ${userId}, ${id})
+        on conflict do nothing
+        returning id
+      `;
+      if (!red.length) {
+        const mine = await sql<{ n: number }>`
+          select count(*)::int as n from coupon_redemptions where code = ${c.code} and letter_id = ${id}
+        `;
+        if (!mine[0]?.n && c.rule === SECOND_SEND_RULE) throw new Error(COUPON_MESSAGES.used);
+      } else redeemed = true;
+    }
+  }
+  let inserted: { id: string }[];
+  try {
+    inserted = await sql<{ id: string }>`
     insert into letters (
       id, user_id, from_name, to_name, pages_json, template_id, messenger_id,
       from_address_json, to_address_json, from_geo_json, to_geo_json,
@@ -329,8 +452,8 @@ export async function placeLetter(
     ) values (
       ${id}, ${userId}, ${data.fromName}, ${toName}, ${data.pagesJson},
       ${data.templateId}, ${data.messengerId}, ${fromAddressJson}, ${toAddressJson},
-      ${fromGeoJson}, ${toGeoJson}, ${data.paidBrl}, ${data.couponCode ?? null},
-      ${data.affiliateCode ?? null}, ${data.demoDurationMs},
+      ${fromGeoJson}, ${toGeoJson}, ${roundBrl(data.paidBrl)}, ${couponCode},
+      ${affiliateCode ?? null}, ${data.demoDurationMs},
       ${anonymous}, ${Boolean(data.scheduled) && !addressless}, ${recipientPhone}, ${recipientEmail},
       ${senderPhone || null}, ${senderEmail || null}, ${origin},
       ${plan.departAt.toISOString()}, ${plan.arriveAt.toISOString()},
@@ -339,6 +462,11 @@ export async function placeLetter(
     on conflict (id) do nothing
     returning id
   `;
+  } catch (err) {
+    // A carta não nasceu: devolve o cupom (para a pessoa poder tentar de novo).
+    if (redeemed) await sql`delete from coupon_redemptions where id = ${`c-${id}`}`.catch(() => undefined);
+    throw err;
+  }
   if (!inserted.length) {
     // Já criada (ex.: webhook e consulta de status chegando juntos): devolve a mesma, sem repetir efeitos.
     const row = await sql<{ to_name: string; depart_at: string; arrive_at: string }>`
@@ -373,19 +501,24 @@ export async function placeLetter(
   }
   await sql`
     insert into orders (id, user_id, letter_id, total_brl, method)
-    values (${crypto.randomUUID().slice(0, 10)}, ${userId}, ${id}, ${data.paidBrl}, ${data.method})
+    values (${crypto.randomUUID().slice(0, 10)}, ${userId}, ${id}, ${roundBrl(data.paidBrl)}, ${data.method})
   `;
   // Anúncios: atribuição (tabela separada); nunca derruba o checkout. O Purchase server-side sai
   // só do pagamento real aprovado (src/lib/server/payments.ts → finalizeIntent).
   await saveAttribution(sql, id, userId, data.attribution);
-  if (data.couponCode) {
-    await sql`update coupons set uses = uses + 1 where upper(code) = ${data.couponCode.toUpperCase()}`;
+  if (couponCode) {
+    await sql`update coupons set uses = uses + 1 where upper(code) = ${couponCode}`;
   }
-  if (data.affiliateCode) {
+  if (affiliateCode) {
     const ref = await sql<{ user_id: string }>`
-      select user_id from profiles where affiliate_code = ${data.affiliateCode} limit 1
+      select user_id from profiles where affiliate_code = ${affiliateCode} limit 1
     `;
     if (ref[0] && ref[0].user_id !== userId) {
+      await sql`
+        insert into coupon_redemptions (id, code, kind, user_id, letter_id)
+        values (${`r-${id}`}, ${affiliateCode}, 'referral', ${userId}, ${id})
+        on conflict do nothing
+      `.catch(() => undefined);
       const setting = await sql<{ value: string }>`
         select value from app_settings where key = 'affiliate_percent' limit 1
       `;
@@ -437,7 +570,10 @@ export const checkoutLetter = createServerFn({ method: "POST" })
       }
       return placeLetter(sql, context.userId, { ...data, paidBrl: 0 });
     }
-    return placeLetter(sql, context.userId, data);
+    // Modo teste: o valor também é o do servidor (o navegador só sugere).
+    const { serverCartTotal } = await import("@/lib/server/payments.server");
+    const { total } = await serverCartTotal(sql, context.userId, data);
+    return placeLetter(sql, context.userId, { ...data, paidBrl: total });
   });
 
 export const adminDashboard = createServerFn({ method: "GET" })
@@ -447,7 +583,7 @@ export const adminDashboard = createServerFn({ method: "GET" })
     const users = await sql<{ n: number }>`select count(*)::int as n from profiles`;
     const letters = await sql<{ n: number }>`select count(*)::int as n from letters`;
     const orders = await sql<{ n: number; total: number }>`
-      select count(*)::int as n, coalesce(sum(total_brl), 0)::int as total from orders
+      select count(*)::int as n, coalesce(sum(total_brl), 0) as total from orders
     `;
     const recent = await sql<{ path: string; n: number }>`
       select path, count(*)::int as n from visits group by path order by n desc limit 6
@@ -606,6 +742,7 @@ export const saveCoupon = createServerFn({ method: "POST" })
 export const listCoupons = createServerFn({ method: "GET" })
   .handler(async () => {
     const sql = await requireAdminSession();
+    // Contador = linhas em coupon_redemptions (só admin; lido aqui no servidor).
     return sql<{
       id: string;
       code: string;
@@ -613,7 +750,32 @@ export const listCoupons = createServerFn({ method: "GET" })
       amount_brl: number;
       active: boolean;
       uses: number;
-    }>`select id, code, percent, amount_brl, active, uses from coupons order by created_at desc`;
+      rule: string | null;
+      redemptions: number;
+      last_used_at: string | null;
+    }>`
+      select c.id, c.code, c.percent, c.amount_brl, c.active, c.uses, c.rule,
+        coalesce(r.n, 0)::int as redemptions, r.last_at::text as last_used_at
+      from coupons c
+      left join (
+        select code, count(*) as n, max(created_at) as last_at
+        from coupon_redemptions where kind = 'coupon' group by code
+      ) r on r.code = upper(c.code)
+      order by c.created_at desc`;
+  });
+
+/** Códigos de indicação usados (mesma tabela de usos, kind = 'referral'). Só admin. */
+export const listReferralUses = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const sql = await requireAdminSession();
+    return sql<{ code: string; owner: string | null; redemptions: number; last_used_at: string | null }>`
+      select r.code, max(p.display_name) as owner, count(*)::int as redemptions, max(r.created_at)::text as last_used_at
+      from coupon_redemptions r
+      left join profiles p on p.affiliate_code = r.code
+      where r.kind = 'referral'
+      group by r.code
+      order by redemptions desc, r.code
+      limit 200`;
   });
 
 export const listAffiliates = createServerFn({ method: "GET" })

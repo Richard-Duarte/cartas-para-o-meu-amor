@@ -1,4 +1,10 @@
-import { formatBrl, type CartLine } from "@/lib/cart";
+import { formatBrl, formatMoney, type CartLine } from "@/lib/cart";
+
+/** Desconto aparece como "− R$ 6,90" (antes caía em "Grátis"). */
+function linePrice(line: CartLine) {
+  if (line.kind === "discount") return `− ${formatMoney(Math.abs(line.priceBrl))}`;
+  return formatBrl(line.priceBrl);
+}
 
 type Props = {
   lines: CartLine[];
@@ -26,7 +32,7 @@ export function CartSummary({ lines, total, onAdjust, onBack }: SummaryProps) {
               <span>{line.detail}</span>
             </div>
             <div className="cart-line-end">
-              <strong>{formatBrl(line.priceBrl)}</strong>
+              <strong className={line.kind === "discount" ? "cart-line-discount" : undefined}>{linePrice(line)}</strong>
               {onAdjust && (line.kind === "paper" || line.kind === "messenger") ? (
                 <button
                   type="button"
@@ -43,7 +49,7 @@ export function CartSummary({ lines, total, onAdjust, onBack }: SummaryProps) {
       </ul>
       <div className="cart-total">
         <span>Total</span>
-        <b>{formatBrl(total)}</b>
+        <b>{formatMoney(total)}</b>
       </div>
       {onBack ? (
         <button type="button" className="cart-back" onClick={onBack}>

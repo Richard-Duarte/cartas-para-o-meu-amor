@@ -25,7 +25,9 @@ import { getMessenger, demoDurationMs, messengerPhoto } from "@/lib/messengers";
 import { pagesPlainText } from "@/lib/pages";
 import { prefetchTracking } from "@/lib/prefetch-tracking";
 import { readAttribution, track, trackPurchase } from "@/lib/tracking";
-import { applyCoupon as checkCoupon, checkoutLetter, myProfile, spendCredit } from "@/lib/server/shop";
+import { applyCoupon as checkCoupon, checkoutLetter, myProfile, secondSendPromo, spendCredit } from "@/lib/server/shop";
+import { AmorNextNudge, AmorPromoBanner } from "@/components/promo/AmorPromo";
+import { COUPON_MESSAGES, SECOND_SEND_CODE, SECOND_SEND_RULE } from "@/lib/coupon-rules";
 import { paymentsConfig, paymentStatus, startPayment } from "@/lib/server/payments";
 import type { PaidResult } from "@/lib/payments-types";
 
@@ -39,7 +41,10 @@ function PayPage() {
   const [draft, setDraft] = useState<LetterDraft | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [coupon, setCoupon] = useState("");
-  const [couponInfo, setCouponInfo] = useState<{ percent: number; amountBrl: number; code: string } | null>(null);
+  const [couponInfo, setCouponInfo] = useState<{ percent: number; amountBrl: number; code: string; rule: string | null } | null>(null);
+  const [couponNote, setCouponNote] = useState("");
+  /** Depois do envio: mostra o lembrete do AMOR se a conta ainda pode usar. */
+  const [nudgeAmor, setNudgeAmor] = useState(false);
   const [credit, setCredit] = useState(0);
   const [useCredit, setUseCredit] = useState(true);
   const [error, setError] = useState("");
@@ -75,6 +80,8 @@ function PayPage() {
     return buildCart(draft.designId, draft.messengerId, {
       percent: couponInfo?.percent,
       amountBrl: couponInfo?.amountBrl,
+      couponCode: couponInfo?.code,
+      couponRule: couponInfo?.rule,
       creditBrl: useCredit ? credit : 0,
       anonymous: draft.anonymous,
       scheduled: draft.scheduled,
@@ -125,6 +132,37 @@ function PayPage() {
     };
   }
 
+  /** Envio feito: se a conta ainda pode usar o AMOR (ex.: foi a 1ª carta), mostra o lembrete. */
+  function afterSend() {
+    if (couponInfo?.rule === SECOND_SEND_RULE) return;
+    void secondSendPromo()
+      .then((r) => setNudgeAmor(r.state === "ok"))
+      .catch(() => setNudgeAmor(false));
+  }
+
+  function applyCouponCode(raw: string) {
+    if (!draft) return;
+    const code = raw.trim().toUpperCase();
+    if (!code) return;
+    setCoupon(code);
+    setCouponNote("");
+    void checkCoupon({ data: code })
+      .then((r) => {
+        if (r.ok) {
+          setCouponInfo({ code: r.code, percent: r.percent, amountBrl: r.amountBrl, rule: r.rule });
+          writeDraft({ ...draft, couponCode: r.code });
+          setError("");
+          setCouponNote(
+            r.rule === SECOND_SEND_RULE ? "Cupom AMOR aplicado: este envio sai grátis." : `Cupom ${r.code} aplicado.`,
+          );
+        } else {
+          setCouponInfo(null);
+          setError(r.message);
+        }
+      })
+      .catch(() => setError("Não deu para conferir o cupom agora. Tente de novo."));
+  }
+
   /** Pagamento real aprovado (Mercado Pago): a carta já foi criada no servidor. */
   function finishPaid(r: PaidResult) {
     if (!draft || !cart) return;
@@ -164,6 +202,7 @@ function PayPage() {
     clearDraft();
     setBusy(false);
     setSent(letter);
+    afterSend();
   }
 
   async function pay(method: string) {
@@ -217,6 +256,14 @@ function PayPage() {
       if (spent && spent.priceBrl < 0) await spendCredit({ data: Math.abs(spent.priceBrl) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
+      if ((Object.values(COUPON_MESSAGES) as string[]).includes(message)) {
+        // Cupom recusado pelo servidor: nada é enviado.
+        setBusy(false);
+        setCouponInfo(null);
+        setCouponNote("");
+        setError(message);
+        return;
+      }
       if (message.includes("Pagamento necessário") || payMode === "mercadopago") {
         // Pagamento real ligado: nunca cria carta sem o pagamento aprovado.
         setBusy(false);
@@ -268,6 +315,7 @@ function PayPage() {
     clearDraft();
     setBusy(false);
     setSent(letter);
+    afterSend();
   }
 
   // Esquenta a tela de acompanhar (mapa + 3D) enquanto a pessoa paga; de novo ao enviar.
@@ -291,7 +339,7 @@ function PayPage() {
     return (
       <div className="min-h-dvh">
         <SiteHeader />
-        <SendCeremony letter={sent} />
+        <SendCeremony letter={sent} extra={nudgeAmor ? <AmorNextNudge /> : null} />
       </div>
     );
   }
@@ -406,26 +454,28 @@ function PayPage() {
               void navigate({ to: "/escrever", search: { passo: 4, voltar: "pagar", responder: draft.replyTo?.letterId } })
             }
           />
+          <AmorPromoBanner
+            variant="checkout"
+            applied={couponInfo?.code === SECOND_SEND_CODE}
+            onApply={() => applyCouponCode(SECOND_SEND_CODE)}
+          />
           <form
             className="coupon-row"
             onSubmit={(e) => {
               e.preventDefault();
-              void checkCoupon({ data: coupon }).then((r) => {
-                if (r.ok) {
-                  setCouponInfo({ code: r.code, percent: r.percent, amountBrl: r.amountBrl });
-                  writeDraft({ ...draft, couponCode: r.code });
-                  setError("");
-                } else setError(r.message);
-              });
+              applyCouponCode(coupon);
             }}
           >
             <input
               value={coupon}
               onChange={(e) => setCoupon(e.target.value.toUpperCase())}
               placeholder="Cupom"
+              aria-label="Cupom"
+              autoCapitalize="characters"
             />
             <button type="submit">Aplicar</button>
           </form>
+          {couponNote ? <p className="coupon-ok">{couponNote}</p> : null}
           {credit > 0 ? (
             <label className="credit-toggle">
               <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} />
