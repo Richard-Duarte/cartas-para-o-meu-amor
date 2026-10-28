@@ -2,6 +2,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatMoney } from "@/lib/cart";
 import { MESSENGERS, maxSpeedLabel, messengerPhoto } from "@/lib/messengers";
 
 function TiltCard({
@@ -51,7 +52,7 @@ function TiltCard({
         <p className="messenger-tilt-tag">{tagline}</p>
         <p className="messenger-tilt-flavor">{flavor}</p>
         <p className="messenger-tilt-meta">
-          Velocidade: {speed} · R$ {price}
+          Velocidade: {speed} · {formatMoney(price)}
         </p>
       </div>
     </Link>

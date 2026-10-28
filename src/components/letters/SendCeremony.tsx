@@ -1,7 +1,7 @@
 "use client";
 
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { EnvelopeLetter } from "@/components/delivery/EnvelopeLetter";
 import { letterOverlay } from "@/components/delivery/journey";
 import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
@@ -9,9 +9,11 @@ import { pagesPlainText } from "@/lib/pages";
 
 type Props = {
   letter: Letter;
+  /** Bloco extra no fim do cartão (ex.: lembrete do cupom AMOR). */
+  extra?: ReactNode;
 };
 
-export function SendCeremony({ letter }: Props) {
+export function SendCeremony({ letter, extra }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
   const url = shareUrl(letter.id);
@@ -96,6 +98,7 @@ export function SendCeremony({ letter }: Props) {
           <Link to="/acompanhar/$letterId" params={{ letterId: letter.id }} className="send-track">
             Acompanhar no mapa
           </Link>
+          {extra}
         </div>
       </div>
     </div>

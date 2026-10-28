@@ -16,7 +16,7 @@ export const Route = createFileRoute("/termos")({
 function TermsPage() {
   const mail = <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
   return (
-    <LegalPage title="Termos de Uso" updated="27 de outubro de 2026">
+    <LegalPage title="Termos de Uso" updated="28 de outubro de 2026">
       <p>
         Estes Termos de Uso regem o uso do site Carta para o meu amor (cartas-para-o-meu-amor.vercel.app e
         cartaparaomeuamor.com.br). Ao criar uma conta, escrever, enviar, receber ou responder uma carta, você declara
@@ -142,7 +142,8 @@ function TermsPage() {
       <ul>
         <li>
           O preço depende do mensageiro e dos adicionais escolhidos (papel, carta anônima, agendamento). Ele aparece no
-          carrinho antes do pagamento, em reais.
+          carrinho antes do pagamento, em reais e com centavos. Uma mudança de preço vale só para cartas novas: a carta já
+          enviada mantém o valor pago.
         </li>
         <li>
           Os pagamentos são processados pelo <strong>Mercado Pago</strong>, por PIX ou cartão de crédito, com
@@ -157,6 +158,11 @@ function TermsPage() {
           Cupons de desconto e créditos de indicação podem reduzir ou zerar o valor, conforme as condições mostradas
           no site. Créditos não são convertidos em dinheiro, salvo as comissões do programa de indicação, pagas conforme
           as regras da sua conta (valor mínimo para saque).
+        </li>
+        <li>
+          <strong>Cupom AMOR</strong>: deixa o segundo envio da conta grátis (mensageiro, papel e adicionais). Precisa
+          estar logado, vale uma vez por conta e só depois de a conta ter enviado ao menos uma carta. Não se soma a
+          comissão de indicação e pode ser encerrado a qualquer momento, sem afetar envios já feitos.
         </li>
       </ul>
 

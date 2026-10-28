@@ -60,9 +60,11 @@ const globalRef = globalThis as typeof globalThis & {
  *                                   `::text` if you ever need huge integers)
  *   date                         -> 'YYYY-MM-DD' string
  *   interval                     -> Postgres interval text
- * numeric already comes back as a string on both (arbitrary precision).
+ *   numeric                      -> number (preços em reais com centavos, ex.: 4.90;
+ *                                   nunca passa de 2 casas, então não perde precisão)
  */
 const OID_INT8 = 20;
+const OID_NUMERIC = 1700;
 const OID_DATE = 1082;
 const OID_INTERVAL = 1186;
 const identity = (v: string) => v;
@@ -91,6 +93,7 @@ function createNeonSql(): Promise<Sql> {
     // pooled endpoint. One pool per process; warm serverless instances reuse it.
     const { types } = await import("pg");
     types.setTypeParser(OID_INT8, Number);
+    types.setTypeParser(OID_NUMERIC, Number);
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
     // Mesmo pool do Better Auth (ver shared-pool.server.ts).
@@ -116,6 +119,7 @@ async function createPgliteSql(): Promise<Sql> {
     const pg = new PGlite({
       parsers: {
         [OID_INT8]: Number,
+        [OID_NUMERIC]: Number,
         [OID_DATE]: identity,
         [OID_INTERVAL]: identity,
       },

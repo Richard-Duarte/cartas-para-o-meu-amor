@@ -202,7 +202,8 @@ export const getSettings = createServerFn({ method: "GET" }).handler(async () =>
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
     affiliatePercent: Number(map.affiliate_percent ?? 10),
-    anonymousFee: Number(map.anonymous_fee ?? 9.9),
+    anonymousFee: Number(map.anonymous_fee ?? 5.9),
+    scheduleFee: Number(map.schedule_fee ?? 1.9),
   };
 });
 
@@ -211,6 +212,7 @@ export const saveSettings = createServerFn({ method: "POST" })
     z.object({
       affiliatePercent: z.number().min(0).max(80),
       anonymousFee: z.number().min(0).max(999).optional(),
+      scheduleFee: z.number().min(0).max(999).optional(),
     }),
   )
   .handler(async ({ data }) => {
@@ -222,7 +224,13 @@ export const saveSettings = createServerFn({ method: "POST" })
     `;
     if (data.anonymousFee != null) {
       await sql`
-        insert into app_settings (key, value) values ('anonymous_fee', ${String(data.anonymousFee)})
+        insert into app_settings (key, value) values ('anonymous_fee', ${String(Math.round(data.anonymousFee * 100) / 100)})
+        on conflict (key) do update set value = excluded.value
+      `;
+    }
+    if (data.scheduleFee != null) {
+      await sql`
+        insert into app_settings (key, value) values ('schedule_fee', ${String(Math.round(data.scheduleFee * 100) / 100)})
         on conflict (key) do update set value = excluded.value
       `;
     }

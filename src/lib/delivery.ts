@@ -3,12 +3,23 @@ import { estimateDelivery, MESSENGERS, type Geo, type MessengerId } from "./mess
 /** Viagem mais curta que isto não recebe aviso de "está chegando". */
 export const INSTANT_MS = 60 * 60 * 1000;
 
-export const ANONYMOUS_FEE_BRL = 9.9;
+export const ANONYMOUS_FEE_BRL = 5.9;
 
-/** Soma no valor do mensageiro quando a chegada é num dia escolhido. */
-export const SCHEDULE_FEE_BRL = 4.9;
+/** Soma no valor do mensageiro quando a chegada é num dia escolhido (padrão; o banco manda). */
+export const SCHEDULE_FEE_BRL = 1.9;
 
 let anonymousFeeBrl = ANONYMOUS_FEE_BRL;
+let scheduleFeeBrl = SCHEDULE_FEE_BRL;
+
+/** Taxa de "Agendar chegada" vinda do catálogo (app_settings.schedule_fee). */
+export function getScheduleFee() {
+  return scheduleFeeBrl;
+}
+
+export function setScheduleFee(value: number) {
+  if (!Number.isFinite(value) || value < 0) return;
+  scheduleFeeBrl = Math.round(value * 100) / 100;
+}
 
 export function getAnonymousFee() {
   return anonymousFeeBrl;

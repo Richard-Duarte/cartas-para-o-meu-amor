@@ -13,13 +13,14 @@ import { env } from "@/lib/env.server";
 import { canBypassPayment, paymentsMode } from "@/lib/payments-mode";
 import { safeOrigin } from "@/lib/server/notices";
 import { sendServerPurchase } from "@/lib/server/attribution";
-import { placeLetter, precheckLetter, type CheckoutInput } from "@/lib/server/shop";
+import { placeLetter, precheckLetter, resolveCoupon, type CheckoutInput } from "@/lib/server/shop";
+import { couponCut } from "@/lib/coupon-rules";
+import { ANONYMOUS_FEE_BRL, SCHEDULE_FEE_BRL } from "@/lib/delivery";
 import type { PaidResult } from "@/lib/payments-types";
 
 type Sql = Awaited<ReturnType<typeof getSql>>;
 
 const MP_API = "https://api.mercadopago.com";
-const SCHEDULE_FEE_BRL = 4.9;
 
 export async function ensurePaymentTables(sql: Sql) {
   // Igual a migrations/0011_payments.sql (o PGLite/local cria na hora).
@@ -45,32 +46,32 @@ export async function serverCartTotal(
   if (!m[0]) throw new Error("Mensageiro indisponível.");
   const t = await sql<{ paid: boolean; price_brl: number }>`select paid, price_brl from templates where id = ${data.templateId} limit 1`;
   let total = Number(m[0].price_brl) + (t[0]?.paid ? Number(t[0].price_brl) : 0);
-  if (data.anonymous) {
-    let fee = 9.9;
-    try {
-      const r = await sql<{ value: string }>`select value from app_settings where key = 'anonymous_fee' limit 1`;
-      const v = Number(r[0]?.value ?? 9.9);
-      if (Number.isFinite(v) && v >= 0) fee = round2(v);
-    } catch {
-      /* padrão */
-    }
-    total += fee;
-  }
-  if (data.cartScheduled ?? data.scheduled) total += SCHEDULE_FEE_BRL;
-  if (data.couponCode) {
-    const c = await sql<{ percent: number; amount_brl: number; active: boolean }>`
-      select percent, amount_brl, active from coupons where upper(code) = ${data.couponCode.toUpperCase()} limit 1
+  const settings = new Map<string, number>();
+  try {
+    const r = await sql<{ key: string; value: string }>`
+      select key, value from app_settings where key in ('anonymous_fee', 'schedule_fee')
     `;
-    if (c[0]?.active) {
-      if (c[0].percent) total -= Math.round(total * (Number(c[0].percent) / 100));
-      if (c[0].amount_brl) total -= Math.min(total, Number(c[0].amount_brl));
+    for (const row of r) {
+      const v = Number(row.value);
+      if (Number.isFinite(v) && v >= 0) settings.set(row.key, round2(v));
     }
+  } catch {
+    /* padrão */
+  }
+  if (data.anonymous) total += settings.get("anonymous_fee") ?? ANONYMOUS_FEE_BRL;
+  if (data.cartScheduled ?? data.scheduled) total += settings.get("schedule_fee") ?? SCHEDULE_FEE_BRL;
+  total = round2(total);
+  if (data.couponCode) {
+    // Regras (AMOR: login, 2º envio, 1x por conta) conferidas aqui. Cupom comum inválido = sem desconto.
+    const c = await resolveCoupon(sql, userId, data.couponCode);
+    if (!c.ok && c.ruleBlocked) throw new Error(c.message);
+    if (c.ok) total = couponCut(total, { percent: c.percent, amountBrl: c.amountBrl }).total;
   }
   let creditBrl = 0;
   if (data.useCredit) {
     const p = await sql<{ credit_brl: number }>`select credit_brl from profiles where user_id = ${userId} limit 1`;
-    creditBrl = Math.min(Math.max(0, total), Number(p[0]?.credit_brl ?? 0));
-    total -= creditBrl;
+    creditBrl = round2(Math.min(Math.max(0, total), Number(p[0]?.credit_brl ?? 0)));
+    total = round2(total - creditBrl);
   }
   return { total: round2(Math.max(0, total)), creditBrl: round2(creditBrl) };
 }

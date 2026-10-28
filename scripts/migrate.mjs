@@ -18,7 +18,8 @@ import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
 
-const databaseUrl = poolerUrl(process.env.DATABASE_URL);
+// Vazio/só espaço = não configurado (igual a src/lib/db.ts). Ex.: preview com banco próprio (PGLite).
+const databaseUrl = poolerUrl(process.env.DATABASE_URL?.trim() || undefined);
 if (!databaseUrl) {
   console.log(
     "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",

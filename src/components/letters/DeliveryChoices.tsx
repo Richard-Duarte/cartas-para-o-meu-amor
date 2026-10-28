@@ -2,13 +2,14 @@
 
 import { useMemo } from "react";
 import { MessengerPicker } from "@/components/messengers/MessengerPicker";
-import { formatBrl } from "@/lib/cart";
+import { formatBrl, formatMoney } from "@/lib/cart";
 import {
   contactsReady,
   dayKey,
   earliestDay,
   formatArrival,
   getAnonymousFee,
+  getScheduleFee,
   latestDay,
   planArrival,
 } from "@/lib/delivery";
@@ -116,7 +117,7 @@ export function DeliveryChoices(props: Props) {
           }}
         >
           <strong>Escolher o dia</strong>
-          <span>O animal habilitado chega nessa data. O envio soma R$ 4,90.</span>
+          <span>O animal habilitado chega nessa data. O envio soma {formatMoney(getScheduleFee())}.</span>
         </button>
       </div>
 

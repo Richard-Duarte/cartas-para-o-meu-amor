@@ -1,7 +1,8 @@
 import { emptyAddress, type Address } from "./address";
 import { getDesign, type DesignId } from "./designs";
 import { newPage, type LetterPage } from "./pages";
-import { getAnonymousFee, SCHEDULE_FEE_BRL } from "./delivery";
+import { couponCut, roundBrl, SECOND_SEND_RULE } from "./coupon-rules";
+import { getAnonymousFee, getScheduleFee } from "./delivery";
 import { getMessenger, messengerPhoto, type Geo, type MessengerId } from "./messengers";
 
 export type CartLine = {
@@ -93,6 +94,9 @@ export function buildCart(
   opts?: {
     percent?: number;
     amountBrl?: number;
+    /** Código e regra do cupom aplicado (só para o texto da linha). */
+    couponCode?: string;
+    couponRule?: string | null;
     creditBrl?: number;
     anonymous?: boolean;
     scheduled?: boolean;
@@ -134,37 +138,37 @@ export function buildCart(
       kind: "extra",
       title: "Dia escolhido",
       detail: "Chegada na data marcada",
-      priceBrl: SCHEDULE_FEE_BRL,
+      priceBrl: getScheduleFee(),
       image: "/envelope/seal.png",
     });
   }
-  let total = lines.reduce((sum, line) => sum + line.priceBrl, 0);
+  let total = roundBrl(lines.reduce((sum, line) => sum + line.priceBrl, 0));
+  const cut = couponCut(total, { percent: opts?.percent, amountBrl: opts?.amountBrl });
+  const couponTitle = opts?.couponCode ? `Cupom ${opts.couponCode}` : "Cupom";
+  const secondSend = opts?.couponRule === SECOND_SEND_RULE;
   if (opts?.percent) {
-    const cut = Math.round(total * (opts.percent / 100));
     lines.push({
       id: "coupon",
       kind: "discount",
-      title: "Cupom",
-      detail: `${opts.percent}%`,
-      priceBrl: -cut,
+      title: couponTitle,
+      detail: secondSend ? "2º envio grátis" : `${opts.percent}%`,
+      priceBrl: -cut.percentCut,
       image: paper.src,
     });
-    total -= cut;
   }
   if (opts?.amountBrl) {
-    const cut = Math.min(total, opts.amountBrl);
     lines.push({
       id: "coupon-fixed",
       kind: "discount",
-      title: "Cupom",
+      title: couponTitle,
       detail: formatBrl(opts.amountBrl),
-      priceBrl: -cut,
+      priceBrl: -cut.amountCut,
       image: paper.src,
     });
-    total -= cut;
   }
+  total = cut.total;
   if (opts?.creditBrl) {
-    const cut = Math.min(total, opts.creditBrl);
+    const cut = roundBrl(Math.min(total, opts.creditBrl));
     if (cut) {
       lines.push({
         id: "credit",
@@ -174,10 +178,10 @@ export function buildCart(
         priceBrl: -cut,
         image: paper.src,
       });
-      total -= cut;
+      total = roundBrl(total - cut);
     }
   }
-  return { lines, total: Math.max(0, total), paper, messenger };
+  return { lines, total: Math.max(0, roundBrl(total)), paper, messenger };
 }
 
 export function readDraft(): LetterDraft | null {

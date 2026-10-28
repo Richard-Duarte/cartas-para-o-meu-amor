@@ -8,6 +8,7 @@ import { RitualSteps } from "@/components/home/RitualSteps";
 import { StickyWriteCta } from "@/components/home/StickyWriteCta";
 import { StoryFilm } from "@/components/home/StoryFilm";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { AmorPromoBanner } from "@/components/promo/AmorPromo";
 import { ClotheslineSection } from "@/components/letters/ClotheslineGallery";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -20,6 +21,7 @@ function Home() {
         <CinematicHero />
       </div>
       <main>
+        <AmorPromoBanner />
         {/* Primeiro o "como funciona", logo depois do vídeo de abertura. */}
         <RitualSteps />
         <MessengerMarquee />
