@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { letterArrivalState, markArrivalSeen } from "@/lib/server/letter-views";
 import { DeliveryJourney, type DeliveryJourneyHandle } from "@/components/delivery/DeliveryJourney";
 import { trackMeta } from "@/components/delivery/journey";
 import { RedirectToSignIn } from "@/lib/auth/gates";
@@ -20,6 +21,8 @@ function TrackPage() {
   const [letter, setLetter] = useState<Letter | null | undefined>(undefined);
   const [role, setRole] = useState<"sender" | "recipient" | "viewer">("viewer");
   const [unavailable, setUnavailable] = useState(false);
+  /** O servidor já disse quem é esta pessoa para esta carta (remetente/destinatária/visualiza). */
+  const [resolved, setResolved] = useState(false);
 
   useEffect(() => {
     if (letterId === "demo") {
@@ -61,6 +64,7 @@ function TrackPage() {
       return;
     }
     // Sem login (fase de testes): visão pública de quem só visualiza pelo link.
+    setResolved(false);
     const open = user ? openSharedLetter({ data: letterId }) : openPublicLetter({ data: letterId });
     void open
       .then((r) => {
@@ -73,6 +77,7 @@ function TrackPage() {
         }
         setUnavailable(false);
         if (r.role === "sender" || r.role === "recipient" || r.role === "viewer") setRole(r.role);
+        setResolved(true);
         if (r.letter) {
           const mapped = letterFromRecord(r.letter);
           rememberLetter(mapped);
@@ -80,6 +85,7 @@ function TrackPage() {
         } else if (!local) setLetter(null);
       })
       .catch(() => {
+        setResolved(true);
         if (!local) setLetter(null);
       });
   }, [letterId, user, isPending]);
@@ -136,19 +142,81 @@ function TrackPage() {
   }
 
   const signedIn = Boolean(user) || letter.id === "demo";
-  return <TrackView letter={letter} role={signedIn ? role : "viewer"} signedIn={signedIn} />;
+  return (
+    <TrackView
+      letter={letter}
+      role={signedIn ? role : "viewer"}
+      signedIn={signedIn}
+      resolved={resolved || letter.id === "demo"}
+    />
+  );
+}
+
+/** Sem login: a primeira chegada fica guardada só neste aparelho (nada vai para o servidor). */
+const ARRIVAL_KEY = "cartas-chegada-vista:";
+function localArrivalSeen(id: string) {
+  try {
+    return window.localStorage.getItem(ARRIVAL_KEY + id) === "1";
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * A animação de entrega é de cada pessoa: quem RECEBE (a conta destinatária, ou quem abre
+ * o link sem entrar) vê a chegada completa na primeira vez que abre a carta já entregue.
+ * Quem enviou, o admin e outra conta qualquer veem a carta já parada, e nada do que fazem
+ * é gravado — então não "gastam" a animação de quem recebe.
+ */
+function useFirstArrival(letter: Letter, role: "sender" | "recipient" | "viewer", signedIn: boolean, resolved: boolean) {
+  const [first, setFirst] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (letter.id === "demo") return setFirst(false);
+    if (!resolved) return;
+    if (!signedIn) return setFirst(!localArrivalSeen(letter.id));
+    if (role !== "recipient") return setFirst(false);
+    let dead = false;
+    void letterArrivalState({ data: letter.id })
+      .then((r) => {
+        if (!dead) setFirst(Boolean(r?.firstArrival));
+      })
+      .catch(() => {
+        if (!dead) setFirst(false);
+      });
+    return () => {
+      dead = true;
+    };
+  }, [letter.id, role, signedIn, resolved]);
+
+  const consume = () => {
+    if (letter.id === "demo") return;
+    if (!signedIn) {
+      try {
+        window.localStorage.setItem(ARRIVAL_KEY + letter.id, "1");
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    if (role === "recipient") void markArrivalSeen({ data: letter.id }).catch(() => {});
+  };
+  return { firstArrival: first, consumeArrival: consume };
 }
 
 function TrackView({
   letter,
   role,
   signedIn = true,
+  resolved = true,
 }: {
   letter: Letter;
   role: "sender" | "recipient" | "viewer";
   /** false = abriu pelo link sem entrar (PUBLIC_TRACKING). */
   signedIn?: boolean;
+  /** false enquanto o servidor ainda não respondeu quem é esta pessoa. */
+  resolved?: boolean;
 }) {
+  const { firstArrival, consumeArrival } = useFirstArrival(letter, role, signedIn, resolved);
   const meta = trackMeta(letter);
   const [now, setNow] = useState(() => Date.now());
   const [opened, setOpened] = useState(false);
@@ -239,14 +307,22 @@ function TrackView({
           </p>
         </header>
 
-        <DeliveryJourney
-          ref={journeyRef}
-          letter={letter}
-          allowDownload={delivered}
-          onDelivered={() => setNow(Date.now())}
-          onOpened={() => setOpened(true)}
-          replyHref={replyHref}
-        />
+        {firstArrival === undefined ? (
+          <div className="delivery-slot" aria-busy="true" aria-label="Viagem do mensageiro" />
+        ) : (
+          <DeliveryJourney
+            ref={journeyRef}
+            letter={letter}
+            allowDownload={delivered}
+            onDelivered={() => setNow(Date.now())}
+            onOpened={() => {
+              setOpened(true);
+              consumeArrival();
+            }}
+            replyHref={replyHref}
+            firstArrival={firstArrival}
+          />
+        )}
 
         <section className="track-after" aria-label="Detalhes e compartilhar">
           {/* Rota de cima para baixo: sai (ponto) → linha → entrega (pino). Mesma ordem do passo 5. */}
