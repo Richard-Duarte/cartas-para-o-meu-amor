@@ -9,18 +9,20 @@ import {
 import { addressLine, type Address } from "@/lib/address";
 import { getMessenger } from "@/lib/messengers";
 import { env } from "@/lib/env.server";
+import { publicOrigin, SITE_URL } from "@/lib/site-url";
 
 export type NoticeState = "instant" | "queued" | "sent" | "unconfigured";
 
 type SendResult = { ok: boolean; reason?: "unconfigured" | "invalid" | "failed" };
 
+/** Origem dos links públicos (carta, avisos). O domínio antigo vira o principal. */
 export function safeOrigin(raw?: string) {
-  const fallback = (env("BETTER_AUTH_URL") || "http://127.0.0.1:8080").replace(/\/$/, "");
+  const fallback = (env("SITE_URL") || SITE_URL || env("BETTER_AUTH_URL") || "http://127.0.0.1:8080").replace(/\/$/, "");
   if (!raw) return fallback;
   try {
     const url = new URL(raw);
     if (url.protocol !== "http:" && url.protocol !== "https:") return fallback;
-    return url.origin;
+    return publicOrigin(url.origin);
   } catch {
     return fallback;
   }

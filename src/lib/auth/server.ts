@@ -129,8 +129,16 @@ const baseURL = explicitBaseURL ?? {
 
 // Origins Better Auth accepts on credentialed POSTs (sign-up/sign-in, etc.).
 // Missing entries here surface as FORBIDDEN "Invalid origin".
+// Domínio principal + www + o endereço antigo (vercel.app, abas abertas antes da troca)
+// + as prévias deste projeto na Vercel.
+const SITE_ORIGINS: string[] = [
+  "https://cartaparaomeuamor.com.br",
+  "https://www.cartaparaomeuamor.com.br",
+  "https://cartas-para-o-meu-amor.vercel.app",
+  "https://cartas-para-o-meu-amor-*-richardduartesilvas-projects.vercel.app",
+];
 const trustedOrigins: string[] = explicitBaseURL
-  ? [explicitBaseURL, ...LOCAL_DEV_ORIGINS]
+  ? [...new Set([explicitBaseURL.replace(/\/+$/, ""), ...SITE_ORIGINS, ...LOCAL_DEV_ORIGINS])]
   : [
       // Host wildcards (matched against Origin's host)
       ...previewAllowedHosts,

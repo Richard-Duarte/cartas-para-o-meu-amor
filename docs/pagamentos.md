@@ -35,10 +35,10 @@
 **Banco:** `migrations/0011_payments.sql` cria só `payment_intents`. `letters` e `orders` não mudam.
 
 ## Webhook
-- **URL:** `https://cartas-para-o-meu-amor.vercel.app/api/mercadopago/webhook`. Com o domínio: `https://cartaparaomeuamor.com.br/api/mercadopago/webhook`.
+- **URL:** `https://cartaparaomeuamor.com.br/api/mercadopago/webhook`. O endereço antigo `https://cartas-para-o-meu-amor.vercel.app/api/mercadopago/webhook` continua funcionando (fica fora do redirect de domínio).
 - **Onde cadastrar:** Mercado Pago → Suas integrações → app → Webhooks → evento "Pagamentos". Copie a assinatura secreta para `MERCADOPAGO_WEBHOOK_SECRET`.
 - **Validação:** `HMAC-SHA256(secret, "id:<data.id>;request-id:<x-request-id>;ts:<ts>;")` comparado com o `v1`. Depois o servidor busca o pagamento na API e não confia no corpo.
-- Cada pagamento também leva `notification_url = https://cartas-para-o-meu-amor.vercel.app/api/mercadopago/webhook` (fixo; troque por `MERCADOPAGO_NOTIFICATION_URL`).
+- Cada pagamento também leva `notification_url = <SITE_URL>/api/mercadopago/webhook` (padrão `https://cartaparaomeuamor.com.br`; troque por `MERCADOPAGO_NOTIFICATION_URL`).
 
 ## Testar com credenciais de teste
 1. Num Preview, configure `PAYMENTS_MODE=mercadopago`, `MERCADOPAGO_ACCESS_TOKEN=TEST-…` e `VITE_MERCADOPAGO_PUBLIC_KEY=TEST-…`, e faça o redeploy.

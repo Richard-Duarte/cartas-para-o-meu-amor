@@ -7,6 +7,7 @@ import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getSql } from "@/lib/db";
 import { paymentsMode } from "@/lib/payments-mode";
+import { SITE_URL } from "@/lib/site-url";
 import type { StartResult } from "@/lib/payments-types";
 import { checkoutSchema } from "@/lib/server/shop";
 import {
@@ -23,7 +24,9 @@ import {
 export type { PaidResult, StartResult } from "@/lib/payments-types";
 
 /** Modo de pagamento + se ESTA conta pode avançar sem pagar (a regra de verdade fica no checkoutLetter). */
-const PROD_WEBHOOK_URL = "https://cartas-para-o-meu-amor.vercel.app/api/mercadopago/webhook";
+// O endereço antigo (vercel.app) continua respondendo ao webhook (fora do redirect), para
+// pagamentos criados antes da troca de domínio.
+const PROD_WEBHOOK_URL = `${SITE_URL}/api/mercadopago/webhook`;
 
 export const paymentsConfig = createServerFn({ method: "GET" })
   .middleware([authMiddleware])

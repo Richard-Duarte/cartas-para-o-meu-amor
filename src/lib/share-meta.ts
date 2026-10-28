@@ -1,11 +1,10 @@
 /**
- * Prévia de link (Open Graph + Twitter/X). Para trocar o domínio depois
- * (ex.: https://cartaparaomeuamor.com.br), defina VITE_SITE_ORIGIN na Vercel
- * ou altere o valor padrão abaixo.
+ * Prévia de link (Open Graph + Twitter/X). O domínio vem de `site-url.ts`
+ * (https://cartaparaomeuamor.com.br; trocar via VITE_SITE_URL).
  */
-export const SITE_ORIGIN = (
-  (import.meta.env.VITE_SITE_ORIGIN as string | undefined) || "https://cartas-para-o-meu-amor.vercel.app"
-).replace(/\/+$/, "");
+import { SITE_URL } from "./site-url";
+
+export const SITE_ORIGIN = SITE_URL;
 
 export const SITE_NAME = "Carta para o meu amor";
 export const SITE_TAGLINE = "O correio mais lento. O recado mais certo.";
