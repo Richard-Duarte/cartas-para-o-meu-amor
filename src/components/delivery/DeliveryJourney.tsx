@@ -28,6 +28,8 @@ type Props = {
   allowDownload?: boolean;
   onDelivered?: () => void;
   onOpened?: () => void;
+  /** Primeira abertura de quem recebe (carta já entregue): toca a chegada completa. */
+  firstArrival?: boolean;
   /** Link "Enviar resposta" mostrado na carta aberta (só para quem recebeu). */
   replyHref?: string;
 };
@@ -108,7 +110,7 @@ function useStickyMapUi(slot: React.RefObject<HTMLDivElement | null>, deps: unkn
 }
 
 export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function DeliveryJourney(
-  { letter, allowDownload = false, onDelivered, onOpened, replyHref },
+  { letter, allowDownload = false, onDelivered, onOpened, replyHref, firstArrival = false },
   ref,
 ) {
   const slotRef = useRef<HTMLDivElement>(null);
@@ -218,6 +220,7 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           getLetter: () => letterOverlay(letterRef.current),
           onDelivered: () => deliveredRef.current?.(),
           onOpened: () => openedRef.current?.(),
+          firstArrival,
           // iOS derrubou o WebGL (memória): sem tela de erro — mostra o mapa/cena estático.
           onContextLost: () => {
             if (dead) return;

@@ -1241,7 +1241,12 @@ function tellDelivered() {
   if (now && now.arrived) { told = true; options.onDelivered(); }
 }
 const boot = options.getJourney ? options.getJourney() : { progress: 0, arrived: false, label: '' };
-if (boot.arrived || boot.progress >= 1) {
+if ((boot.arrived || boot.progress >= 1) && options.firstArrival) {
+  // Primeira abertura de quem RECEBE uma carta já entregue: o fim da viagem acontece na
+  // frente dela e a chegada é completa (mensageiro chegando + envelope), como ao vivo.
+  progress = 0.86; synced = true; skipping = true; skipFrom = 0.86; skipElapsed = 0;
+  $('skip').hidden = true; $('prog').style.width = '86%';
+} else if (boot.arrived || boot.progress >= 1) {
   progress = 1; arrived = true; synced = true;
   yawG.visible = false; if (mapBundle) mapBundle.visible = false;
   $('skip').hidden = true; $('prog').style.width = '100%'; if (sceneApi) { sceneApi.setProgress(1); sceneApi.settle(); }
