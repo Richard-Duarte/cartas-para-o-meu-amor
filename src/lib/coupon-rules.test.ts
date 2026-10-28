@@ -12,13 +12,20 @@ import { DESIGNS } from "./designs.ts";
 import { MESSENGERS } from "./messengers.ts";
 
 describe("cupom AMOR (2º envio grátis)", () => {
-  it("sem carta enviada: pede o primeiro envio", () => {
+  it("0 cartas pagas: pede o primeiro envio pago", () => {
     const s = secondSendState({ sentLetters: 0, alreadyRedeemed: false });
     assert.equal(s, "first-send");
-    assert.equal(secondSendMessage(s), "Faça seu primeiro envio para liberar o cupom AMOR");
+    assert.equal(secondSendMessage(s), "Faça seu primeiro envio pago para liberar o cupom AMOR");
   });
-  it("com 1 carta enviada: libera", () => {
+  it("exatamente 1 carta paga: libera (é a 2ª carta)", () => {
     assert.equal(secondSendState({ sentLetters: 1, alreadyRedeemed: false }), "ok");
+  });
+  it("2+ cartas pagas: recusa (não é a 2ª carta)", () => {
+    for (const n of [2, 3, 10]) {
+      const s = secondSendState({ sentLetters: n, alreadyRedeemed: false });
+      assert.equal(s, "not-second");
+      assert.equal(secondSendMessage(s), "O cupom AMOR vale apenas para a sua segunda carta");
+    }
   });
   it("já usado: bloqueia (mesmo com várias cartas)", () => {
     const s = secondSendState({ sentLetters: 5, alreadyRedeemed: true });
