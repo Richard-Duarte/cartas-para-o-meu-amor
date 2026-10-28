@@ -1,3 +1,4 @@
+import { publicOrigin } from "@/lib/site-url";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { googleAdminStatus } from "@/lib/server/admin-auth";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -65,7 +66,7 @@ function AccountPage() {
   }
   if (!user) return <RedirectToSignIn next="/conta" />;
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const origin = typeof window !== "undefined" ? publicOrigin(window.location.origin) : "";
   const link = profile?.affiliate_code ? `${origin}/escrever?ref=${profile.affiliate_code}` : "";
 
   async function copy() {

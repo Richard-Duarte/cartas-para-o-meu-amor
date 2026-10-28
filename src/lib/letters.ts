@@ -9,6 +9,7 @@ import {
   type MessengerId,
 } from "./messengers";
 import { pagesPlainText, type LetterPage } from "./pages";
+import { publicOrigin } from "./site-url";
 
 export type LetterKind = "text" | "drawing";
 
@@ -282,5 +283,5 @@ export function seedDemoLetter(opts?: { delivered?: boolean; messengerId?: strin
 
 export function shareUrl(letterId: string) {
   if (typeof window === "undefined") return `/acompanhar/${letterId}`;
-  return `${window.location.origin}/acompanhar/${letterId}`;
+  return `${publicOrigin(window.location.origin)}/acompanhar/${letterId}`;
 }

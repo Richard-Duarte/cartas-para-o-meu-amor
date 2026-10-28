@@ -5,6 +5,19 @@
       "schedule": "0 15 * * *"
     }
   ],
+  "redirects": [
+    {
+      "source": "/:path((?!api/auth/|api/mercadopago/|api/cron/|_serverFn/|sw\\.js$).*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "cartas-para-o-meu-amor.vercel.app"
+        }
+      ],
+      "destination": "https://cartaparaomeuamor.com.br/:path",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",
