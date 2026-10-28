@@ -47,3 +47,20 @@ export function shareMeta({
     { name: "twitter:image:alt", content: `${SITE_NAME}. ${SITE_TAGLINE}` },
   ];
 }
+
+/** Prévia aprovada para o link de acompanhamento de uma carta (/acompanhar/<id>). */
+export const TRACKING_SHARE_TITLE = "Tem uma carta a caminho de você 💌";
+export const TRACKING_SHARE_DESCRIPTION = "Toque para acompanhar a viagem dela até chegar.";
+
+/** Head da página /acompanhar/<id>: genérico, sem nada da carta (nem nomes, nem texto). */
+export function trackingShareHead(letterId: string) {
+  const path = `/acompanhar/${encodeURIComponent(letterId)}`;
+  return {
+    meta: [
+      { title: TRACKING_SHARE_TITLE },
+      { name: "description", content: TRACKING_SHARE_DESCRIPTION },
+      ...shareMeta({ title: TRACKING_SHARE_TITLE, description: TRACKING_SHARE_DESCRIPTION, path }),
+    ],
+    links: [{ rel: "canonical", href: absoluteUrl(path) }],
+  };
+}
