@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authClient, authEnabled } from "@/lib/auth/client";
 import { SocialSignInButtons } from "@/components/auth/SocialButtons";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { queueEvent } from "@/lib/tracking";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>): { next?: string; error?: string } => {
@@ -45,6 +46,12 @@ function Login() {
   );
   const [busy, setBusy] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  // Voltou com erro do Google mas a sessão já existe (ex.: o callback chegou duas
+  // vezes e só o 2º falhou): o login deu certo, então segue em frente.
+  const { user: sessionUser } = useCurrentUserState();
+  useEffect(() => {
+    if (oauthError && sessionUser) window.location.replace(after);
+  }, [oauthError, sessionUser, after]);
 
   async function onEmail(next: "in" | "up") {
     if (!formRef.current?.reportValidity()) return;

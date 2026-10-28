@@ -40,9 +40,13 @@ self.addEventListener("activate", (event) => {
       for (const key of await caches.keys()) {
         if (key.startsWith(PREFIX) && !keep.has(key)) await caches.delete(key);
       }
+      // Navigation preload DESLIGADO: com ele ligado, o navegador já dispara a
+      // requisição da navegação e, nas rotas que o SW não toca (/api/auth/callback…),
+      // faz a mesma requisição de novo — o callback do Google chegava 2x e o 2º
+      // falhava com state_mismatch (o state já tinha sido usado pelo 1º).
       if (self.registration.navigationPreload) {
         try {
-          await self.registration.navigationPreload.enable();
+          await self.registration.navigationPreload.disable();
         } catch {}
       }
       await self.clients.claim();
@@ -93,8 +97,6 @@ async function staleWhileRevalidate(request) {
 
 async function networkFirstPage(event) {
   try {
-    const preload = await event.preloadResponse;
-    if (preload) return preload;
     return await fetch(event.request);
   } catch {
     const offline = await caches.match(OFFLINE_URL);
