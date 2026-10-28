@@ -11,7 +11,11 @@ import { forgetLetter, getLetter, letterFromRecord, letterProgress, rememberLett
 import { LetterReply } from "@/components/letters/LetterReply";
 import { letterThread, openPublicLetter, openSharedLetter } from "@/lib/server/shop";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
+import { trackingShareHead } from "@/lib/share-meta";
 export const Route = createFileRoute("/acompanhar/$letterId")({
+  // Prévia do link (WhatsApp, iMessage, Instagram, Facebook, X, Telegram): sai no HTML do
+  // servidor e é a mesma para toda carta. Nunca mostra conteúdo, remetente ou destinatário.
+  head: ({ params }) => trackingShareHead(params.letterId),
   component: TrackPage,
 });
 
