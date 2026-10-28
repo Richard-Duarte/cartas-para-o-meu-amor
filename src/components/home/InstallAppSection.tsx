@@ -187,9 +187,9 @@ export function InstallAppSection() {
     setPlatform(detectPlatform());
     const sync = () => setStandalone(isStandalone());
     sync();
-    const mq = window.matchMedia?.("(display-mode: standalone)");
-    mq?.addEventListener?.("change", sync);
-    return () => mq?.removeEventListener?.("change", sync);
+    const mqs = ["standalone", "fullscreen", "minimal-ui"].map((m) => window.matchMedia?.(`(display-mode: ${m})`));
+    mqs.forEach((mq) => mq?.addEventListener?.("change", sync));
+    return () => mqs.forEach((mq) => mq?.removeEventListener?.("change", sync));
   }, []);
 
   async function onAndroid() {
@@ -200,7 +200,10 @@ export function InstallAppSection() {
     setSheet("android");
   }
 
-  const done = standalone || installed;
+  // "App instalado." só dentro do app de verdade. Instalar a partir desta aba
+  // (evento appinstalled) não transforma a aba em app: ela continua no navegador,
+  // então mantém as opções e só avisa onde abrir.
+  const done = standalone;
 
   return (
     <section id="app" className="install-app" aria-labelledby="install-app-title">
@@ -218,6 +221,11 @@ export function InstallAppSection() {
               O envelope fica na tela inicial: abre em tela cheia, sem barra do navegador, e a
               próxima carta fica a um toque. Grátis, sem loja de apps.
             </p>
+            {installed ? (
+              <p className="install-app-lead">
+                <span className="install-done-badge"><IconCheck /> Instalado! Abra pelo ícone na tela inicial.</span>
+              </p>
+            ) : null}
             <div className="install-app-options">
               <div className={platform === "android" ? "install-option is-suggested" : "install-option"}>
                 {platform === "android" ? <span className="install-option-badge">Seu aparelho</span> : null}

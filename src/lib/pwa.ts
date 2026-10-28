@@ -46,12 +46,25 @@ export async function promptInstall(): Promise<"accepted" | "dismissed" | "unava
   return outcome;
 }
 
+/**
+ * Está rodando como app instalado (tela inicial), e não numa aba do navegador?
+ *
+ * No iOS/iPadOS só `navigator.standalone === true` é confiável: o WebKit responde
+ * `display-mode` lendo o "display" do manifest aplicado, e em abas do Chrome no
+ * iPhone (WKWebView) e em janelas abertas a partir do app o `(display-mode:
+ * standalone)` pode dar verdadeiro mesmo fora do app — era isso que mostrava
+ * "App instalado." na versão web. Nos demais (Android/desktop) vale o media query.
+ */
 export function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
+  const nav = navigator as Navigator & { standalone?: boolean };
+  if (detectPlatform() === "ios") return nav.standalone === true;
+  const mq = (q: string) => window.matchMedia?.(q).matches === true;
   return (
-    window.matchMedia?.("(display-mode: standalone)").matches ||
-    window.matchMedia?.("(display-mode: fullscreen)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
+    mq("(display-mode: standalone)") ||
+    mq("(display-mode: fullscreen)") ||
+    mq("(display-mode: minimal-ui)") ||
+    mq("(display-mode: window-controls-overlay)")
   );
 }
 

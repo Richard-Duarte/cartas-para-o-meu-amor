@@ -6,6 +6,7 @@ import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { signOut } from "@/lib/auth/client";
 import { myAccountStatus, requestUnblock, saveMyAttribution } from "@/lib/server/moderation";
 import { captureAttribution, readFirstTouch } from "@/lib/tracking";
+import { isStandalone } from "@/lib/pwa";
 
 type Status = Awaited<ReturnType<typeof myAccountStatus>>;
 
@@ -17,9 +18,7 @@ function syncAttribution(userId: string) {
     if (localStorage.getItem(SENT_KEY + userId)) return;
     captureAttribution(); // garante o 1º toque mesmo se este efeito rodar antes do boot
     const a = readFirstTouch() ?? {};
-    const standalone =
-      window.matchMedia?.("(display-mode: standalone)").matches ||
-      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    const standalone = isStandalone();
     const touchMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
     void saveMyAttribution({
       data: {
