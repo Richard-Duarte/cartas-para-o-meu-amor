@@ -6,6 +6,11 @@ export type Address = {
   neighborhood: string;
   city: string;
   state: string;
+  /**
+   * Pino marcado no mapa pela pessoa (opcional). Quando existe, vale mais que o
+   * endereço digitado para a rota: aceita qualquer ponto do mundo, até o meio do oceano.
+   */
+  pin?: { lat: number; lng: number };
 };
 
 export const emptyAddress = (): Address => ({
@@ -188,6 +193,73 @@ export async function lookupStreet(
   return out;
 }
 
+/** Nome do oceano para um ponto sem endereço (o reverse não achou nada em terra). */
+export function oceanName(lat: number, lng: number) {
+  if (lat <= -60) return "Oceano Antártico";
+  if (lat >= 66) return "Oceano Ártico";
+  if (lng >= 20 && lng <= 120 && lat <= 25 && !(lng > 100 && lat > -10)) return "Oceano Índico";
+  if (lng > -70 && lng < 20) return "Oceano Atlântico";
+  // Caribe e Golfo do México ficam do lado atlântico da América Central.
+  if (lng >= -98 && lng <= -70 && lat >= 9 && lat <= 31) return "Oceano Atlântico";
+  if (lng >= -70 && lng <= -50 && lat > 0) return "Oceano Atlântico";
+  return "Oceano Pacífico";
+}
+
+export function formatCoords(lat: number, lng: number) {
+  const ns = lat >= 0 ? "N" : "S";
+  const ew = lng >= 0 ? "L" : "O";
+  return `${Math.abs(lat).toFixed(3)}° ${ns}, ${Math.abs(lng).toFixed(3)}° ${ew}`;
+}
+
+type ReverseHit = NominatimHit & {
+  error?: string;
+  address?: NominatimHit["address"] & {
+    county?: string;
+    country?: string;
+    country_code?: string;
+    house_number?: string;
+    hamlet?: string;
+  };
+};
+
+/**
+ * Endereço a partir de um pino (Nominatim reverse). Funciona no mundo todo; no mar
+ * (ou se o serviço falhar) devolve o nome do oceano com as coordenadas.
+ */
+export async function reverseLookup(lat: number, lng: number): Promise<Address> {
+  const pin = { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) };
+  const water: Address = {
+    ...emptyAddress(),
+    street: formatCoords(pin.lat, pin.lng),
+    city: oceanName(pin.lat, pin.lng),
+    pin,
+  };
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1&zoom=18&accept-language=pt-BR&lat=${pin.lat}&lon=${pin.lng}`;
+    const res = await fetch(url, { headers: { "User-Agent": "carta-para-o-meu-amor/1.0" } });
+    if (!res.ok) return water;
+    const hit = (await res.json()) as ReverseHit;
+    const a = hit.address;
+    if (hit.error || !a) return water;
+    const br = (a.country_code ?? "").toLowerCase() === "br";
+    const city =
+      a.city || a.town || a.village || a.municipality || a.hamlet || a.county || a.state || a.country || "";
+    if (!city) return water;
+    return {
+      cep: br && a.postcode ? formatCep(a.postcode) : (a.postcode ?? ""),
+      street: a.road || a.pedestrian || "",
+      number: a.house_number ?? "",
+      complement: br ? "" : (a.country ?? ""),
+      neighborhood: a.suburb || a.neighbourhood || "",
+      city,
+      state: br ? stateToUf(a.state) : (a.country_code ?? "").toUpperCase(),
+      pin,
+    };
+  } catch {
+    return water;
+  }
+}
+
 export function addressLine(a: Address) {
   const bits = [
     [a.street, a.number].filter(Boolean).join(", "),
@@ -195,6 +267,7 @@ export function addressLine(a: Address) {
     a.neighborhood,
     [a.city, a.state].filter(Boolean).join(" — "),
     a.cep,
+    a.pin && !a.street.includes("°") ? `📍 ${formatCoords(a.pin.lat, a.pin.lng)}` : "",
   ].filter(Boolean);
   return bits.join(" · ");
 }

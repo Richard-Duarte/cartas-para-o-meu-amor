@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import { LetterDocument, ReplyButton } from "@/components/letters/LetterDocument";
 import { letterSheetPainter, paintEnvelopeNames } from "@/lib/letter-raster";
-import { shareUrl, shownFromName, type Letter } from "@/lib/letters";
+import { letterProgress, shareUrl, shownFromName, type Letter } from "@/lib/letters";
 import { reloadOnceForStaleChunks } from "@/lib/chunk-reload";
 import { getDesign } from "@/lib/designs";
 import { messengerModelId } from "@/lib/messengers";
@@ -26,6 +26,8 @@ function loseHostWebgl(host: HTMLElement) {
 type Props = {
   letter: Letter;
   allowDownload?: boolean;
+  /** Mostra "Simular chegada" (só logins de teste). */
+  allowSimulate?: boolean;
   onDelivered?: () => void;
   onOpened?: () => void;
   /** Primeira abertura de quem recebe (carta já entregue): toca a chegada completa. */
@@ -110,7 +112,7 @@ function useStickyMapUi(slot: React.RefObject<HTMLDivElement | null>, deps: unkn
 }
 
 export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function DeliveryJourney(
-  { letter, allowDownload = false, onDelivered, onOpened, replyHref, firstArrival = false },
+  { letter, allowDownload = false, allowSimulate = false, onDelivered, onOpened, replyHref, firstArrival = false },
   ref,
 ) {
   const slotRef = useRef<HTMLDivElement>(null);
@@ -120,6 +122,14 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
   const openReadRef = useRef<() => void>(() => {});
   const pendingOpen = useRef(false);
   letterRef.current = letter;
+  const allowSimulateRef = useRef(allowSimulate);
+  allowSimulateRef.current = allowSimulate;
+  useEffect(() => {
+    // O papel de "login de teste" chega depois do mount: mostra/esconde o botão sem remontar a cena.
+    const btn = slotRef.current?.querySelector<HTMLButtonElement>("#skip");
+    if (btn && !allowSimulate) btn.hidden = true;
+    if (btn && allowSimulate && !letterProgress(letterRef.current).arrived) btn.hidden = false;
+  }, [allowSimulate]);
   deliveredRef.current = onDelivered;
   openedRef.current = onOpened;
   const [ready, setReady] = useState(false);
@@ -208,6 +218,9 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
           from: place.from,
           to: place.to,
           scene: journeyScene(letterRef.current),
+          get allowSimulate() {
+            return allowSimulateRef.current;
+          },
           designSrc: design.src,
           paintSheet: letterSheetPainter(letterRef.current.designId ?? "classico", letterRef.current.pages?.[0]),
           paintNames: (c: HTMLCanvasElement) =>

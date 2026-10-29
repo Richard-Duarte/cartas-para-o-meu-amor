@@ -1188,8 +1188,26 @@ export const openSharedLetter = createServerFn({ method: "POST" })
         /* a próxima abertura tenta de novo se viewed_at ficou vazio */
       }
     }
-    return { letter: publicLetterRow(row, role), role };
+    return { letter: publicLetterRow(row, role), role, tester: await isTestLogin(sql, context.userId) };
   });
+
+/**
+ * "Login de teste" = conta que pode ver o botão "Simular chegada" e baixar a carta antes
+ * de chegar. Vale para:
+ *  - e-mails em PAYMENT_BYPASS_EMAILS com e-mail verificado ou login social (`bypassAllowed`);
+ *  - admins de ADMIN_EMAILS logados com Google verificado e sem senha (`googleAdminUserId`).
+ * Quem enviou e quem recebe pelo link (contas normais) não veem simulação.
+ */
+async function isTestLogin(sql: Awaited<ReturnType<typeof getSql>>, userId: string) {
+  try {
+    const { bypassAllowed } = await import("@/lib/server/payments.server");
+    if (await bypassAllowed(sql, userId)) return true;
+    const { googleAdminUserId } = await import("@/lib/server/admin-auth");
+    return (await googleAdminUserId(sql)) === userId;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Acompanhar sem login (fase de testes, `PUBLIC_TRACKING`): quem abre pelo link vê só a

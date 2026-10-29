@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { MessengerPicker } from "@/components/messengers/MessengerPicker";
 import { formatBrl, formatMoney } from "@/lib/cart";
 import {
+  suggestTime,
   contactsReady,
   dayKey,
   earliestDay,
@@ -63,6 +64,8 @@ export function DeliveryChoices(props: Props) {
   const minDay = earliestDay(props.from, props.to, now);
   const maxDay = latestDay(props.from, props.to, now);
   const day = props.scheduled ? props.arriveOn || minDay : null;
+  const [pickedDay, pickedTime] = (props.arriveOn || minDay).split("T");
+  const timeValue = pickedTime || suggestTime(pickedDay, props.from, props.to, now);
   const plan = planArrival({
     messengerId: props.messengerId,
     from: props.from,
@@ -88,7 +91,7 @@ export function DeliveryChoices(props: Props) {
       continue;
     }
     if (props.scheduled && day && !next.fits) blocked.add(item.id);
-    arriveLabelById[item.id] = next.fits ? `Chega ${formatArrival(next.arriveAt)}` : "Não chega nesse dia";
+    arriveLabelById[item.id] = next.fits ? `Chega ${formatArrival(next.arriveAt)}` : NOT_IN_TIME;
   }
 
   return (
@@ -113,26 +116,38 @@ export function DeliveryChoices(props: Props) {
           className={cn("choice-card", props.scheduled && "is-on")}
           onClick={() => {
             props.onScheduled(true);
-            if (!props.arriveOn) props.onArriveOn(minDay);
+            if (!props.arriveOn) props.onArriveOn(`${minDay}T${suggestTime(minDay, props.from, props.to, now)}`);
           }}
         >
-          <strong>Escolher o dia</strong>
-          <span>O animal habilitado chega nessa data. O envio soma {formatMoney(getScheduleFee())}.</span>
+          <strong>Escolher dia e hora</strong>
+          <span>O animal habilitado chega nesse dia e horário. O envio soma {formatMoney(getScheduleFee())}.</span>
         </button>
       </div>
 
       {props.scheduled ? (
         <>
-          <label className="delivery-date">
-            Dia da chegada
-            <input
-              type="date"
-              value={props.arriveOn || minDay}
-              min={minDay}
-              max={maxDay}
-              onChange={(e) => props.onArriveOn(e.target.value)}
-            />
-          </label>
+          <div className="pay-row">
+            <label className="delivery-date">
+              Dia da chegada
+              <input
+                type="date"
+                value={pickedDay}
+                min={minDay}
+                max={maxDay}
+                onChange={(e) => e.target.value && props.onArriveOn(`${e.target.value}T${timeValue}`)}
+              />
+            </label>
+            <label className="delivery-date">
+              Hora da chegada
+              <input
+                type="time"
+                step={60}
+                value={timeValue}
+                onChange={(e) => e.target.value && props.onArriveOn(`${pickedDay}T${e.target.value.slice(0, 5)}`)}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-ink-soft">Horário de Brasília.</p>
           <MessengerPicker
             value={props.messengerId}
             onChange={props.onMessenger}
@@ -153,13 +168,16 @@ export function DeliveryChoices(props: Props) {
           : "Quando estiver perto, o aviso usa o e-mail e o WhatsApp da conta de quem enviou e de quem abriu o link."}
       </p>
 
-      {!plan.fits ? <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia.</p> : null}
+      {!plan.fits ? <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia e horário.</p> : null}
       {plan.fits && !ready ? (
-        <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia.</p>
+        <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia e horário.</p>
       ) : null}
     </div>
   );
 }
+
+/** Rótulo de mensageiro que não chega a tempo (o escrever bloqueia por ele). */
+export const NOT_IN_TIME = "Não chega nesse horário";
 
 export function deliveryCanContinue(opts: Props) {
   const plan = planArrival({

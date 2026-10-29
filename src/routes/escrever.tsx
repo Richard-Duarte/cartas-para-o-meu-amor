@@ -316,7 +316,7 @@ function WritePage() {
         to: routeTo,
         arriveOn: scheduled ? arriveOn || null : null,
       });
-      map[m.id] = plan.fits ? `Chega ${formatArrival(plan.arriveAt)}` : "Não chega nesse dia";
+      map[m.id] = plan.fits ? `Chega ${formatArrival(plan.arriveAt)}` : "Não chega nesse horário";
     }
     return map;
   }, [routeFrom, routeTo, scheduled, arriveOn, addressless]);
@@ -332,7 +332,10 @@ function WritePage() {
     ? true
     : replyTo
       ? true
-      : Boolean(fromAddress.cep && toAddress.cep && fromAddress.city && toAddress.city);
+      : Boolean(
+          (fromAddress.pin || (fromAddress.cep && fromAddress.city)) &&
+            (toAddress.pin || (toAddress.cep && toAddress.city)),
+        );
   const addressKey = canAddress
     ? [
         fromAddress.street,
@@ -343,6 +346,8 @@ function WritePage() {
         toAddress.number,
         toAddress.city,
         toAddress.state,
+        fromAddress.pin ? `${fromAddress.pin.lat},${fromAddress.pin.lng}` : "",
+        toAddress.pin ? `${toAddress.pin.lat},${toAddress.pin.lng}` : "",
       ].join("|")
     : "";
   const arrivalStatus: ArrivalStatus = !canAddress
@@ -378,7 +383,7 @@ function WritePage() {
   const canDeliver = canAddress && deliveryCanContinue(deliveryProps);
   const blockedMessengers = new Set(
     scheduled
-      ? MESSENGERS.filter((m) => arriveLabelById[m.id] === "Não chega nesse dia").map((m) => m.id)
+      ? MESSENGERS.filter((m) => arriveLabelById[m.id] === "Não chega nesse horário").map((m) => m.id)
       : [],
   );
 
@@ -398,8 +403,8 @@ function WritePage() {
       void (async () => {
         try {
           const [fromHit, toHit] = await Promise.all([
-            geocodeAddress(geoQuery(fromAddress)),
-            geocodeAddress(geoQuery(toAddress)),
+            fromAddress.pin ? Promise.resolve(fromAddress.pin) : geocodeAddress(geoQuery(fromAddress)),
+            toAddress.pin ? Promise.resolve(toAddress.pin) : geocodeAddress(geoQuery(toAddress)),
           ]);
           if (cancel) return;
           setFromGeo(fromHit);
@@ -431,6 +436,8 @@ function WritePage() {
     toAddress.number,
     toAddress.city,
     toAddress.state,
+    fromAddress.pin,
+    toAddress.pin,
   ]);
 
   async function goPay() {
@@ -451,11 +458,15 @@ function WritePage() {
       if (replyTo && !addressless) {
         next.fromGeo = replyTo.fromGeo ?? FALLBACK_FROM;
         next.toGeo = replyTo.approxGeo ?? FALLBACK_TO;
-      } else if (!addressless && !fresh && fromAddress.city && toAddress.city) {
+      } else if (!addressless && !fresh && (fromAddress.city || fromAddress.pin) && (toAddress.city || toAddress.pin)) {
         const [fromHit, toHit] = await withTimeout(
           Promise.all([
-            geocodeAddress(geoQuery(fromAddress)),
-            replyTo ? Promise.resolve(replyTo.approxGeo ?? FALLBACK_TO) : geocodeAddress(geoQuery(toAddress)),
+            fromAddress.pin ? Promise.resolve(fromAddress.pin) : geocodeAddress(geoQuery(fromAddress)),
+            replyTo
+              ? Promise.resolve(replyTo.approxGeo ?? FALLBACK_TO)
+              : toAddress.pin
+                ? Promise.resolve(toAddress.pin)
+                : geocodeAddress(geoQuery(toAddress)),
           ]),
           8000,
         );
@@ -693,6 +704,7 @@ function WritePage() {
                       hint={wording.to.hint}
                       value={toAddress}
                       onChange={setToAddress}
+                      geo={toGeo}
                       onConfirm={() => scrollToSection(fromRef.current, true)}
                     />
                     <div ref={fromRef} className="scroll-target">
@@ -701,6 +713,7 @@ function WritePage() {
                         hint={wording.from.hint}
                         value={fromAddress}
                         onChange={setFromAddress}
+                        geo={fromGeo}
                         onConfirm={() => scrollToSection(envioRef.current, false)}
                       />
                     </div>
