@@ -107,7 +107,7 @@ export function ArrivalEstimate({ status, from, to, messengerId, onMessenger, sc
             >
               <span>{messenger.name}</span>
               <span className="arrival-eta-row-when">
-                {plan.fits ? <ShortWhen text={formatArrivalShort(plan.arriveAt)} /> : "não chega nesse dia"}
+                {plan.fits ? <ShortWhen text={formatArrivalShort(plan.arriveAt)} /> : "não chega nesse horário"}
               </span>
             </button>
           </li>

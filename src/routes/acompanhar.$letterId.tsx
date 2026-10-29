@@ -24,6 +24,8 @@ function TrackPage() {
   const { user, isPending } = useCurrentUserState();
   const [letter, setLetter] = useState<Letter | null | undefined>(undefined);
   const [role, setRole] = useState<"sender" | "recipient" | "viewer">("viewer");
+  /** Login de teste (ver isTestLogin no servidor): simula chegada e baixa antes de chegar. */
+  const [tester, setTester] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   /** O servidor já disse quem é esta pessoa para esta carta (remetente/destinatária/visualiza). */
   const [resolved, setResolved] = useState(false);
@@ -81,6 +83,7 @@ function TrackPage() {
         }
         setUnavailable(false);
         if (r.role === "sender" || r.role === "recipient" || r.role === "viewer") setRole(r.role);
+        setTester("tester" in r && r.tester === true);
         setResolved(true);
         if (r.letter) {
           const mapped = letterFromRecord(r.letter);
@@ -152,6 +155,7 @@ function TrackPage() {
       role={signedIn ? role : "viewer"}
       signedIn={signedIn}
       resolved={resolved || letter.id === "demo"}
+      tester={(signedIn && tester) || letter.id === "demo"}
     />
   );
 }
@@ -212,6 +216,7 @@ function TrackView({
   role,
   signedIn = true,
   resolved = true,
+  tester = false,
 }: {
   letter: Letter;
   role: "sender" | "recipient" | "viewer";
@@ -219,6 +224,8 @@ function TrackView({
   signedIn?: boolean;
   /** false enquanto o servidor ainda não respondeu quem é esta pessoa. */
   resolved?: boolean;
+  /** Login de teste: "Simular chegada" e baixar a carta mesmo antes de chegar. */
+  tester?: boolean;
 }) {
   const { firstArrival, consumeArrival } = useFirstArrival(letter, role, signedIn, resolved);
   const meta = trackMeta(letter);
@@ -230,6 +237,7 @@ function TrackView({
   const journeyRef = useRef<DeliveryJourneyHandle>(null);
   const delivered = letterProgress(letter, now).arrived;
   const showLetter = delivered || opened;
+  const canDownload = delivered || tester;
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
   const fromLabel = shownFromName(letter, role === "sender" ? "sender" : "public");
@@ -277,7 +285,7 @@ function TrackView({
 
   async function download() {
     const node = document.querySelector<HTMLElement>(".delivery-preview .letter-pack");
-    if (!node || !delivered) return;
+    if (!node || !canDownload) return;
     setDownloadError("");
     setDownloading(true);
     try {
@@ -290,7 +298,7 @@ function TrackView({
   }
 
   function printLetter() {
-    if (!delivered) return;
+    if (!canDownload) return;
     window.print();
   }
 
@@ -317,7 +325,8 @@ function TrackView({
           <DeliveryJourney
             ref={journeyRef}
             letter={letter}
-            allowDownload={delivered}
+            allowDownload={canDownload}
+            allowSimulate={tester}
             onDelivered={() => setNow(Date.now())}
             onOpened={() => {
               setOpened(true);
@@ -362,7 +371,7 @@ function TrackView({
             <a href={wa} target="_blank" rel="noreferrer">
               WhatsApp
             </a>
-            {delivered ? (
+            {canDownload ? (
               <button
                 type="button"
                 className="letter-download"
@@ -372,14 +381,14 @@ function TrackView({
                 {downloading ? "Preparando…" : "Baixar carta"}
               </button>
             ) : null}
-            {delivered ? (
+            {canDownload ? (
               <button type="button" onClick={printLetter}>
                 Imprimir
               </button>
             ) : null}
           </div>
           {downloadError ? <p className="track-note track-note-error">{downloadError}</p> : null}
-          {!delivered ? (
+          {!canDownload ? (
             <p className="track-note">O download destrava quando a carta chegar.</p>
           ) : null}
         </section>

@@ -143,7 +143,26 @@ export function planArrival(opts: {
     };
   }
 
-  const end = saoPauloDate(opts.arriveOn, 23, 59);
+  const target = parseArriveOn(opts.arriveOn);
+  if (!target) {
+    return { hours: est.hours, km: est.km, departAt: now, arriveAt: asap, instant: false, fits: false };
+  }
+  if (target.time) {
+    // Dia E hora marcados: chega exatamente nesse horário (tolerância de 1 min).
+    const exact = saoPauloDate(target.day, target.time.h, target.time.m);
+    const fits = asap.getTime() <= exact.getTime() + 60_000;
+    const arriveAt = fits ? new Date(Math.max(exact.getTime(), asap.getTime())) : asap;
+    return {
+      hours: est.hours,
+      km: est.km,
+      departAt: fits ? new Date(arriveAt.getTime() - travelMs) : now,
+      arriveAt,
+      instant: fits && arriveAt.getTime() - now.getTime() < INSTANT_MS,
+      fits,
+    };
+  }
+
+  const end = saoPauloDate(target.day, 23, 59);
   end.setSeconds(59);
   if (asap.getTime() > end.getTime()) {
     return {
@@ -156,7 +175,7 @@ export function planArrival(opts: {
     };
   }
 
-  const preferred = saoPauloDate(opts.arriveOn, 18, 0);
+  const preferred = saoPauloDate(target.day, 18, 0);
   const arriveAt = preferred.getTime() >= asap.getTime() ? preferred : asap;
   return {
     hours: est.hours,
@@ -175,6 +194,33 @@ export function approachNoticeAt(now: Date, departAt: Date, arriveAt: Date) {
   const lead = Math.min(6 * 60 * 60 * 1000, Math.max(60 * 60 * 1000, remaining * 0.15));
   const at = new Date(arriveAt.getTime() - lead);
   return at.getTime() < departAt.getTime() ? new Date(departAt.getTime()) : at;
+}
+
+/**
+ * `arriveOn` aceita "AAAA-MM-DD" (só o dia: chega às 18h ou assim que der) ou
+ * "AAAA-MM-DDTHH:MM" (dia e hora exatos, horário de Brasília). Outro formato → null.
+ */
+export function parseArriveOn(value: string) {
+  const m = /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(value.trim());
+  if (!m) return null;
+  if (m[2] === undefined) return { day: m[1], time: null };
+  const h = Number(m[2]);
+  const min = Number(m[3]);
+  if (h > 23 || min > 59) return null;
+  return { day: m[1], time: { h, m: min } };
+}
+
+/** Sugestão de horário para um dia: 18:00, ou o primeiro quarto de hora depois que algum mensageiro chega. */
+export function suggestTime(day: string, from: Geo, to: Geo, now = new Date()) {
+  let best = Number.POSITIVE_INFINITY;
+  for (const m of MESSENGERS) best = Math.min(best, planArrival({ messengerId: m.id, from, to, now }).arriveAt.getTime());
+  const six = saoPauloDate(day, 18, 0).getTime();
+  if (best <= six) return "18:00";
+  const q = 15 * 60_000;
+  const t = new Date(Math.ceil(best / q) * q);
+  if (dayKey(t) !== day) return "23:59";
+  const brt = new Date(t.getTime() - 3 * 3600_000);
+  return `${String(brt.getUTCHours()).padStart(2, "0")}:${String(brt.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 export function earliestDay(from: Geo, to: Geo, now = new Date()) {

@@ -340,7 +340,10 @@ let skipping = false, skipFrom = 0, skipElapsed = 0, synced = false;
 const FLY_SCALE = window.innerWidth < 700 ? 95 : 130;
 let GAIT = null; if (!AN.fly) fetch(`/models/${AID}_gait.json`).then((r) => r.ok ? r.json() : null).then((g) => { if (!alive || !g) return; GAIT = g; }).catch(() => {});
 const prevPos = new THREE.Vector3(); let havePrev = false;
+// "Simular chegada" só para logins de teste (ver isTestLogin em lib/server/shop.ts).
+if (!options.allowSimulate) $('skip').hidden = true;
 $('skip').onclick = () => {
+  if (!options.allowSimulate) return;
   unlock();
   if (arrived || skipping) return;
   skipping = true;

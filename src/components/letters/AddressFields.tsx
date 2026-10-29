@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type FocusEvent } from "react";
 import { Pencil } from "lucide-react";
-import { digitsCep, formatCep, lookupCep, lookupStreet, type Address } from "@/lib/address";
+import { digitsCep, formatCep, formatCoords, lookupCep, lookupStreet, type Address } from "@/lib/address";
+import { PinPicker } from "@/components/map/PinPicker";
 import {
   addressLooksFilled,
   favoriteSummary,
@@ -23,14 +24,24 @@ type Props = {
    * Não dispara ao reabrir um resumo já preenchido para editar.
    */
   onConfirm?: () => void;
+  /** Ponto já encontrado para este endereço (abre o mapa ali para ajustar o pino). */
+  geo?: { lat: number; lng: number };
 };
 
 /** Dá para fechar o cartão num resumo: CEP completo, rua e cidade. */
 function addressComplete(a: Address) {
+  if (a.pin) return Boolean(a.city.trim() || a.street.trim());
   return digitsCep(a.cep).length === 8 && Boolean(a.street.trim()) && Boolean(a.city.trim());
 }
 
-export function AddressFields({ label, hint, value, onChange, onConfirm }: Props) {
+export function AddressFields({ label, hint, value, onChange: emit, onConfirm, geo }: Props) {
+  const [mapOpen, setMapOpen] = useState(false);
+  /** Editar o endereço à mão tira o pino antigo (ele não corresponde mais). */
+  const onChange = (next: Address) => {
+    const moved =
+      next.cep !== value.cep || next.street !== value.street || next.city !== value.city || next.state !== value.state;
+    emit(moved && next.pin === value.pin ? { ...next, pin: undefined } : next);
+  };
   const [status, setStatus] = useState("");
   const [hits, setHits] = useState<Partial<Address>[]>([]);
   const [open, setOpen] = useState(false);
@@ -159,11 +170,34 @@ export function AddressFields({ label, hint, value, onChange, onConfirm }: Props
     setStatus("Favorito removido");
   }
 
-  if (collapsed && complete) {
-    const line1 = [value.street, value.number || "s/n"].filter(Boolean).join(", ");
+  const mapButton = (
+    <button type="button" className="addr-fav-btn addr-pin-btn" onClick={() => setMapOpen(true)}>
+      📍 {value.pin ? "Ajustar o pino no mapa" : complete ? "Ajustar no mapa (pino)" : "Marcar no mapa em vez de digitar"}
+    </button>
+  );
+  const picker = mapOpen ? (
+    <PinPicker
+      start={value.pin ?? geo}
+      onCancel={() => setMapOpen(false)}
+      onPick={(found) => {
+        setMapOpen(false);
+        // Ajuste fino de um endereço digitado: mantém o texto, só move o pino.
+        const keepTyped = addressComplete(value) && !value.pin && found.city === value.city;
+        emit(keepTyped ? { ...value, pin: found.pin } : { ...found, complement: found.complement || value.complement });
+        setStatus("Pino marcado no mapa");
+        confirm();
+      }}
+    />
+  ) : null;
+
+  if (collapsed && complete && !mapOpen) {
+    const line1 = value.pin && !value.street
+      ? value.city
+      : [value.street, value.street.includes("°") ? "" : value.number || "s/n"].filter(Boolean).join(", ");
     const line2 = [value.complement, value.neighborhood].filter(Boolean).join(" · ");
     const line3 = [value.city, value.state].filter(Boolean).join(" – ") + (value.cep ? ` · ${value.cep}` : "");
     return (
+      <div className="addr-summary-wrap">
       <button
         type="button"
         className="addr-summary"
@@ -174,10 +208,15 @@ export function AddressFields({ label, hint, value, onChange, onConfirm }: Props
         <span className="addr-summary-main">{line1}</span>
         {line2 ? <span className="addr-summary-sub">{line2}</span> : null}
         <span className="addr-summary-sub">{line3}</span>
+        {value.pin ? (
+          <span className="addr-summary-sub">📍 {formatCoords(value.pin.lat, value.pin.lng)}</span>
+        ) : null}
         <span className="addr-summary-edit">
           <Pencil size={14} /> Editar
         </span>
       </button>
+      <div className="addr-fav">{mapButton}</div>
+      </div>
     );
   }
 
@@ -198,6 +237,8 @@ export function AddressFields({ label, hint, value, onChange, onConfirm }: Props
           Salvar como favorito
         </button>
       </div>
+      <div className="addr-fav">{mapButton}</div>
+      {picker}
       {pickerOpen && favorites.length ? (
         <ul className="addr-fav-list" role="listbox" aria-label="Endereços favoritos">
           {favorites.map((fav) => (
