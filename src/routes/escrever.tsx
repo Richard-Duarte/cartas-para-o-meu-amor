@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ANONYMOUS_MODE } from "@/lib/anonymous-mode";
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -221,7 +222,8 @@ function WritePage() {
         setToGeo(draft.toGeo);
         setAffiliateCode(search.ref ?? draft.affiliateCode);
         const resuming = Boolean(search.passo);
-        setAnonymous(search.anonimo === "1" || (resuming && Boolean(draft.anonymous)));
+        // Anônima "em breve" (ANONYMOUS_MODE desligado): link ?anonimo=1 e rascunho antigo não ligam.
+        setAnonymous(ANONYMOUS_MODE && (search.anonimo === "1" || (resuming && Boolean(draft.anonymous))));
         setScheduled(resuming ? Boolean(draft.scheduled) : false);
         if (search.passo) {
           firstStep.current = true;
@@ -242,7 +244,7 @@ function WritePage() {
       } else if (search.ref) {
         setAffiliateCode(search.ref);
       }
-      if (!draft && search.anonimo === "1") setAnonymous(true);
+      if (!draft && search.anonimo === "1" && ANONYMOUS_MODE) setAnonymous(true);
       setReady(true);
     });
   }, [search.papel, search.ref, search.anonimo, search.passo, search.responder]);

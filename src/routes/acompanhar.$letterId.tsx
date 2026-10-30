@@ -7,7 +7,8 @@ import { trackMeta } from "@/components/delivery/journey";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { downloadLetterPng } from "@/lib/download-letter";
-import { forgetLetter, getLetter, letterFromRecord, letterProgress, rememberLetter, seedDemoLetter, shareUrl, shownFromName, type Letter } from "@/lib/letters";
+import { forgetLetter, getLetter, letterFromRecord, letterProgress, markSentHere, rememberLetter, seedDemoLetter, sentHere, shareUrl, shownFromName, type Letter } from "@/lib/letters";
+import { LinkViewBadge } from "@/components/letters/LinkViewBadge";
 import { LetterReply } from "@/components/letters/LetterReply";
 import { letterThread, openPublicLetter, openSharedLetter } from "@/lib/server/shop";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
@@ -71,7 +72,7 @@ function TrackPage() {
     }
     // Sem login (fase de testes): visão pública de quem só visualiza pelo link.
     setResolved(false);
-    const open = user ? openSharedLetter({ data: letterId }) : openPublicLetter({ data: letterId });
+    const open = user ? openSharedLetter({ data: letterId }) : openPublicLetter({ data: { id: letterId, mine: sentHere(letterId) } });
     void open
       .then((r) => {
         // Carta fora do ar (conta de quem enviou bloqueada): some daqui e do cache, sem mostrar nada dela.
@@ -83,6 +84,8 @@ function TrackPage() {
         }
         setUnavailable(false);
         if (r.role === "sender" || r.role === "recipient" || r.role === "viewer") setRole(r.role);
+        // Este navegador é de quem enviou: abrir o link depois, mesmo sem login, não conta como visto.
+        if (r.role === "sender") markSentHere(letterId);
         setTester("tester" in r && r.tester === true);
         setResolved(true);
         if (r.letter) {
@@ -237,6 +240,9 @@ function TrackView({
   const journeyRef = useRef<DeliveryJourneyHandle>(null);
   const delivered = letterProgress(letter, now).arrived;
   const showLetter = delivered || opened;
+  // Baixar/Imprimir antes de chegar: SÓ logins de teste (isTestLogin no servidor:
+  // PAYMENT_BYPASS_EMAILS verificado/social ou ADMIN_EMAILS via Google). Quem enviou e quem
+  // aguarda pelo link só baixam depois que a carta chega.
   const canDownload = delivered || tester;
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
@@ -364,6 +370,8 @@ function TrackView({
           <p className="track-meta">
             {meta.animal}
           </p>
+          {/* Só quem enviou vê se a carta já foi aberta pelo link. */}
+          {role === "sender" && letter.id !== "demo" ? <LinkViewBadge letter={letter} /> : null}
           <div className="share-bar track-share">
             <button type="button" onClick={copyLink}>
               {copied ? "Link copiado ✓" : "Copiar link"}
@@ -378,7 +386,7 @@ function TrackView({
                 disabled={downloading}
                 onClick={() => void download()}
               >
-                {downloading ? "Preparando…" : "Baixar carta"}
+                {downloading ? "Preparando…" : delivered ? "Baixar carta" : "Baixar carta (teste)"}
               </button>
             ) : null}
             {canDownload ? (

@@ -1,4 +1,5 @@
 "use client";
+import { ANONYMOUS_MODE } from "@/lib/anonymous-mode";
 
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -62,7 +63,10 @@ export function AnonymousSection() {
 
   return (
     <section className="anon-section" id="anonimo">
-      <h2 className="anon-title">Envie uma carta anônima</h2>
+      <h2 className="anon-title">
+        Envie uma carta anônima
+        {ANONYMOUS_MODE ? null : <span className="soon-badge">Em breve</span>}
+      </h2>
       <video
         ref={videoRef}
         className="anon-film"
@@ -91,11 +95,12 @@ export function AnonymousSection() {
         <button
           type="button"
           className="anon-cta"
-          onClick={onWrite}
-          disabled={playing}
+          onClick={ANONYMOUS_MODE ? onWrite : undefined}
+          disabled={playing || !ANONYMOUS_MODE}
           aria-busy={playing}
+          aria-disabled={!ANONYMOUS_MODE}
         >
-          Escrever carta anônima
+          {ANONYMOUS_MODE ? "Escrever carta anônima" : "Carta anônima · em breve"}
         </button>
       </div>
     </section>

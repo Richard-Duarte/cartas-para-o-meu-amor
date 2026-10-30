@@ -7647,3 +7647,35 @@ img.messenger-picker-live-media {
 .cart-line strong.cart-line-discount {
   color: var(--color-turtle);
 }
+
+/* Sinal "abriu pelo link" (só quem enviou vê) */
+.link-view-badge {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--ink-soft, #7a6a60);
+}
+.link-view-badge.is-seen {
+  color: #b23a5a;
+  font-weight: 600;
+}
+.mailbox-card .link-view-badge {
+  margin-top: 0.25rem;
+}
+
+/* Anônima "Em breve" (até a Evolution/WhatsApp estar configurada) */
+.soon-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #f6dfe6;
+  color: #b23a5a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+.choice-card.is-soon {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

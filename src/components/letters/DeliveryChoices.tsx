@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { ANONYMOUS_MODE } from "@/lib/anonymous-mode";
 import { MessengerPicker } from "@/components/messengers/MessengerPicker";
 import { formatBrl, formatMoney } from "@/lib/cart";
 import {
@@ -48,12 +49,25 @@ export function AnonymityChoice(props: { anonymous: boolean; onAnonymous: (value
       </button>
       <button
         type="button"
-        className={cn("choice-card", props.anonymous && "is-on")}
+        className={cn("choice-card", props.anonymous && "is-on", !ANONYMOUS_MODE && "is-soon")}
         aria-pressed={props.anonymous}
-        onClick={() => props.onAnonymous(true)}
+        disabled={!ANONYMOUS_MODE}
+        aria-disabled={!ANONYMOUS_MODE}
+        onClick={() => ANONYMOUS_MODE && props.onAnonymous(true)}
       >
-        <strong>Anônimo · {formatBrl(getAnonymousFee())}</strong>
-        <span>Sem o seu nome. Chega em 2h.</span>
+        {ANONYMOUS_MODE ? (
+          <>
+            <strong>Anônimo · {formatBrl(getAnonymousFee())}</strong>
+            <span>Sem o seu nome. Chega em 2h.</span>
+          </>
+        ) : (
+          <>
+            <strong>
+              Anônimo <span className="soon-badge">Em breve</span>
+            </strong>
+            <span>Sem o seu nome, chegando em 2h. Estamos preparando o aviso por WhatsApp.</span>
+          </>
+        )}
       </button>
     </div>
   );
