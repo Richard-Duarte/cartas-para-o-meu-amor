@@ -161,7 +161,7 @@ function TermsPage() {
         </li>
         <li>
           <strong>Cupom AMOR</strong>: deixa o segundo envio da conta grátis (mensageiro, papel e adicionais). Precisa
-          estar logado, vale uma vez por conta e só depois de a conta ter enviado ao menos uma carta. Não se soma a
+          estar logado, vale uma vez por conta e só para a segunda carta: a conta precisa ter exatamente uma carta paga antes (com pagamento aprovado; envios sem custo, de teste ou com cupom 100% não contam). Contas com duas ou mais cartas pagas não usam o cupom. Não se soma a
           comissão de indicação e pode ser encerrado a qualquer momento, sem afetar envios já feitos.
         </li>
       </ul>

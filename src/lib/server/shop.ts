@@ -5,6 +5,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
 import { getSql } from "@/lib/db";
 import { roundBrl } from "@/lib/coupon-rules";
+import { resolveCoupon, secondSendStatus } from "@/lib/server/coupon-eligibility";
 import { paymentsMode } from "@/lib/payments-mode";
 import {
   ANONYMOUS_FEE_BRL,
@@ -37,10 +38,7 @@ import type { Geo } from "@/lib/messengers";
 import {
   COUPON_MESSAGES,
   normalizeCouponCode,
-  SECOND_SEND_CODE,
   SECOND_SEND_RULE,
-  secondSendMessage,
-  secondSendState,
 } from "@/lib/coupon-rules";
 
 function code6() {
@@ -168,68 +166,7 @@ export const geocodeAddress = createServerFn({ method: "POST" })
     return { lat: -23.55, lng: -46.63 };
   });
 
-type Sql = Awaited<ReturnType<typeof getSql>>;
-
-type CouponRow = { id: string; code: string; percent: number; amount_brl: number; active: boolean; rule: string | null };
-
-export type ResolvedCoupon =
-  | { ok: true; code: string; percent: number; amountBrl: number; rule: string | null }
-  | { ok: false; message: string; ruleBlocked: boolean };
-
-async function findCoupon(sql: Sql, code: string): Promise<CouponRow | null> {
-  try {
-    const rows = await sql<CouponRow>`
-      select id, code, percent, amount_brl, active, rule from coupons where upper(code) = ${code} limit 1
-    `;
-    return rows[0] ?? null;
-  } catch {
-    // Banco sem a coluna `rule` (migração 0014 ainda não aplicada): cupons comuns seguem valendo.
-    const rows = await sql<Omit<CouponRow, "rule">>`
-      select id, code, percent, amount_brl, active from coupons where upper(code) = ${code} limit 1
-    `;
-    return rows[0] ? { ...rows[0], rule: null } : null;
-  }
-}
-
-/**
- * AMOR (2º envio grátis): conta já enviou ao menos 1 carta e nunca usou o cupom.
- * `exceptLetterId`: a própria carta (idempotência do placeLetter / webhook).
- */
-export async function secondSendStatus(sql: Sql, userId: string, exceptLetterId?: string) {
-  const sent = await sql<{ n: number }>`
-    select count(*)::int as n from letters where user_id = ${userId} and id <> ${exceptLetterId ?? ""}
-  `;
-  const used = await sql<{ n: number }>`
-    select count(*)::int as n from coupon_redemptions
-    where code = ${SECOND_SEND_CODE} and user_id = ${userId} and letter_id <> ${exceptLetterId ?? ""}
-  `;
-  return secondSendState({ sentLetters: sent[0]?.n ?? 0, alreadyRedeemed: (used[0]?.n ?? 0) > 0 });
-}
-
-/** Valida o cupom NO SERVIDOR (regras inclusas). O navegador só mostra o resultado. */
-export async function resolveCoupon(
-  sql: Sql,
-  userId: string | null,
-  rawCode: string,
-  exceptLetterId?: string,
-): Promise<ResolvedCoupon> {
-  const code = normalizeCouponCode(rawCode);
-  if (!code) return { ok: false, message: COUPON_MESSAGES.invalid, ruleBlocked: false };
-  const row = await findCoupon(sql, code);
-  if (!row || !row.active) return { ok: false, message: COUPON_MESSAGES.invalid, ruleBlocked: false };
-  if (row.rule === SECOND_SEND_RULE) {
-    if (!userId) return { ok: false, message: COUPON_MESSAGES.login, ruleBlocked: true };
-    const state = await secondSendStatus(sql, userId, exceptLetterId);
-    if (state !== "ok") return { ok: false, message: secondSendMessage(state), ruleBlocked: true };
-  }
-  return {
-    ok: true,
-    code: row.code.toUpperCase(),
-    percent: Number(row.percent) || 0,
-    amountBrl: Number(row.amount_brl) || 0,
-    rule: row.rule ?? null,
-  };
-}
+export { resolveCoupon, secondSendStatus, type ResolvedCoupon } from "@/lib/server/coupon-eligibility";
 
 export const applyCoupon = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

@@ -25,11 +25,12 @@ Tudo editável no Painel (Templates, Mensageiros, Afiliados → preços), com ce
 
 ## Cupom AMOR (2º envio grátis)
 - Linha em `coupons` com `rule = 'second_send'` e 100%. Liga/desliga no Painel → Cupons.
-- Servidor confere (applyCoupon, serverCartTotal, placeLetter): login, conta com ≥ 1 carta enviada,
+- Servidor confere (applyCoupon, serverCartTotal, placeLetter): login, conta com EXATAMENTE 1 carta PAGA (só a 2ª carta) (pagamento aprovado no Mercado Pago com valor > 0, em `payment_intents`;
+  envio sem custo, teste, bypass, cupom 100%, só crédito e resposta sem pagamento não contam),
   1x por conta (`coupon_redemptions`, índice único `(code, user_id)` para AMOR). Sem maiúsculas/minúsculas.
 - Total R$ 0,00 → botão "Enviar (sem custo)" (o mesmo fluxo de cupom/crédito que já existia): a carta sai
   sem passar pelo Mercado Pago. Sem comissão de indicação nesse envio.
-- Mensagens: "Faça seu primeiro envio para liberar o cupom AMOR" / "Você já usou o cupom AMOR".
+- Mensagens: "Faça seu primeiro envio pago para liberar o cupom AMOR" (0 pagas) / "O cupom AMOR vale apenas para a sua segunda carta" (2+ pagas) / "Você já usou o cupom AMOR".
 
 ## Como a migração roda
 `npm run build` → `scripts/migrate.mjs` aplica `migrations/0014_precos_cupom_amor.sql` no deploy de

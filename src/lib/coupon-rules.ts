@@ -1,29 +1,36 @@
 /**
  * Regras de cupom que valem no navegador e no servidor (o servidor é quem decide).
  * AMOR: 100% do 2º envio (mensageiro + papel + adicionais), 1x por conta, só com login e
- * com pelo menos uma carta já enviada pela conta.
+ * só para a 2ª carta: a conta tem exatamente 1 carta PAGA (pagamento real aprovado, valor > 0).
  */
 export const SECOND_SEND_CODE = "AMOR";
 export const SECOND_SEND_RULE = "second_send";
 
 export const COUPON_MESSAGES = {
   login: "Entre na sua conta para usar o cupom AMOR.",
-  firstSend: "Faça seu primeiro envio para liberar o cupom AMOR",
+  firstSend: "Faça seu primeiro envio pago para liberar o cupom AMOR",
   used: "Você já usou o cupom AMOR",
+  notSecond: "O cupom AMOR vale apenas para a sua segunda carta",
   invalid: "Cupom inválido",
 } as const;
 
-export type SecondSendState = "ok" | "first-send" | "used";
+export type SecondSendState = "ok" | "first-send" | "used" | "not-second";
 
-/** Pura (testável): estado do AMOR a partir do que o banco diz sobre a conta. */
+/**
+ * Pura (testável). `sentLetters` = cartas PAGAS da conta (ver coupon-eligibility.ts → paidLetterCount).
+ * Vale só para a 2ª carta: exatamente 1 carta paga e o cupom nunca usado.
+ */
 export function secondSendState(opts: { sentLetters: number; alreadyRedeemed: boolean }): SecondSendState {
   if (opts.alreadyRedeemed) return "used";
   if (opts.sentLetters < 1) return "first-send";
+  if (opts.sentLetters > 1) return "not-second";
   return "ok";
 }
 
 export function secondSendMessage(state: Exclude<SecondSendState, "ok">) {
-  return state === "used" ? COUPON_MESSAGES.used : COUPON_MESSAGES.firstSend;
+  if (state === "used") return COUPON_MESSAGES.used;
+  if (state === "not-second") return COUPON_MESSAGES.notSecond;
+  return COUPON_MESSAGES.firstSend;
 }
 
 export function normalizeCouponCode(code: string | null | undefined) {
