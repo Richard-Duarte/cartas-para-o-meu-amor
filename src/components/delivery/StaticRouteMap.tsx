@@ -26,9 +26,9 @@ function project(lat: number, lng: number, z: number) {
 export function routeCurve(from: Geo, to: Geo, steps = 80): [number, number][] {
   const a: [number, number] = [from.lat, from.lng];
   let b: [number, number] = [to.lat, to.lng];
-  if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.01) b = [b[0] + 0.02, b[1] + 0.02];
+  if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.00005) b = [b[0] + 0.0004, b[1] + 0.0004];
   const span = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-  const bow = Math.max(span * 0.18, 0.08);
+  const bow = span * 0.18;
   const ctrl: [number, number] = [
     (a[0] + b[0]) / 2 + (-(b[1] - a[1]) / span) * bow,
     (a[1] + b[1]) / 2 + ((b[0] - a[0]) / span) * bow,

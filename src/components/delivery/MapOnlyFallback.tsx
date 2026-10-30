@@ -106,7 +106,8 @@ function LeafletFallback({ letter, loadFailed = false }: Props) {
           "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
           {
             attribution: "Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap",
-            maxZoom: 16,
+            maxZoom: 17,
+            maxNativeZoom: 16,
           },
         ).addTo(m);
         L.polyline(route, { color: "#e85a7a", weight: 3, dashArray: "6 9", opacity: 0.8 }).addTo(m);
@@ -126,12 +127,12 @@ function LeafletFallback({ letter, loadFailed = false }: Props) {
           if (dead) return;
           try {
             m.invalidateSize({ animate: false });
-            m.fitBounds(bounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
+            m.fitBounds(bounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 17 });
           } catch {
             /* mapa já removido */
           }
         };
-        m.fitBounds(bounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
+        m.fitBounds(bounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 17 });
         requestAnimationFrame(refresh);
         window.setTimeout(refresh, 120);
         window.setTimeout(refresh, 400);
