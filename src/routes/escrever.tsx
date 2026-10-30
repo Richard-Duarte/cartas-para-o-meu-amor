@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ANONYMOUS_MODE } from "@/lib/anonymous-mode";
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AddressFields } from "@/components/letters/AddressFields";
 import { ArrivalEstimate, type ArrivalStatus } from "@/components/letters/ArrivalEstimate";
 import { CanvaEditor } from "@/components/letters/CanvaEditor";
@@ -23,14 +23,12 @@ import {
   type ReplyContext,
 } from "@/lib/cart";
 import { bootCatalog } from "@/lib/catalog";
-import { formatArrival, planArrival } from "@/lib/delivery";
 import { DESIGNS, type DesignId } from "@/lib/designs";
 import { geocodeAddress, replyContext } from "@/lib/server/shop";
 import { cn } from "@/lib/utils";
 import {
   MESSENGERS,
   addressWording,
-  estimateDelivery,
   getMessenger,
   type Geo,
   type MessengerId,
@@ -297,31 +295,6 @@ function WritePage() {
   const routeFrom = fromGeo ?? FALLBACK_FROM;
   const routeTo = toGeo ?? FALLBACK_TO;
 
-  const hoursById = useMemo(() => {
-    const map: Partial<Record<string, number>> = {};
-    for (const m of MESSENGERS) {
-      map[m.id] = estimateDelivery({ messengerId: m.id, from: routeFrom, to: routeTo }).hours;
-    }
-    return map;
-  }, [routeFrom, routeTo]);
-
-  const arriveLabelById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const m of MESSENGERS) {
-      if (addressless) {
-        map[m.id] = "Chega em 2h";
-        continue;
-      }
-      const plan = planArrival({
-        messengerId: m.id,
-        from: routeFrom,
-        to: routeTo,
-        arriveOn: scheduled ? arriveOn || null : null,
-      });
-      map[m.id] = plan.fits ? `Chega ${formatArrival(plan.arriveAt)}` : "Não chega nesse horário";
-    }
-    return map;
-  }, [routeFrom, routeTo, scheduled, arriveOn, addressless]);
 
   const cart = buildCart(designId, messengerId, { anonymous, scheduled: scheduled && !addressless });
   const wording = addressWording(messengerId);
@@ -383,11 +356,6 @@ function WritePage() {
     onArriveOn: setArriveOn,
   };
   const canDeliver = canAddress && deliveryCanContinue(deliveryProps);
-  const blockedMessengers = new Set(
-    scheduled
-      ? MESSENGERS.filter((m) => arriveLabelById[m.id] === "Não chega nesse horário").map((m) => m.id)
-      : [],
-  );
 
   useEffect(() => {
     if (!canAddress || addressless) return;
@@ -624,14 +592,9 @@ function WritePage() {
                   <p className="text-sm uppercase tracking-widest text-muted">Mensageiro</p>
                   <h2 className="mt-1 font-display text-3xl">Quem atravessa a cidade.</h2>
                 </div>
-                <MessengerPicker
-                  value={messengerId}
-                  onChange={setMessengerId}
-                  hoursById={hoursById}
-                  arriveLabelById={arriveLabelById}
-                  etaApproximate={!(fromGeo && toGeo)}
-                  disabledIds={blockedMessengers}
-                />
+                {/* Passo 3 mostra só mensageiro, preço e ritmo: o tempo de chegada aparece
+                    apenas no passo do endereço (depende da rota, do pino e do horário marcado). */}
+                <MessengerPicker value={messengerId} onChange={setMessengerId} />
                 <div className="write-actions-inline">
                   <button
                     type="button"
