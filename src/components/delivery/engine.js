@@ -244,11 +244,13 @@ const toLL = endpoint(options.to, [-22.9068, -43.1729]);
 // Pins stay on the exact address; only the drawn route is nudged if the points coincide.
 let routeFrom = fromLL;
 let routeTo = toLL;
-if (Math.hypot(routeFrom[0] - routeTo[0], routeFrom[1] - routeTo[1]) < 0.01) {
-  routeTo = [routeTo[0] + 0.02, routeTo[1] + 0.02];
+// Perto (mesmo bairro): a rota segue curta e o arco é proporcional à distância — antes um
+// mínimo fixo (~2 km de desvio + ~9 km de arco) fazia uma volta enorme entre pontos a 100 m.
+if (Math.hypot(routeFrom[0] - routeTo[0], routeFrom[1] - routeTo[1]) < 0.00005) {
+  routeTo = [routeTo[0] + 0.0004, routeTo[1] + 0.0004];
 }
 const span = Math.hypot(routeTo[0] - routeFrom[0], routeTo[1] - routeFrom[1]) || 1;
-const bow = Math.max(span * 0.18, 0.08);
+const bow = span * 0.18;
 const CTRL = [(routeFrom[0] + routeTo[0]) / 2 + (-(routeTo[1] - routeFrom[1]) / span) * bow, (routeFrom[1] + routeTo[1]) / 2 + ((routeTo[0] - routeFrom[0]) / span) * bow];
 const bez = (t) => [0, 1].map((k) => (1 - t) ** 2 * routeFrom[k] + 2 * (1 - t) * t * CTRL[k] + t * t * routeTo[k]);
 const route = Array.from({ length: 80 }, (_, i) => bez(i / 79));
@@ -258,7 +260,7 @@ if (SCENE) {
   root.querySelector('.map-card').classList.add('is-scene');
 } else {
   map = L.map($('map'), { zoomControl: false, attributionControl: true, scrollWheelZoom: false });
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap', maxZoom: 16 }).addTo(map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap', maxZoom: 17, maxNativeZoom: 16 }).addTo(map);
   L.polyline(route, { color: '#e85a7a', weight: 3, dashArray: '6 9', opacity: 0.8 }).addTo(map);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pin = (ll, t) => {
@@ -277,10 +279,10 @@ if (SCENE) {
     if (!alive) return;
     try {
       map.invalidateSize({ animate: false, pan: false });
-      map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
+      map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 17 });
     } catch (e) {}
   };
-  map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 14 });
+  map.fitBounds(routeBounds, { paddingTopLeft: [56, 104], paddingBottomRight: [56, 56], maxZoom: 17 });
 }
 function refreshMapLayout() {
   if (!alive) return;

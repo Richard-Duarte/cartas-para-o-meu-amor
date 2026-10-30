@@ -203,7 +203,10 @@ export function InstallAppSection() {
   // "App instalado." só dentro do app de verdade. Instalar a partir desta aba
   // (evento appinstalled) não transforma a aba em app: ela continua no navegador,
   // então mantém as opções e só avisa onde abrir.
-  const done = standalone;
+  // Decidido 2026-10-27/30: a seção SEMPRE mostra "Instale o app" com Android e Apple,
+  // no navegador e até dentro do app instalado — nunca "App instalado"/"Você já está no app".
+  const done = false;
+  void standalone;
 
   return (
     <section id="app" className="install-app" aria-labelledby="install-app-title">
@@ -221,11 +224,8 @@ export function InstallAppSection() {
               O envelope fica na tela inicial: abre em tela cheia, sem barra do navegador, e a
               próxima carta fica a um toque. Grátis, sem loja de apps.
             </p>
-            {installed ? (
-              <p className="install-app-lead">
-                <span className="install-done-badge"><IconCheck /> Instalado! Abra pelo ícone na tela inicial.</span>
-              </p>
-            ) : null}
+            {/* Sem aviso de "instalado": as opções Android/Apple ficam sempre à vista. */}
+            {void installed}
             <div className="install-app-options">
               <div className={platform === "android" ? "install-option is-suggested" : "install-option"}>
                 {platform === "android" ? <span className="install-option-badge">Seu aparelho</span> : null}

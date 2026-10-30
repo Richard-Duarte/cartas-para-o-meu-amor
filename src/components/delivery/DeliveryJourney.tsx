@@ -111,6 +111,15 @@ function useStickyMapUi(slot: React.RefObject<HTMLDivElement | null>, deps: unkn
   }, deps);
 }
 
+/** Assinatura curta da 1ª página (texto/adesivos) para remontar a cena quando ela muda. */
+function pageKey(page: unknown) {
+  if (!page) return "";
+  const raw = JSON.stringify(page);
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) h = (h * 31 + raw.charCodeAt(i)) | 0;
+  return `${raw.length}:${h}`;
+}
+
 export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function DeliveryJourney(
   { letter, allowDownload = false, allowSimulate = false, onDelivered, onOpened, replyHref, firstArrival = false },
   ref,
@@ -152,6 +161,10 @@ export const DeliveryJourney = forwardRef<DeliveryJourneyHandle, Props>(function
     geoKey(ends.to.lng),
     ends.from.label,
     ends.to.label,
+    // A folha dentro do envelope tem que ser o papel escrito: se o papel ou a 1ª página
+    // mudarem (ex.: cópia local antiga trocada pela do servidor), a cena remonta.
+    letter.designId ?? "classico",
+    pageKey(letter.pages?.[0]),
   ].join("|");
 
   useImperativeHandle(ref, () => ({
