@@ -1,4 +1,5 @@
 import type React from "react";
+import { ANONYMOUS_MODE } from "@/lib/anonymous-mode";
 import { useEffect, useRef, useState } from "react";
 import { getDesign, type DesignId } from "@/lib/designs";
 import { downloadLetterPng } from "@/lib/download-letter";
@@ -241,7 +242,7 @@ export function ReplyButton({
           <i>✨</i>
         </span>
       </a>
-      {dock ? null : <p className="reply-cta-note">Você escolhe se vai com seu nome ou anônima.</p>}
+      {dock ? null : <p className="reply-cta-note">{ANONYMOUS_MODE ? "Você escolhe se vai com seu nome ou anônima." : "Vai com o seu nome (resposta anônima em breve)."}</p>}
     </div>
   );
 }

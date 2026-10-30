@@ -7661,3 +7661,21 @@ img.messenger-picker-live-media {
 .mailbox-card .link-view-badge {
   margin-top: 0.25rem;
 }
+
+/* Anônima "Em breve" (até a Evolution/WhatsApp estar configurada) */
+.soon-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #f6dfe6;
+  color: #b23a5a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+.choice-card.is-soon {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

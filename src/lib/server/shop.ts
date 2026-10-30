@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ANONYMOUS_MODE } from "@/lib/anonymous-mode";
 import { z } from "zod";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
@@ -308,10 +309,23 @@ export const checkoutSchema = z.object({
     });
 export type CheckoutInput = z.infer<typeof checkoutSchema>;
 
+/**
+ * Carta anônima nova só com o modo ligado (VITE_ANONYMOUS_MODE=on) E a Evolution
+ * configurada (EVOLUTION_API_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE). Resposta a
+ * carta anônima já existente continua anônima.
+ */
+function anonymousAllowedOnServer() {
+  const has = (k: string) => Boolean(String(process.env[k] ?? "").trim());
+  return ANONYMOUS_MODE && has("EVOLUTION_API_URL") && has("EVOLUTION_API_KEY") && has("EVOLUTION_INSTANCE");
+}
+
 /** Confere, ANTES de cobrar, o que faria a carta ser recusada depois (resposta e data marcada). */
 export async function precheckLetter(sql: Awaited<ReturnType<typeof getSql>>, userId: string, data: CheckoutInput) {
   await ensureReplyColumns(sql);
   const anonymous = Boolean(data.anonymous);
+  if (anonymous && !data.replyToLetterId && !anonymousAllowedOnServer()) {
+    throw new Error("A carta anônima chega em breve. Por enquanto, envie com o seu nome.");
+  }
   let fromGeoJson = data.fromGeoJson;
   let toGeoJson = data.toGeoJson;
   if (data.replyToLetterId) {
@@ -557,6 +571,9 @@ export const checkoutLetter = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await assertNotBlocked(sql, context.userId);
+    if (data.anonymous && !data.replyToLetterId && !anonymousAllowedOnServer()) {
+      throw new Error("A carta anônima chega em breve. Por enquanto, envie com o seu nome.");
+    }
     if (paymentsMode() === "mercadopago") {
       // Pagamento real ligado: este atalho só serve para carrinho que sai grátis (cupom/crédito).
       const { serverCartTotal } = await import("@/lib/server/payments.server");
