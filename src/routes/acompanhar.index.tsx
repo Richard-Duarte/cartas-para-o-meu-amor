@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { letterFromRecord, letterProgress, shownFromName, type Letter } from "@/lib/letters";
+import { letterFromRecord, letterProgress, markSentHere, shownFromName, type Letter } from "@/lib/letters";
+import { LinkViewBadge } from "@/components/letters/LinkViewBadge";
 import { getMessenger } from "@/lib/messengers";
 import { myMailbox } from "@/lib/server/shop";
 import { PUBLIC_TRACKING } from "@/lib/public-tracking";
@@ -73,6 +74,7 @@ function TrackInbox() {
     void myMailbox()
       .then((box) => {
         setSent((box.sent ?? []).map(letterFromRecord));
+        for (const r of box.sent ?? []) markSentHere(r.id);
         setReceived((box.received ?? []).map(letterFromRecord));
       })
       .catch(() => {
@@ -177,6 +179,7 @@ function LetterCard({ letter, tone }: { letter: Letter; tone: "sent" | "received
           {shownFromName(letter, tone === "sent" ? "sender" : "public")} → {letter.toName}
         </strong>
         <span>{stats.arrived ? "Chegou" : `A caminho · ${Math.round(stats.progress * 100)}%`}</span>
+        {tone === "sent" ? <LinkViewBadge letter={letter} compact /> : null}
       </Link>
     </li>
   );

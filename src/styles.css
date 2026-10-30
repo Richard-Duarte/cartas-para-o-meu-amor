@@ -7647,3 +7647,17 @@ img.messenger-picker-live-media {
 .cart-line strong.cart-line-discount {
   color: var(--color-turtle);
 }
+
+/* Sinal "abriu pelo link" (só quem enviou vê) */
+.link-view-badge {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--ink-soft, #7a6a60);
+}
+.link-view-badge.is-seen {
+  color: #b23a5a;
+  font-weight: 600;
+}
+.mailbox-card .link-view-badge {
+  margin-top: 0.25rem;
+}

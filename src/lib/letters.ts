@@ -50,6 +50,9 @@ export type Letter = {
   addressless?: boolean;
   replyToLetterId?: string | null;
   threadId?: string | null;
+  /** Só para quem enviou: quando alguém (que não é quem enviou) abriu o link pela 1ª vez. */
+  linkViewedAt?: number | null;
+  linkViewCount?: number;
 };
 
 export type LetterRecord = {
@@ -80,6 +83,8 @@ export type LetterRecord = {
   addressless?: boolean | null;
   reply_to_letter_id?: string | null;
   thread_id?: string | null;
+  link_viewed_at?: string | null;
+  link_view_count?: number | null;
 };
 
 const KEY = "cartas-para-o-meu-amor:letters:v1";
@@ -138,6 +143,8 @@ export function letterFromRecord(row: LetterRecord): Letter {
     recipientUserId: row.recipient_user_id,
     addressless: Boolean(row.addressless ?? row.anonymous),
     replyToLetterId: row.reply_to_letter_id ?? null,
+    linkViewedAt: row.link_viewed_at ? new Date(row.link_viewed_at).getTime() : null,
+    linkViewCount: row.link_view_count ?? 0,
     threadId: row.thread_id ?? null,
   };
 }
@@ -151,6 +158,7 @@ export function saveLetter(input: Omit<Letter, "id" | "startedAt" | "demoDuratio
     demoDurationMs: demoDurationMs(messenger.speedKmh),
   };
   rememberLetter(letter);
+  markSentHere(letter.id);
   return letter;
 }
 
@@ -284,4 +292,31 @@ export function seedDemoLetter(opts?: { delivered?: boolean; messengerId?: strin
 export function shareUrl(letterId: string) {
   if (typeof window === "undefined") return `/acompanhar/${letterId}`;
   return `${publicOrigin(window.location.origin)}/acompanhar/${letterId}`;
+}
+
+const SENT_KEY = "cartas-para-o-meu-amor:sent-here:v1";
+
+/**
+ * Cartas enviadas (ou acompanhadas como remetente) neste navegador. Quem enviou e abre o
+ * próprio link sem login não marca "visualizou pelo link".
+ */
+export function markSentHere(id: string) {
+  if (typeof window === "undefined" || !id || id === "demo") return;
+  try {
+    const ids = new Set<string>(JSON.parse(localStorage.getItem(SENT_KEY) || "[]"));
+    if (ids.has(id)) return;
+    ids.add(id);
+    localStorage.setItem(SENT_KEY, JSON.stringify([...ids].slice(-500)));
+  } catch {
+    /* sem storage: segue */
+  }
+}
+
+export function sentHere(id: string) {
+  if (typeof window === "undefined") return false;
+  try {
+    return (JSON.parse(localStorage.getItem(SENT_KEY) || "[]") as string[]).includes(id);
+  } catch {
+    return false;
+  }
 }

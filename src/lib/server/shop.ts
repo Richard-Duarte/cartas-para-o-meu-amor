@@ -939,6 +939,9 @@ async function ensureDeliveryColumns(sql: Awaited<ReturnType<typeof getSql>>) {
   await sql`alter table letters add column if not exists notice_at timestamptz`;
   await sql`alter table letters add column if not exists notice_sent_at timestamptz`;
   await sql`alter table letters add column if not exists notice_error text`;
+  // Sinal "abriu pelo link": só quem NÃO enviou conta (ver recordLinkView).
+  await sql`alter table letters add column if not exists link_viewed_at timestamptz`;
+  await sql`alter table letters add column if not exists link_view_count integer not null default 0`;
 }
 
 function parseGeo(raw: string): Geo | null {
@@ -1054,6 +1057,9 @@ export function publicLetterRow(row: LetterRow, role: LetterRole): LetterRow & {
     out.recipient_email = null;
     return out;
   }
+  // O sinal de visualização é só de quem enviou: quem recebe/visualiza nunca vê.
+  out.link_viewed_at = null;
+  out.link_view_count = null;
   out.user_id = "";
   out.sender_phone = null;
   out.coupon_code = null;
@@ -1098,6 +1104,9 @@ type LetterRow = {
   demo_duration_ms: number;
   reply_to_letter_id?: string | null;
   thread_id?: string | null;
+  /** Primeira vez que alguém que não é quem enviou abriu o link (só vai para quem enviou). */
+  link_viewed_at?: string | null;
+  link_view_count?: number | null;
 };
 
 export const myMailbox = createServerFn({ method: "GET" })
@@ -1112,7 +1121,7 @@ export const myMailbox = createServerFn({ method: "GET" })
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
         affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
         depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
-        reply_to_letter_id, thread_id
+        reply_to_letter_id, thread_id, link_viewed_at::text, link_view_count
       from letters where user_id = ${context.userId}
       order by started_at desc
     `;
@@ -1121,7 +1130,7 @@ export const myMailbox = createServerFn({ method: "GET" })
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
         affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
         depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
-        reply_to_letter_id, thread_id
+        reply_to_letter_id, thread_id, link_viewed_at::text, link_view_count
       from letters where recipient_user_id = ${context.userId}
       order by started_at desc
     `;
@@ -1146,7 +1155,7 @@ export const openSharedLetter = createServerFn({ method: "POST" })
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
         affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
         depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
-        reply_to_letter_id, thread_id
+        reply_to_letter_id, thread_id, link_viewed_at::text, link_view_count
       from letters where id = ${id} limit 1
     `;
     const row = rows[0];
@@ -1188,6 +1197,7 @@ export const openSharedLetter = createServerFn({ method: "POST" })
         /* a próxima abertura tenta de novo se viewed_at ficou vazio */
       }
     }
+    if (role !== "sender") await recordLinkView(sql, row.id, row.user_id, context.userId);
     return { letter: publicLetterRow(row, role), role, tester: await isTestLogin(sql, context.userId) };
   });
 
@@ -1198,6 +1208,54 @@ export const openSharedLetter = createServerFn({ method: "POST" })
  *  - admins de ADMIN_EMAILS logados com Google verificado e sem senha (`googleAdminUserId`).
  * Quem enviou e quem recebe pelo link (contas normais) não veem simulação.
  */
+/**
+ * Marca que a carta foi vista pelo link — nunca quando quem abriu é quem enviou:
+ *  - logado: `viewerId` igual ao dono não conta (o SQL também exige user_id <> viewer);
+ *  - sem login: o navegador avisa `mine` quando a carta foi enviada/acompanhada dali
+ *    como remetente (localStorage), e aí não conta;
+ *  - admins de ADMIN_EMAILS (Google) também não contam; o painel admin nem passa por aqui.
+ * Avisa quem enviou na primeira vez (notificação "view-<id>", a mesma da anônima).
+ */
+async function recordLinkView(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  letterId: string,
+  senderId: string,
+  viewerId: string | null,
+) {
+  try {
+    if (viewerId && viewerId === senderId) return;
+    if (viewerId) {
+      const { googleAdminUserId } = await import("@/lib/server/admin-auth");
+      if ((await googleAdminUserId(sql).catch(() => null)) === viewerId) return;
+    }
+    const rows = await sql<{ first: boolean; anonymous: boolean | null; to_name: string }>`
+      update letters set
+        link_view_count = coalesce(link_view_count, 0) + 1,
+        link_viewed_at = coalesce(link_viewed_at, now())
+      where id = ${letterId} and user_id = ${senderId} and user_id <> ${viewerId ?? ""}
+      returning (link_view_count = 1) as first, anonymous, to_name
+    `;
+    const hit = rows[0];
+    if (!hit?.first) return;
+    await ensureNoticeTables(sql);
+    await sql`
+      insert into notifications (id, user_id, kind, title, body, href, letter_id)
+      values (
+        ${`view-${letterId}`},
+        ${senderId},
+        'view',
+        ${hit.anonymous ? "Sua carta anônima foi vista" : "Sua carta foi vista 💌"},
+        ${hit.anonymous ? "Quem recebeu entrou no site e abriu o link." : `${hit.to_name || "Quem recebeu"} abriu o link da sua carta.`},
+        ${`/acompanhar/${letterId}`},
+        ${letterId}
+      )
+      on conflict (id) do nothing
+    `;
+  } catch {
+    /* o sinal é um extra: falhar aqui não pode impedir de abrir a carta */
+  }
+}
+
 async function isTestLogin(sql: Awaited<ReturnType<typeof getSql>>, userId: string) {
   try {
     const { bypassAllowed } = await import("@/lib/server/payments.server");
@@ -1212,11 +1270,16 @@ async function isTestLogin(sql: Awaited<ReturnType<typeof getSql>>, userId: stri
 /**
  * Acompanhar sem login (fase de testes, `PUBLIC_TRACKING`): quem abre pelo link vê só a
  * visão de "quem visualiza". Não reivindica a carta como destinatário, não grava contato
- * nem marca "vista". Com a chave desligada, recusa (volta a exigir login).
+ * nem marca "vista" sozinho: só conta como "abriu pelo link" quando o navegador não é de
+ * quem enviou (`mine`). Com a chave desligada, recusa (volta a exigir login).
  */
 export const openPublicLetter = createServerFn({ method: "POST" })
-  .validator((id: string) => String(id).slice(0, 16))
-  .handler(async ({ data: id }) => {
+  .validator((input: string | { id: string; mine?: boolean }) =>
+    typeof input === "string"
+      ? { id: input.slice(0, 16), mine: false }
+      : { id: String(input?.id ?? "").slice(0, 16), mine: input?.mine === true },
+  )
+  .handler(async ({ data: { id, mine } }) => {
     if (!PUBLIC_TRACKING) throw new Error("Entre para acompanhar esta carta.");
     const { assertSameSiteRequest } = await import("@/lib/auth/isolation.server");
     assertSameSiteRequest();
@@ -1229,7 +1292,7 @@ export const openPublicLetter = createServerFn({ method: "POST" })
         from_address_json, to_address_json, from_geo_json, to_geo_json, paid_brl, coupon_code,
         affiliate_code, anonymous, scheduled, recipient_phone, recipient_email, sender_phone,
         depart_at::text, arrive_at::text, started_at::text, demo_duration_ms,
-        reply_to_letter_id, thread_id
+        reply_to_letter_id, thread_id, link_viewed_at::text, link_view_count
       from letters where id = ${id} limit 1
     `;
     const row = rows[0];
@@ -1237,6 +1300,7 @@ export const openPublicLetter = createServerFn({ method: "POST" })
     if (await senderBlocked(sql, row.user_id)) {
       return { letter: null as LetterRow | null, role: "none" as const, unavailable: true as const };
     }
+    if (!mine) await recordLinkView(sql, row.id, row.user_id, null);
     return { letter: publicLetterRow(row, "viewer"), role: "viewer" as const };
   });
 
