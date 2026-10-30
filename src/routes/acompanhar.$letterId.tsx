@@ -240,6 +240,9 @@ function TrackView({
   const journeyRef = useRef<DeliveryJourneyHandle>(null);
   const delivered = letterProgress(letter, now).arrived;
   const showLetter = delivered || opened;
+  // Baixar/Imprimir antes de chegar: SÓ logins de teste (isTestLogin no servidor:
+  // PAYMENT_BYPASS_EMAILS verificado/social ou ADMIN_EMAILS via Google). Quem enviou e quem
+  // aguarda pelo link só baixam depois que a carta chega.
   const canDownload = delivered || tester;
   const url = shareUrl(letter.id);
   const wa = `https://wa.me/?text=${encodeURIComponent(`Uma carta está a caminho. Acompanhe: ${url}`)}`;
@@ -383,7 +386,7 @@ function TrackView({
                 disabled={downloading}
                 onClick={() => void download()}
               >
-                {downloading ? "Preparando…" : "Baixar carta"}
+                {downloading ? "Preparando…" : delivered ? "Baixar carta" : "Baixar carta (teste)"}
               </button>
             ) : null}
             {canDownload ? (
