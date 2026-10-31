@@ -80,7 +80,7 @@ export async function serverCartTotal(
 
 export const TEST_CHARGE_BRL = 1;
 
-async function isTestPayer(sql: Sql, userId: string) {
+export async function isTestPayer(sql: Sql, userId: string) {
   try {
     if (await bypassAllowed(sql, userId)) return true;
     const { googleAdminUserId } = await import("@/lib/server/admin-auth");

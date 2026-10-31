@@ -17,6 +17,7 @@ import {
   paymentEnv,
   precheck,
   serverCartTotal,
+  isTestPayer,
   type IntentRow,
   type MpPayment,
 } from "@/lib/server/payments.server";
@@ -67,7 +68,7 @@ export const startPayment = createServerFn({ method: "POST" })
     const { checkout, payment } = data;
     const { total, creditBrl } = await serverCartTotal(sql, context.userId, checkout);
     if (total <= 0) throw new Error("Carrinho grátis: use o envio sem pagamento.");
-    if (Math.abs(total - checkout.paidBrl) > 0.01) throw new Error("O valor mudou. Atualize a página e confira o total.");
+    if (Math.abs(total - checkout.paidBrl) > 0.01 && !(await isTestPayer(sql, context.userId))) throw new Error("O valor mudou. Atualize a página e confira o total.");
     await precheck(sql, context.userId, checkout);
 
     const intentId = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
