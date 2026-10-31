@@ -77,9 +77,12 @@ export function DeliveryChoices(props: Props) {
   const now = useMemo(() => new Date(), []);
   const minDay = earliestDay(props.from, props.to, now);
   const maxDay = latestDay(props.from, props.to, now);
-  const day = props.scheduled ? props.arriveOn || minDay : null;
-  const [pickedDay, pickedTime] = (props.arriveOn || minDay).split("T");
-  const timeValue = pickedTime || suggestTime(pickedDay, props.from, props.to, now);
+  // Data salva que já passou (rascunho antigo) não vale: volta para a primeira possível.
+  const stored = props.arriveOn && (props.arriveOn.split("T")[0] ?? "") >= minDay ? props.arriveOn : "";
+  const firstSlot = `${minDay}T${earliestTimeFor(props.messengerId, minDay, props.from, props.to, now)}`;
+  const day = props.scheduled ? stored || firstSlot : null;
+  const [pickedDay, pickedTime] = (stored || firstSlot).split("T");
+  const timeValue = pickedTime || earliestTimeFor(props.messengerId, pickedDay, props.from, props.to, now);
   const plan = planArrival({
     messengerId: props.messengerId,
     from: props.from,
@@ -130,7 +133,10 @@ export function DeliveryChoices(props: Props) {
           className={cn("choice-card", props.scheduled && "is-on")}
           onClick={() => {
             props.onScheduled(true);
-            if (!props.arriveOn) props.onArriveOn(`${minDay}T${suggestTime(minDay, props.from, props.to, now)}`);
+            // Horário inicial que o mensageiro escolhido cumpre (antes usava o mais rápido e travava o pagar).
+            if (!stored || !planArrival({ messengerId: props.messengerId, from: props.from, to: props.to, now, arriveOn: stored }).fits) {
+              props.onArriveOn(firstSlot);
+            }
           }}
         >
           <strong>Escolher dia e hora</strong>
@@ -182,9 +188,17 @@ export function DeliveryChoices(props: Props) {
           : "Quando estiver perto, o aviso usa o e-mail e o WhatsApp da conta de quem enviou e de quem abriu o link."}
       </p>
 
-      {!plan.fits ? <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia e horário.</p> : null}
-      {plan.fits && !ready ? (
-        <p className="text-sm text-rose">Escolha um mensageiro que chegue nesse dia e horário.</p>
+      {!plan.fits ? (
+        <div className="text-sm text-rose" role="alert">
+          <p>
+            O {MESSENGERS.find((m) => m.id === props.messengerId)?.name ?? "mensageiro"} não chega em{" "}
+            {pickedDay.split("-").reverse().join("/")} às {timeValue}. O mais cedo é {formatDateTimeBr(plan.arriveAt)}.
+          </p>
+          <button type="button" className="mt-1 underline" onClick={() => props.onArriveOn(slotKey(plan.arriveAt))}>
+            Usar {formatDateTimeBr(plan.arriveAt)}
+          </button>
+          <span> ou escolha outro mensageiro acima.</span>
+        </div>
       ) : null}
     </div>
   );
@@ -193,12 +207,41 @@ export function DeliveryChoices(props: Props) {
 /** Rótulo de mensageiro que não chega a tempo (o escrever bloqueia por ele). */
 export const NOT_IN_TIME = "Não chega nesse horário";
 
+/** "AAAA-MM-DDTHH:MM" (Brasília), arredondado para o próximo quarto de hora. */
+function slotKey(date: Date) {
+  const q = 15 * 60_000;
+  const t = new Date(Math.ceil(date.getTime() / q) * q);
+  const brt = new Date(t.getTime() - 3 * 3600_000);
+  return `${dayKey(t)}T${String(brt.getUTCHours()).padStart(2, "0")}:${String(brt.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+/** "31/10/2026 às 18:00" (Brasília). */
+function formatDateTimeBr(date: Date) {
+  const [y, m, d] = dayKey(date).split("-");
+  const time = date.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  return `${d}/${m}/${y} às ${time}`;
+}
+
+/** Primeiro horário do dia que ESTE mensageiro cumpre: 18:00 se der, senão logo depois que ele chega. */
+function earliestTimeFor(messengerId: MessengerId, day: string, from: Geo, to: Geo, now: Date) {
+  const slot = slotKey(planArrival({ messengerId, from, to, now }).arriveAt);
+  const [slotDay, t] = slot.split("T");
+  if (slotDay < day) return "18:00";
+  if (slotDay > day) return suggestTime(day, from, to, now);
+  return t < "18:00" ? "18:00" : t;
+}
+
 export function deliveryCanContinue(opts: Props) {
   const plan = planArrival({
     messengerId: opts.messengerId,
     from: opts.from,
     to: opts.to,
-    arriveOn: opts.scheduled && !opts.addressless ? opts.arriveOn || earliestDay(opts.from, opts.to) : null,
+    arriveOn:
+      opts.scheduled && !opts.addressless
+        ? opts.arriveOn && opts.arriveOn.split("T")[0] >= earliestDay(opts.from, opts.to)
+          ? opts.arriveOn
+          : earliestDay(opts.from, opts.to)
+        : null,
     addressless: opts.addressless,
   });
   return plan.fits && contactsReady();

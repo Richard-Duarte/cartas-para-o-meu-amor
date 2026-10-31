@@ -6,7 +6,7 @@ export const INSTANT_MS = 60 * 60 * 1000;
 export const ANONYMOUS_FEE_BRL = 5.9;
 
 /** Soma no valor do mensageiro quando a chegada é num dia escolhido (padrão; o banco manda). */
-export const SCHEDULE_FEE_BRL = 1.9;
+export const SCHEDULE_FEE_BRL = 9.9;
 
 let anonymousFeeBrl = ANONYMOUS_FEE_BRL;
 let scheduleFeeBrl = SCHEDULE_FEE_BRL;

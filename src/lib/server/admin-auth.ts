@@ -203,7 +203,7 @@ export const getSettings = createServerFn({ method: "GET" }).handler(async () =>
   return {
     affiliatePercent: Number(map.affiliate_percent ?? 10),
     anonymousFee: Number(map.anonymous_fee ?? 5.9),
-    scheduleFee: Number(map.schedule_fee ?? 1.9),
+    scheduleFee: Number(map.schedule_fee ?? 9.9),
   };
 });
 

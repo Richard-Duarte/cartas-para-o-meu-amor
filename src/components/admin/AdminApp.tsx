@@ -545,7 +545,7 @@ function Affiliates() {
   const [percent, setPercent] = useState(10);
   const [msg, setMsg] = useState("");
   const [anonFee, setAnonFee] = useState(5.9);
-  const [scheduleFee, setScheduleFee] = useState(1.9);
+  const [scheduleFee, setScheduleFee] = useState(9.9);
   useEffect(() => {
     void listAffiliates().then(setRows).catch(() => setRows([]));
     void listPayouts().then(setPayouts).catch(() => setPayouts([]));
