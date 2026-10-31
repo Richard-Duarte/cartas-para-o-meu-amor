@@ -108,7 +108,6 @@ export function DeliveryChoices(props: Props) {
       arriveLabelById[item.id] = "Chega em 2h";
       continue;
     }
-    if (props.scheduled && day && !next.fits) blocked.add(item.id);
     arriveLabelById[item.id] = next.fits ? `Chega ${formatArrival(next.arriveAt)}` : NOT_IN_TIME;
   }
 
@@ -198,7 +197,7 @@ export function DeliveryChoices(props: Props) {
           <button type="button" className="mt-1 underline" onClick={() => props.onArriveOn(slotKey(plan.arriveAt))}>
             Usar {formatDateTimeBr(plan.arriveAt)}
           </button>
-          <span> ou escolha outro mensageiro acima.</span>
+          <span> ou escolha outro mensageiro acima. Se seguir assim, ela chega no mais cedo possível.</span>
         </div>
       ) : null}
     </div>
@@ -245,7 +244,8 @@ export function deliveryCanContinue(opts: Props) {
         : null,
     addressless: opts.addressless,
   });
-  return plan.fits && contactsReady();
+  // Agendado que não cabe no horário não trava: chega no mais cedo possível (aviso na tela).
+  return (plan.fits || (opts.scheduled && !opts.addressless)) && contactsReady();
 }
 
 export { dayKey };
