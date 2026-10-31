@@ -77,6 +77,15 @@ async function post(url: string, body: unknown, headers: Record<string, string> 
   }
 }
 
+/** Envia eventos para a Conversions API do Meta (com META_TEST_EVENT_CODE quando houver). */
+export async function postMetaEvents(metaId: string, token: string, data: unknown[]) {
+  const testCode = env("META_TEST_EVENT_CODE");
+  await post(`https://graph.facebook.com/v21.0/${encodeURIComponent(metaId)}/events?access_token=${encodeURIComponent(token)}`, {
+    data,
+    ...(testCode ? { test_event_code: testCode } : {}),
+  });
+}
+
 /** Purchase server-side (Meta CAPI + TikTok Events API). event_id = o mesmo do pixel → deduplica. */
 export async function sendServerPurchase(p: Purchase) {
   // Pagamento de teste (simulado) nunca vira Purchase: só pagamento real aprovado no Mercado Pago.
