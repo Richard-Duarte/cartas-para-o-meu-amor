@@ -150,6 +150,16 @@ function WritePage() {
     setStep(next);
   }
 
+  // F5 continua de onde parou: o passo vai para a URL (?passo=) sem nova entrada no histórico;
+  // o resto (texto, mensageiro, endereço, agendamento) já fica salvo no rascunho.
+  useEffect(() => {
+    if (!ready || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if ([2, 3, 4].includes(step)) url.searchParams.set("passo", String(step));
+    else url.searchParams.delete("passo");
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url.href);
+  }, [ready, step]);
+
   // Troca de passo começa do topo, como uma tela nova de app.
   useEffect(() => {
     if (firstStep.current) {
