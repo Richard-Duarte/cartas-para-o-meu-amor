@@ -1,3 +1,4 @@
+import { formatDateBr } from "@/lib/dates";
 import { addressLine } from "@/lib/address";
 import { formatArrivalCompact, formatRemaining } from "@/lib/delivery";
 import { letterProgress, shownFromName, type Letter } from "@/lib/letters";
@@ -78,10 +79,7 @@ export function letterOverlay(letter: Letter) {
         ? ["Um desenho para você."]
         : ["…"];
   const place = letter.addressless ? "" : letter.toAddress?.city || getCity(letter.toCityId).name;
-  const when = new Date(letter.startedAt).toLocaleDateString("pt-BR", {
-    day: "numeric",
-    month: "long",
-  });
+  const when = formatDateBr(letter.startedAt);
   const name = letter.toName?.trim().replace(/,$/, "") || "Meu amor";
   return {
     date: place ? `${place}, ${when}` : when,

@@ -1,4 +1,5 @@
 "use client";
+import { DateInputBr } from "@/components/ui/DateInputBr";
 
 import { useEffect, useMemo, useState } from "react";
 import { formatMoney } from "@/lib/cart";
@@ -79,11 +80,11 @@ export function AdminDashboard() {
           <div className="dash-dates">
             <label>
               De
-              <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+              <DateInputBr value={from} max={to} onChange={setFrom} aria-label="Data inicial" />
             </label>
             <label>
               Até
-              <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
+              <DateInputBr value={to} min={from} onChange={setTo} aria-label="Data final" />
             </label>
           </div>
         ) : null}

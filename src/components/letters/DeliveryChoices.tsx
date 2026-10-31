@@ -1,4 +1,5 @@
 "use client";
+import { DateInputBr } from "@/components/ui/DateInputBr";
 
 import { useMemo } from "react";
 import { ANONYMOUS_MODE } from "@/lib/anonymous-mode";
@@ -149,12 +150,12 @@ export function DeliveryChoices(props: Props) {
           <div className="pay-row">
             <label className="delivery-date">
               Dia da chegada
-              <input
-                type="date"
+              <DateInputBr
                 value={pickedDay}
                 min={minDay}
                 max={maxDay}
-                onChange={(e) => e.target.value && props.onArriveOn(`${e.target.value}T${timeValue}`)}
+                aria-label="Dia da chegada (dd/mm/aaaa)"
+                onChange={(iso) => props.onArriveOn(`${iso}T${timeValue}`)}
               />
             </label>
             <label className="delivery-date">
