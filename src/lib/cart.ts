@@ -187,7 +187,8 @@ export function buildCart(
 export function readDraft(): LetterDraft | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY);
+    // Aba atual primeiro; cópia no localStorage segura o rascunho se o navegador descartar a aba.
+    const raw = sessionStorage.getItem(DRAFT_KEY) ?? localStorage.getItem(DRAFT_KEY);
     return raw ? (JSON.parse(raw) as LetterDraft) : null;
   } catch {
     return null;
@@ -195,11 +196,22 @@ export function readDraft(): LetterDraft | null {
 }
 
 export function writeDraft(draft: LetterDraft) {
-  sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  const raw = JSON.stringify(draft);
+  sessionStorage.setItem(DRAFT_KEY, raw);
+  try {
+    localStorage.setItem(DRAFT_KEY, raw);
+  } catch {
+    /* sem espaço: a aba ainda tem o rascunho */
+  }
 }
 
 export function clearDraft() {
   sessionStorage.removeItem(DRAFT_KEY);
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function pixDemoCode(total: number) {
