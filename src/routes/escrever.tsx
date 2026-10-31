@@ -688,7 +688,7 @@ function WritePage() {
                 <div ref={envioRef} className="scroll-target">
                   <DeliveryChoices {...deliveryProps} />
                 </div>
-                {addressless ? null : (
+                {addressless || scheduled ? null : (
                 <ArrivalEstimate
                   status={arrivalStatus}
                   from={fromGeo}
