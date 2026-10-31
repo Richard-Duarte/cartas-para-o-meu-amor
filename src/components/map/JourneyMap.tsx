@@ -1,5 +1,6 @@
 "use client";
 
+import { unwrapTo } from "@/lib/geo-wrap";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, X } from "lucide-react";
@@ -109,7 +110,7 @@ export function JourneyMap({ letter, onArrived }: Props) {
   const fromCity = getCity(letter.fromCityId);
   const toCity = getCity(letter.toCityId);
   const from = { ...fromCity, geo: letter.fromGeo ?? fromCity.geo };
-  const to = { ...toCity, geo: letter.toGeo ?? toCity.geo };
+  const to = { ...toCity, geo: unwrapTo(from.geo, letter.toGeo ?? toCity.geo) };
   const arrived = stats.arrived;
   const kmLeft = Math.max(0, stats.km * (1 - stats.progress));
   const kmDone = Math.max(0, stats.km - kmLeft);
