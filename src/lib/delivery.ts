@@ -1,3 +1,4 @@
+import { formatDateTimeBr } from "./dates";
 import { estimateDelivery, MESSENGERS, type Geo, type MessengerId } from "./messengers";
 
 /** Viagem mais curta que isto não recebe aviso de "está chegando". */
@@ -56,19 +57,10 @@ export function saoPauloDate(day: string, hour: number, minute: number) {
   return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1, hour + 3, minute, 0));
 }
 
+/** "sexta, 30/10/2026 às 03:00" (data sempre dd/mm/aaaa). */
 export function formatArrival(date: Date) {
-  const day = date.toLocaleDateString("pt-BR", {
-    timeZone: TZ,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  const time = date.toLocaleTimeString("pt-BR", {
-    timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${day} às ${time}`;
+  const weekday = date.toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "long" }).replace(/-feira$/i, "");
+  return `${weekday}, ${formatDateTimeBr(date)}`;
 }
 
 /**
@@ -79,26 +71,12 @@ export function formatArrivalCompact(date: Date) {
   const weekday = date
     .toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "long" })
     .replace(/-feira$/i, "");
-  const day = date.toLocaleDateString("pt-BR", { timeZone: TZ, day: "numeric" });
-  const month = date.toLocaleDateString("pt-BR", { timeZone: TZ, month: "short" }).replace(/\.?$/, ".");
-  const time = date.toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
-  return `${weekday}, ${day} de ${month} às ${time}`;
+  return `${weekday}, ${formatDateTimeBr(date)}`;
 }
 
 /** Versão curta para listas: "sáb., 31/10 às 18:00". */
 export function formatArrivalShort(date: Date) {
-  const day = date.toLocaleDateString("pt-BR", {
-    timeZone: TZ,
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-  });
-  const time = date.toLocaleTimeString("pt-BR", {
-    timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${day} às ${time}`;
+  return formatDateTimeBr(date);
 }
 
 /** Carta sem endereço (anônima, ou para quem não tem endereço): chega sempre em 2h. */
@@ -208,6 +186,20 @@ export function parseArriveOn(value: string) {
   const min = Number(m[3]);
   if (h > 23 || min > 59) return null;
   return { day: m[1], time: { h, m: min } };
+}
+
+/**
+ * Primeiro dia+hora que ESTE mensageiro consegue cumprir: 18:00 do dia em que ele pode chegar,
+ * ou o primeiro quarto de hora depois da chegada mais cedo. Sempre "AAAA-MM-DDTHH:MM" (BRT).
+ */
+export function defaultArriveOn(messengerId: MessengerId, from: Geo, to: Geo, now = new Date()) {
+  const asap = planArrival({ messengerId, from, to, now }).arriveAt;
+  const day = dayKey(asap);
+  if (asap.getTime() <= saoPauloDate(day, 18, 0).getTime()) return `${day}T18:00`;
+  const q = 15 * 60_000;
+  const t = new Date(Math.ceil((asap.getTime() + 60_000) / q) * q);
+  const brt = new Date(t.getTime() - 3 * 3600_000);
+  return `${dayKey(t)}T${String(brt.getUTCHours()).padStart(2, "0")}:${String(brt.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 /** Sugestão de horário para um dia: 18:00, ou o primeiro quarto de hora depois que algum mensageiro chega. */

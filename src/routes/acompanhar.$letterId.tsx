@@ -1,3 +1,4 @@
+import { formatDateBr } from "@/lib/dates";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -410,7 +411,7 @@ function TrackView({
                   <a href={`/acompanhar/${encodeURIComponent(item.id)}`} aria-current={item.id === letter.id ? "page" : undefined}>
                     <span>{item.mine ? "Você" : item.label}</span>
                     <small>
-                      {new Date(item.startedAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })}
+                      {formatDateBr(item.startedAt)}
                     </small>
                   </a>
                 </li>

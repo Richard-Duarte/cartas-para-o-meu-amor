@@ -1,10 +1,8 @@
+import { formatDateTimeBr } from "@/lib/dates";
 import type { Letter } from "@/lib/letters";
 
 function when(ts: number) {
-  const d = new Date(ts);
-  const day = d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "numeric", month: "short" });
-  const time = d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
-  return `${day} às ${time}`;
+  return formatDateTimeBr(ts);
 }
 
 /**

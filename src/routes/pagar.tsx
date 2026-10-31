@@ -1,3 +1,4 @@
+import { formatDateBr } from "@/lib/dates";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CartSummary } from "@/components/cart/CartSummary";
@@ -409,7 +410,7 @@ function PayPage() {
               toName={draft.toName}
               body={pagesPlainText(draft.pages)}
               pages={draft.pages}
-              date={`${draft.toAddress?.city?.trim() || "Hoje"}, ${new Date().toLocaleDateString("pt-BR", { day: "numeric", month: "long" })}`}
+              date={`${draft.toAddress?.city?.trim() || "Hoje"}, ${formatDateBr(new Date())}`}
               allowDownload={false}
             />
           </div>
