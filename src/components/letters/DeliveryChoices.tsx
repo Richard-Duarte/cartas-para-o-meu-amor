@@ -188,7 +188,7 @@ export function DeliveryChoices(props: Props) {
           : "Quando estiver perto, o aviso usa o e-mail e o WhatsApp da conta de quem enviou e de quem abriu o link."}
       </p>
 
-      {!plan.fits ? (
+      {!plan.fits && !props.scheduled ? (
         <div className="text-sm text-rose" role="alert">
           <p>
             O {MESSENGERS.find((m) => m.id === props.messengerId)?.name ?? "mensageiro"} não chega em{" "}
