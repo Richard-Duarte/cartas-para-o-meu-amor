@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { unwrapTo } from "@/lib/geo-wrap";
 import type { Geo } from "@/lib/messengers";
 
 type Point = Geo & { label: string };
@@ -23,7 +24,8 @@ function project(lat: number, lng: number, z: number) {
 }
 
 /** Mesma curva do mapa 3D: pins no endereço exato, rota levemente arqueada. */
-export function routeCurve(from: Geo, to: Geo, steps = 80): [number, number][] {
+export function routeCurve(from: Geo, rawTo: Geo, steps = 80): [number, number][] {
+  const to = unwrapTo(from, rawTo);
   const a: [number, number] = [from.lat, from.lng];
   let b: [number, number] = [to.lat, to.lng];
   if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.00005) b = [b[0] + 0.0004, b[1] + 0.0004];
@@ -69,7 +71,7 @@ export function StaticRouteMap({ from, to }: Props) {
   if (w > 10 && h > 10) {
     const route = routeCurve(from, to);
     const pad = Math.min(72, Math.max(36, Math.min(w, h) * 0.18));
-    const all = [[from.lat, from.lng] as [number, number], [to.lat, to.lng] as [number, number], ...route];
+    const all = [[from.lat, from.lng] as [number, number], [to.lat, unwrapTo(from, to).lng] as [number, number], ...route];
     let z = 14;
     for (; z > 2; z--) {
       const pts = all.map(([lat, lng]) => project(lat, lng, z));
@@ -106,7 +108,7 @@ export function StaticRouteMap({ from, to }: Props) {
         return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
       })
       .join(" ");
-    const pins = [from, to].map((pin, i) => ({ ...local(pin.lat, pin.lng), label: pin.label, key: i }));
+    const pins = [from, unwrapTo(from, to)].map((pin, i) => ({ ...local(pin.lat, pin.lng), label: pin.label, key: i }));
     content = (
       <>
         <div className="static-map-tiles" aria-hidden="true">

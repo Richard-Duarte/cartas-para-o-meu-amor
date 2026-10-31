@@ -1,5 +1,6 @@
 "use client";
 
+import { unwrapTo } from "@/lib/geo-wrap";
 import { useEffect, useRef, useState } from "react";
 import type { Letter } from "@/lib/letters";
 import type { Geo } from "@/lib/messengers";
@@ -98,7 +99,7 @@ function LeafletFallback({ letter, loadFailed = false }: Props) {
         if (dead || !host) return;
         const L = mod.default ?? (mod as unknown as typeof mod.default);
         const a: [number, number] = [from.lat, from.lng];
-        const b: [number, number] = [to.lat, to.lng];
+        const b: [number, number] = [to.lat, unwrapTo(from, to).lng];
         const route = routeCurve(from, to);
         const m = L.map(host, { zoomControl: false, scrollWheelZoom: false });
         map = m;
