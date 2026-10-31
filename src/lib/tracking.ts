@@ -174,11 +174,42 @@ export function bootTracking() {
 }
 
 /** PageView: a cada troca de rota (TanStack Router). */
+function newEventId(prefix: string) {
+  try {
+    return `${prefix}-${crypto.randomUUID()}`;
+  } catch {
+    return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+/** Mesmo evento pela Conversions API (servidor), com o mesmo event_id do pixel. Nunca bloqueia. */
+function serverCopy(event: "PageView" | "InitiateCheckout", eventId: string, product?: Product) {
+  if (!META_ID) return;
+  void import("@/lib/server/capi")
+    .then(({ sendBrowserEvent }) =>
+      sendBrowserEvent({
+        data: {
+          event,
+          eventId,
+          url: window.location.href.split("#")[0].slice(0, 500),
+          ...(product
+            ? { value: Math.max(0, Math.round(product.value * 100) / 100), contentId: product.id.slice(0, 60), contentName: product.name.slice(0, 80) }
+            : {}),
+          fbp: cookie("_fbp"),
+          fbc: cookie("_fbc"),
+        },
+      }),
+    )
+    .catch(() => {});
+}
+
 export function trackPageView() {
   if (!TRACKING_ENABLED || typeof window === "undefined") return;
   const w = window as W;
   try {
-    w.fbq?.("track", "PageView");
+    const eventId = newEventId("pv");
+    if (w.fbq) w.fbq("track", "PageView", {}, { eventID: eventId });
+    serverCopy("PageView", eventId);
     w.ttq?.page();
   } catch {
     /* ignore */
@@ -214,6 +245,11 @@ export function track(event: keyof typeof TIKTOK_NAME, product?: Product, opts?:
   if (!TRACKING_ENABLED || typeof window === "undefined") return;
   const w = window as W;
   const p = product ? productParams(product, opts?.extra) : { meta: { ...opts?.extra }, tiktok: {} };
+  // InitiateCheckout também vai pelo servidor (CAPI) com o mesmo event_id.
+  if (event === "InitiateCheckout" && !opts?.eventId) {
+    opts = { ...opts, eventId: newEventId("ic") };
+    serverCopy("InitiateCheckout", opts.eventId!, product);
+  }
   try {
     if (w.fbq) {
       if (opts?.eventId) w.fbq("track", event, p.meta, { eventID: opts.eventId });

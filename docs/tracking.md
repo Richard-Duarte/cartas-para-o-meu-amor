@@ -20,9 +20,9 @@ As `VITE_*` entram no build. Depois de criar ou trocar uma delas, faça um **red
 
 | Evento (Meta / TikTok) | Quando | Onde no código | Dados |
 |---|---|---|---|
-| PageView / `ttq.page()` | Ao abrir o site e a cada troca de rota do TanStack Router | `src/routes/__root.tsx` (`Boot`) | — |
+| PageView / `ttq.page()` | Ao abrir o site e a cada troca de rota do TanStack Router. Também pela CAPI (`src/lib/server/capi.ts`) com o mesmo `event_id = pv-<uuid>` | `src/routes/__root.tsx` (`Boot`) | — |
 | ViewContent | Mensageiro visto ou escolhido no passo 3 ("Entregador"); 1x por mensageiro por sessão | `src/routes/escrever.tsx` | `content_ids` = id do mensageiro, `content_name` = nome, `value` = preço base, `currency` = BRL |
-| InitiateCheckout | Abrir `/pagar` com carrinho; 1x por mensageiro + papel | `src/routes/pagar.tsx` | mensageiro e valor total |
+| InitiateCheckout | Abrir `/pagar` com carrinho; 1x por mensageiro + papel. Também pela CAPI com o mesmo `event_id = ic-<uuid>` | `src/routes/pagar.tsx` | mensageiro e valor total (BRL) |
 | AddPaymentInfo | Toque em "Já paguei" (PIX) ou envio do cartão | `src/routes/pagar.tsx` (`pay`) | mensageiro, valor e `payment_type` (pix/card) |
 | Purchase / CompletePayment | Só com pagamento real **aprovado** no Mercado Pago. Teste e bypass nunca disparam. | `pagar.tsx` → `finishPaid`; no servidor, `payments.server.ts` → `applyPayment` → `sendServerPurchase` (1x por pagamento) | `value` = valor pago, BRL, `content_ids` = mensageiro, `order_id` e `event_id = purchase-<id da carta>` |
 | CompleteRegistration | Cadastro novo por e-mail (`/login` → "Criar conta"); sai na página seguinte ao redirect | `src/routes/login.tsx` + `queueEvent` | `method: email` |
@@ -61,3 +61,14 @@ group by 1, 2 order by 3 desc;
 3. **Cookies first-party:** `_fbp` e `_ttp` ficam no domínio final; os dados de teste do `*.vercel.app` não passam para lá.
 4. **Links dos anúncios:** apontar para `https://cartaparaomeuamor.com.br/?utm_source=...`. O `fbclid` e o `ttclid` entram sozinhos.
 5. `BETTER_AUTH_URL` / origin do domínio novo, para o `event_source_url` do servidor sair com o domínio certo.
+
+## SETUP antes de gastar com Meta Ads (checklist)
+1. Vercel → Settings → Environment Variables (Production e Preview):
+   - `VITE_META_PIXEL_ID` (já existe em Production; criar em Preview se quiser testar no preview).
+   - `META_CAPI_TOKEN` (Events Manager → Pixel → Configurações → Conversions API → Gerar token). **Sensível.**
+   - `META_TEST_EVENT_CODE` só enquanto testa (Events Manager → Testar eventos → código `TEST…`). Remova depois.
+   - Faça redeploy (as `VITE_*` entram no build).
+2. Testar: Events Manager → Testar eventos → abra https://cartaparaomeuamor.com.br.
+   Devem aparecer PageView do **Navegador** e do **Servidor**, marcados como deduplicados.
+   Depois abra /pagar (InitiateCheckout, os dois). Purchase só num pagamento real aprovado.
+3. Sem `META_CAPI_TOKEN`: o pixel funciona sozinho e o servidor não envia nada; o checkout nunca depende disso.
