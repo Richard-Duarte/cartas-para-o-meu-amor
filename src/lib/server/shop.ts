@@ -345,7 +345,8 @@ export async function precheckLetter(sql: Awaited<ReturnType<typeof getSql>>, us
     arriveOn: data.arriveOn || null,
     addressless: false,
   });
-  if (!plan.fits) throw new Error("Esse mensageiro não chega na data escolhida.");
+  // Agendamento pago nunca trava: se o horário não dá, a carta chega no mais cedo possível.
+  void plan;
 }
 
 /**
@@ -415,9 +416,6 @@ export async function placeLetter(
     arriveOn: data.scheduled && !addressless ? data.arriveOn || null : null,
     addressless,
   });
-  if (data.scheduled && !plan.fits) {
-    throw new Error("Esse mensageiro não chega na data escolhida.");
-  }
   await sql`alter table profiles add column if not exists phone text`;
   const authUser = await sql<{ email: string }>`
     select email from "user" where id = ${userId} limit 1

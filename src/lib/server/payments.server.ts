@@ -73,7 +73,21 @@ export async function serverCartTotal(
     creditBrl = round2(Math.min(Math.max(0, total), Number(p[0]?.credit_brl ?? 0)));
     total = round2(total - creditBrl);
   }
+  // Logins de teste (PAYMENT_BYPASS_EMAILS verificado/social ou admin Google): sempre R$ 1,00 no Mercado Pago.
+  if (await isTestPayer(sql, userId)) return { total: TEST_CHARGE_BRL, creditBrl: 0 };
   return { total: round2(Math.max(0, total)), creditBrl: round2(creditBrl) };
+}
+
+export const TEST_CHARGE_BRL = 1;
+
+async function isTestPayer(sql: Sql, userId: string) {
+  try {
+    if (await bypassAllowed(sql, userId)) return true;
+    const { googleAdminUserId } = await import("@/lib/server/admin-auth");
+    return (await googleAdminUserId(sql)) === userId;
+  } catch {
+    return false;
+  }
 }
 
 export type MpPayment = {

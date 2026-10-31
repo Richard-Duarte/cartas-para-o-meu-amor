@@ -230,11 +230,6 @@ function PayPage() {
       arriveOn: draft.scheduled && !addressless ? draft.arriveOn || null : null,
       addressless,
     });
-    if (draft.scheduled && !addressless && !plan.fits) {
-      setBusy(false);
-      setError("Esse mensageiro não chega na data escolhida.");
-      return;
-    }
     let id: string | undefined;
     let linkSent = false;
     let notice: Letter["notice"];
@@ -441,7 +436,7 @@ function PayPage() {
         <div className="checkout-pay">
           <CartSummary
             lines={cart.lines}
-            total={cart.total}
+            total={canSkip && cart.total > 0 ? 1 : cart.total}
             onAdjust={(kind) =>
               void navigate({
                 to: "/escrever",
@@ -486,7 +481,7 @@ function PayPage() {
           {payMode === "mercadopago" ? (
             cart.total > 0 ? (
               <MercadoPagoCheckout
-                total={cart.total}
+                total={canSkip && cart.total > 0 ? 1 : cart.total}
                 payerEmail={user?.primaryEmail ?? undefined}
                 onStart={(p: BrickPayment) => {
                   const m = getMessenger(draft.messengerId);
@@ -512,7 +507,7 @@ function PayPage() {
           ) : null}
           {payMode === "test" && cart.total > 0 ? (
             <CheckoutForm
-              total={cart.total}
+              total={canSkip && cart.total > 0 ? 1 : cart.total}
               busy={busy}
               messengerName={getMessenger(draft.messengerId).name}
               onPay={(m) => void pay(m)}
