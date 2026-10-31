@@ -128,12 +128,14 @@ export function planArrival(opts: {
   if (target.time) {
     // Dia E hora marcados: chega exatamente nesse horário (tolerância de 1 min).
     const exact = saoPauloDate(target.day, target.time.h, target.time.m);
-    const fits = asap.getTime() <= exact.getTime() + 60_000;
-    const arriveAt = fits ? new Date(Math.max(exact.getTime(), asap.getTime())) : asap;
+    // Horário escolhido e pago é sempre honrado: se o bicho não daria tempo, ele sai agora e "acelera".
+    const onTime = asap.getTime() <= exact.getTime() + 60_000;
+    const fits = exact.getTime() > now.getTime() - 60_000;
+    const arriveAt = onTime ? new Date(Math.max(exact.getTime(), asap.getTime())) : fits ? exact : asap;
     return {
       hours: est.hours,
       km: est.km,
-      departAt: fits ? new Date(arriveAt.getTime() - travelMs) : now,
+      departAt: onTime ? new Date(arriveAt.getTime() - travelMs) : now,
       arriveAt,
       instant: fits && arriveAt.getTime() - now.getTime() < INSTANT_MS,
       fits,

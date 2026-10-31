@@ -20,8 +20,15 @@ test("dia+hora chega no horário exato (BRT)", () => {
   assert.equal(p.arriveAt.toISOString(), "2026-11-05T10:30:00.000Z");
 });
 
-test("horário antes da viagem possível não serve", () => {
-  const p = planArrival({ messengerId: "pigeon", from, to, now, arriveOn: "2026-10-29T09:01" });
+test("horário futuro curto é honrado (mensageiro sai agora e acelera)", () => {
+  const p = planArrival({ messengerId: "pigeon", from, to, now, arriveOn: "2026-10-29T09:30" });
+  assert.equal(p.fits, true);
+  assert.equal(p.arriveAt.toISOString(), "2026-10-29T12:30:00.000Z");
+  assert.equal(p.departAt.toISOString(), now.toISOString());
+});
+
+test("horário que já passou não serve", () => {
+  const p = planArrival({ messengerId: "pigeon", from, to, now, arriveOn: "2026-10-29T08:00" });
   assert.equal(p.fits, false);
 });
 

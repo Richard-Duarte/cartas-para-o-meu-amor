@@ -38,8 +38,8 @@ export function AddressFields({ label, hint, value, onChange: emit, onConfirm, g
   const [mapOpen, setMapOpen] = useState(false);
   /** Editar o endereço à mão tira o pino antigo (ele não corresponde mais). */
   const onChange = (next: Address) => {
-    const moved =
-      next.cep !== value.cep || next.street !== value.street || next.city !== value.city || next.state !== value.state;
+    // O pino marcado no mapa vale mais que o texto: só cai se trocar a cidade ou o CEP.
+    const moved = next.cep !== value.cep || next.city !== value.city;
     emit(moved && next.pin === value.pin ? { ...next, pin: undefined } : next);
   };
   const [status, setStatus] = useState("");

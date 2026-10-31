@@ -139,6 +139,11 @@ export const geocodeAddress = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    // Endereço fora do Brasil (ex.: "AU", "Austrália"): não força "Brasil" nem countrycodes=br.
+    const UFS = "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split(" ");
+    const st = String(data.state || "").trim().toUpperCase();
+    const br = !st || UFS.includes(st) || /BRASIL|BRAZIL/.test(st);
+    const country = br ? "Brasil" : "";
     const queries = [
       [data.street, data.number, data.neighborhood, data.cep, data.city, data.state, "Brasil"],
       [data.street, data.number, data.city, data.state, "Brasil"],
@@ -146,11 +151,12 @@ export const geocodeAddress = createServerFn({ method: "POST" })
       [data.cep, data.city, data.state, "Brasil"],
       [data.city, data.state, "Brasil"],
     ]
+      .map((parts) => parts.map((p) => (p === "Brasil" ? country : p)))
       .map((parts) => parts.map((p) => String(p || "").trim()).filter(Boolean).join(", "))
       .filter((q, i, all) => q.length > 3 && all.indexOf(q) === i);
 
     for (const q of queries) {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1&countrycodes=br&q=${encodeURIComponent(q)}`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&addressdetails=1${br ? "&countrycodes=br" : ""}&q=${encodeURIComponent(q)}`;
       try {
         const res = await fetch(url, {
           headers: { "User-Agent": "carta-para-o-meu-amor/1.0" },
