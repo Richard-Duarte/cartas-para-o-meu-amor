@@ -84,6 +84,14 @@ export function AdminUsers({ focusUserId, onFocused }: { focusUserId?: string | 
   const [q, setQ] = useState("");
   const [only, setOnly] = useState<"" | "bloqueados" | "pedidos">("");
   const [open, setOpen] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   function reload() {
     void adminUserList().then(setRows).catch(() => setRows([]));
@@ -138,26 +146,105 @@ export function AdminUsers({ focusUserId, onFocused }: { focusUserId?: string | 
       {!rows ? <p className="text-muted">Lendo as contas…</p> : null}
       <div className="admin-table">
         {shown.map((u) => (
-          <button key={u.user_id} type="button" className="admin-row user-row" onClick={() => setOpen(u.user_id)}>
-            <span className="user-row-main">
-              {u.image ? <img src={u.image} alt="" referrerPolicy="no-referrer" /> : <i aria-hidden="true">{(u.name || u.email || "?").slice(0, 1)}</i>}
-              <span>
-                <strong>{u.name || u.email || u.user_id.slice(0, 8)}</strong>
-                <em>{u.email}</em>
+          <div key={u.user_id} className="user-row-wrap" data-testid="user-row">
+            <button type="button" className="admin-row user-row" onClick={() => setOpen(u.user_id)}>
+              <span className="user-row-main">
+                {u.image ? <img src={u.image} alt="" referrerPolicy="no-referrer" /> : <i aria-hidden="true">{(u.name || u.email || "?").slice(0, 1)}</i>}
+                <span>
+                  <strong>{u.name || u.email || u.user_id.slice(0, 8)}</strong>
+                  <em>{u.email}</em>
+                </span>
               </span>
-            </span>
-            <span className="user-row-meta">
-              {u.blocked_at ? <b className="tag is-red">Bloqueado</b> : null}
-              {u.pending_requests ? <b className="tag is-gold">Pedido de desbloqueio</b> : null}
-              <span>
-                {u.letters} cartas · {CHANNEL_LABEL[u.channel] ?? u.channel} · {PLATFORM_LABEL[u.platform] ?? u.platform}
+              <span className="user-row-meta">
+                {u.blocked_at ? <b className="tag is-red">Bloqueado</b> : null}
+                {u.pending_requests ? <b className="tag is-gold">Pedido de desbloqueio</b> : null}
+                <span>
+                  {u.letters} cartas · {CHANNEL_LABEL[u.channel] ?? u.channel} · {PLATFORM_LABEL[u.platform] ?? u.platform}
+                </span>
               </span>
-            </span>
-          </button>
+            </button>
+            <div className="user-row-actions">
+              <button type="button" className="link-btn" aria-expanded={expanded.has(u.user_id)} onClick={() => toggle(u.user_id)} data-testid="user-sends-toggle">
+                {expanded.has(u.user_id) ? "Ocultar envios" : `Ver todos os envios (${u.letters})`}
+              </button>
+            </div>
+            {expanded.has(u.user_id) ? <UserSends userId={u.user_id} onOpenUser={() => setOpen(u.user_id)} /> : null}
+          </div>
         ))}
         {rows && !shown.length ? <p className="py-4 text-sm text-muted">Ninguém encontrado.</p> : null}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ envios na lista */
+
+/** Lista todos os envios (e recebidas) do usuário direto na lista, sem filtrar teste/bypass/PIX. */
+function UserSends({ userId, onOpenUser }: { userId: string; onOpenUser: () => void }) {
+  const [d, setD] = useState<Detail | null>(null);
+  const [error, setError] = useState("");
+  const [viewing, setViewing] = useState<{ id: string; download: boolean } | null>(null);
+  const closeViewing = useCallback(() => setViewing(null), []);
+  useEffect(() => {
+    void adminUserDetail({ data: userId })
+      .then(setD)
+      .catch(() => setError("Não foi possível carregar os envios."));
+  }, [userId]);
+
+  async function downloadJson(letterId: string) {
+    const full = await adminLetterDetail({ data: { letterId, purpose: "baixar_json", userId } });
+    saveBlob(new Blob([JSON.stringify(full, null, 2)], { type: "application/json" }), `carta-${letterId}.json`);
+  }
+
+  const sent = d ? d.letters.filter((l) => l.direction === "enviada").length : 0;
+  return (
+    <section className="user-sends" data-testid="user-sends">
+      {error ? <p className="text-sm text-rose">{error}</p> : null}
+      {!d && !error ? <p className="text-sm text-muted">Carregando envios…</p> : null}
+      {d ? (
+        <>
+          <p className="text-sm text-muted">
+            {sent} enviada(s) · {d.letters.length - sent} recebida(s) ·{" "}
+            <button type="button" className="link-btn" onClick={onOpenUser}>
+              abrir página do usuário
+            </button>
+          </p>
+          {d.letters.length ? (
+            <div className="dash-table-wrap">
+              <table className="dash-table hist-table">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>De → Para</th>
+                    <th>Status</th>
+                    <th>Mensageiro</th>
+                    <th>Data</th>
+                    <th>Pagamento</th>
+                    <th>Carta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.letters.map((l) => (
+                    <HistoryRow
+                      key={l.id}
+                      l={l}
+                      onOpen={() => setViewing({ id: l.id, download: false })}
+                      onImage={() => setViewing({ id: l.id, download: true })}
+                      onJson={() => downloadJson(l.id)}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted">Nenhuma carta enviada ou recebida.</p>
+          )}
+        </>
+      ) : null}
+      {viewing ? (
+        <LetterModal key={`${viewing.id}-${viewing.download}`} letterId={viewing.id} userId={userId} autoDownload={viewing.download} onClose={closeViewing} />
+      ) : null}
+    </section>
   );
 }
 
