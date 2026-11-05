@@ -203,3 +203,9 @@
   .hist-split > .hist-btn:first-child { flex: 1 1 auto; }
   .hist-table td[data-label="Pagamento"], .hist-table td[data-label="Status"], .hist-table td[data-label="Mensageiro"] { white-space: normal; }
 }
+
+/* envios por usuário direto na lista */
+.user-row-wrap { border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+.user-row-wrap > .user-row { border-bottom: 0; width: 100%; }
+.user-row-actions { display: flex; justify-content: flex-end; padding: 0 0.75rem 0.5rem; font-size: 0.85rem; }
+.user-sends { padding: 0 0.75rem 1rem; }
