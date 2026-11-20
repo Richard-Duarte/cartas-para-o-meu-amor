@@ -167,7 +167,7 @@ export default defineConfig(({ command, isPreview }) => ({
   // Versão do build para o service worker (/sw.js?v=…): cada deploy troca os caches.
   define: {
     __APP_BUILD__: JSON.stringify(
-      (process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 10) ||
+      (process.env.VERCEL_GIT_COMMIT_SHA || process.env.COMMIT_REF || "").slice(0, 10) ||
         process.env.VERCEL_DEPLOYMENT_ID ||
         `local-${Date.now().toString(36)}`,
     ),
@@ -185,7 +185,13 @@ export default defineConfig(({ command, isPreview }) => ({
     ...(command === "build" || isPreview
       ? [
           nitro({
-            preset: "vercel",
+            // Netlify sets NETLIFY (and we also set NITRO_PRESET=netlify in
+            // netlify.toml). Anywhere else, including Vercel, keeps the
+            // existing vercel preset so that build stays unchanged.
+            preset:
+              process.env.NITRO_PRESET === "netlify" || process.env.NETLIFY
+                ? "netlify"
+                : "vercel",
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
