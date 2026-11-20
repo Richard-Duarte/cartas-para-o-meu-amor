@@ -46,6 +46,7 @@ async function main() {
   const pool = new pg.Pool({
     connectionString: databaseUrl,
     max: 1,
+    connectionTimeoutMillis: 15_000,
     ssl: databaseUrl.includes("supabase") ? { rejectUnauthorized: false } : undefined,
   });
   const client = await pool.connect();

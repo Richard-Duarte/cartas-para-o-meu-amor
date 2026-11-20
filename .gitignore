@@ -16,3 +16,6 @@ screenshots
 .node_modules.lock
 .project_id
 .env*
+
+# Netlify CLI / Nitro Frameworks API output
+.netlify
